@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF Converter Web</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell shell-user">
+      <section class="hero">
+        <p class="eyebrow">文件转换工具</p>
+        <h1>Word 转 PDF、PDF 转图片、图片转 PDF。</h1>
+        <p class="hero-copy">
+          输入卡密后即可使用 Word 转 PDF、PDF 转图片、图片转 PDF。
+        </p>
+      </section>
+
+      <section class="panel" id="buyer-login-panel">
+        <div class="panel-header">
+          <h2>买家登录</h2>
+          <p>请输入卖家提供的卡密。</p>
+        </div>
+        <form id="buyer-login-form" class="stack">
+          <label class="field">
+            <span>卡密</span>
+            <input id="buyer-code" name="code" type="text" placeholder="例如：DEMO-USES-5" required />
+          </label>
+          <button class="button" type="submit">进入功能页</button>
+        </form>
+        <p class="message" id="buyer-message"></p>
+      </section>
+
+      <section class="panel hidden" id="buyer-dashboard">
+        <div class="panel-header">
+          <h2>选择转换方式</h2>
+        </div>
+        <div class="tool-grid" id="conversion-grid"></div>
+        <p class="message" id="conversion-message"></p>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+  </html>

@@ -1,0 +1,119 @@
+﻿<h2>学生端动画方向</h2>
+<p class="subtitle">下面比较的是“开屏动画 + 完成动画 + 转盘氛围”的整体视觉语言，不是最终像素稿。你要的是更儿童化、但也更高级，所以我做了 3 个方向。</p>
+
+<style>
+.anim-grid { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:18px; }
+.anim-card { border:1px solid #d9e3f2; border-radius:20px; overflow:hidden; background:#fff; }
+.anim-body { padding:16px; }
+.anim-meta { color:#66758f; font-size:13px; line-height:1.6; margin-top:10px; }
+.tagline { display:inline-flex; margin-top:8px; padding:5px 10px; border-radius:999px; background:#eaf4ff; color:#225dc0; font-size:12px; font-weight:700; }
+.scene { min-height:250px; border-radius:18px; overflow:hidden; position:relative; padding:18px; }
+.scene.a { background: radial-gradient(circle at 25% 20%, rgba(255,233,144,.9), transparent 18%), radial-gradient(circle at 80% 18%, rgba(255,149,188,.5), transparent 18%), linear-gradient(160deg,#6dd8ff,#6fc7ff 45%, #98f1d6); }
+.scene.b { background: radial-gradient(circle at 20% 20%, rgba(255,255,255,.75), transparent 18%), linear-gradient(160deg,#132b5a,#234995 55%,#3d86d9); }
+.scene.c { background: radial-gradient(circle at 50% 0%, rgba(255,255,255,.8), transparent 22%), linear-gradient(160deg,#ffb55f,#ff8c73 50%,#ff79b5); }
+.frame { border-radius:22px; background:rgba(255,255,255,.86); padding:18px; box-shadow:0 16px 30px rgba(34,71,130,.14); position:relative; }
+.title { font-size:24px; font-weight:800; color:#214b88; margin:10px 0 8px; }
+.title.dark { color:#f3f7ff; }
+.sub { font-size:13px; color:#5b79a6; line-height:1.6; }
+.sub.light { color:rgba(244,247,255,.8); }
+.bubble { display:inline-flex; padding:7px 12px; border-radius:999px; background:#eef7ff; color:#2d64ae; font-weight:700; font-size:12px; }
+.primary-btn { display:inline-flex; margin-top:16px; padding:10px 18px; border-radius:999px; background:linear-gradient(135deg,#ff9d55,#ffd45f); color:#fff; font-weight:800; }
+.primary-btn.blue { background:linear-gradient(135deg,#4486ff,#5fc6ff); }
+.primary-btn.pink { background:linear-gradient(135deg,#ff6a93,#ffb36a); }
+.stars { position:absolute; inset:0; pointer-events:none; }
+.stars span { position:absolute; color:#fff7b8; font-size:18px; animation: drift 2.4s ease-in-out infinite; }
+.stars span:nth-child(1) { top:20px; left:24px; }
+.stars span:nth-child(2) { top:36px; right:28px; animation-delay:.3s; }
+.stars span:nth-child(3) { bottom:22px; left:40px; animation-delay:.6s; }
+.confetti { position:absolute; inset:0; pointer-events:none; }
+.confetti span { position:absolute; width:10px; height:18px; border-radius:999px; opacity:.9; animation: float 2.2s ease-in-out infinite; }
+.confetti span:nth-child(1){ background:#5fd0ff; left:18%; top:18%;}
+.confetti span:nth-child(2){ background:#ffd965; left:74%; top:22%; animation-delay:.2s;}
+.confetti span:nth-child(3){ background:#ff8eb8; left:28%; top:72%; animation-delay:.4s;}
+.confetti span:nth-child(4){ background:#7de18b; left:82%; top:68%; animation-delay:.6s;}
+.wheel { width:120px; height:120px; border-radius:50%; margin:14px auto 0; background: conic-gradient(#5fa8ff 0 90deg,#80df8d 90deg 180deg,#ffd965 180deg 270deg,#ff8eb8 270deg 360deg); border:7px solid rgba(255,255,255,.9); box-shadow:0 10px 22px rgba(38,77,144,.2); }
+.wheel.small { width:96px; height:96px; }
+.center-copy { text-align:center; }
+.dark-panel { border-radius:24px; background:rgba(10,22,48,.35); padding:18px; backdrop-filter:blur(8px); }
+.fireworks { position:absolute; inset:0; pointer-events:none; }
+.fireworks::before, .fireworks::after { content:''; position:absolute; width:84px; height:84px; border-radius:50%; background: radial-gradient(circle, rgba(255,255,255,.9) 0 10%, transparent 11%), radial-gradient(circle, rgba(255,218,96,.85) 0 7%, transparent 8%), radial-gradient(circle, rgba(95,208,255,.85) 0 6%, transparent 7%); opacity:.75; }
+.fireworks::before { top:20px; left:18px; }
+.fireworks::after { top:16px; right:22px; }
+@keyframes drift { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+@keyframes float { 0%,100%{transform:translateY(0) rotate(0)} 50%{transform:translateY(-10px) rotate(8deg)} }
+@media (max-width: 1100px){ .anim-grid { grid-template-columns:1fr; } }
+</style>
+
+<div class="cards anim-grid">
+  <div class="card anim-card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="anim-body">
+      <div class="label">A</div>
+      <h3>梦幻冒险风</h3>
+      <div class="tagline">推荐</div>
+      <div class="mockup">
+        <div class="mockup-header">柔和彩带 + 星星漂浮 + 发光转盘</div>
+        <div class="mockup-body">
+          <div class="scene a">
+            <div class="stars"><span>★</span><span>★</span><span>★</span></div>
+            <div class="frame center-copy">
+              <div class="bubble">欢迎来到</div>
+              <div class="title">英语冒险乐园</div>
+              <div class="sub">开屏是柔和缩放入场，完成时星星和彩带向上漂，转盘是高光玻璃感。</div>
+              <div class="wheel"></div>
+              <div class="primary-btn">开始抽奖</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="anim-meta">优点：最像儿童产品，但不会幼稚；适合“有奖励感、有节日感”的氛围。<br>缺点：视觉元素较多，要控制别太花。</div>
+    </div>
+  </div>
+
+  <div class="card anim-card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="anim-body">
+      <div class="label">B</div>
+      <h3>舞台星光风</h3>
+      <div class="mockup">
+        <div class="mockup-header">更高级、更像演出开场</div>
+        <div class="mockup-body">
+          <div class="scene b">
+            <div class="dark-panel center-copy">
+              <div class="bubble">闯关成功</div>
+              <div class="title dark">你拿到一张幸运入场券</div>
+              <div class="sub light">完成动画更像舞台灯光扫过，转盘从暗处亮起，整体质感高级。</div>
+              <div class="wheel small"></div>
+              <div class="primary-btn blue">开始抽奖</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="anim-meta">优点：质感最“高级”，不容易俗。<br>缺点：儿童亲和力会比 A 弱一点，偏“酷”。</div>
+    </div>
+  </div>
+
+  <div class="card anim-card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="anim-body">
+      <div class="label">C</div>
+      <h3>庆典烟花风</h3>
+      <div class="mockup">
+        <div class="mockup-header">完成感最强，像拿奖时刻</div>
+        <div class="mockup-body">
+          <div class="scene c">
+            <div class="fireworks"></div>
+            <div class="frame center-copy">
+              <div class="bubble">恭喜完成</div>
+              <div class="title">好运来啦！</div>
+              <div class="sub">完成动画主打烟花和庆祝感，转盘转起来会更热闹、更兴奋。</div>
+              <div class="confetti"><span></span><span></span><span></span><span></span></div>
+              <div class="wheel"></div>
+              <div class="primary-btn pink">开始抽奖</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="anim-meta">优点：最有完成仪式感，孩子会兴奋。<br>缺点：如果每次都太热闹，长期看可能会偏闹一点。</div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle">问题只有一个：你更想把学生端动画做成哪种主风格？如果想混搭，也可以直接说“以 A 为主，但完成动画借一点 C 的烟花感”。</p>

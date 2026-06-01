@@ -1,0 +1,5 @@
+﻿$env:BRAINSTORM_DIR = 'D:\aa-workplace\EnglishQuestion\.superpowers\brainstorm\codex-21532-1776094101.25351'
+$env:BRAINSTORM_HOST = '127.0.0.1'
+$env:BRAINSTORM_URL_HOST = 'localhost'
+Set-Location 'C:\Users\19816\.codex\superpowers\skills\brainstorming\scripts'
+node 'C:\Users\19816\.codex\superpowers\skills\brainstorming\scripts\server.cjs'

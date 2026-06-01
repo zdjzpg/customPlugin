@@ -1,0 +1,146 @@
+﻿<style>
+.kid-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }
+.kid-card { cursor:pointer; overflow:hidden; }
+.kid-shell { border-radius:28px; background:linear-gradient(180deg,#fffdf7,#eef8ff); border:1px solid #d9ebff; padding:16px; min-height:480px; }
+.kid-top { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; }
+.kid-badge { padding:6px 10px; border-radius:999px; font-size:12px; font-weight:800; background:#eef7ff; color:#2e72b7; }
+.kid-badge.best { background:#fff0c8; color:#a96a00; }
+.kid-stage { border-radius:26px; min-height:320px; padding:18px; background:linear-gradient(180deg,#fff8e8,#f4fbff); position:relative; overflow:hidden; }
+.sky-bubbles { position:absolute; inset:0; background:radial-gradient(circle at 20% 18%, rgba(255,223,130,.28), transparent 18%), radial-gradient(circle at 82% 24%, rgba(130,220,255,.24), transparent 18%), radial-gradient(circle at 50% 78%, rgba(166,241,196,.24), transparent 18%); }
+.mic-core { width:92px; height:92px; margin:12px auto 0; border-radius:50%; display:grid; place-items:center; font-size:38px; color:#fff; background:linear-gradient(135deg,#ff8b78,#ffb74d); box-shadow:0 14px 24px rgba(255,149,90,.24); position:relative; z-index:1; }
+.soft-wave { display:flex; justify-content:center; align-items:flex-end; gap:7px; margin-top:14px; position:relative; z-index:1; }
+.soft-wave span { width:12px; border-radius:999px 999px 0 0; background:linear-gradient(180deg,#7cd0ff,#4f7fff); }
+.soft-wave span:nth-child(1){height:20px}.soft-wave span:nth-child(2){height:34px}.soft-wave span:nth-child(3){height:44px}.soft-wave span:nth-child(4){height:30px}.soft-wave span:nth-child(5){height:22px}
+.prompt { margin:16px auto 0; width:fit-content; padding:9px 15px; border-radius:999px; background:#fff; color:#3a629f; font-weight:800; position:relative; z-index:1; box-shadow:0 8px 14px rgba(56,108,178,.08); }
+.kid-list { display:grid; gap:8px; margin-top:14px; }
+.kid-list div { background:#fff; border-radius:16px; padding:10px 12px; font-size:13px; color:#587092; font-weight:700; }
+.note { margin-top:12px; color:#5f6f86; line-height:1.55; font-size:13px; }
+.animal { width:170px; height:170px; margin:0 auto; position:relative; z-index:1; }
+.bunny-head,.bear-head,.puppy-head { position:absolute; inset:28px 24px 0; border-radius:50%; background:#fff7ea; box-shadow:0 12px 22px rgba(90,123,190,.12); }
+.bunny-ear { position:absolute; width:34px; height:90px; top:0; background:#fff2ea; border-radius:999px; }
+.bunny-ear.left { left:34px; transform:rotate(-10deg); }
+.bunny-ear.right { right:34px; transform:rotate(10deg); }
+.bunny-ear::after { content:''; position:absolute; inset:12px 9px; border-radius:999px; background:#ffc5d9; }
+.eye { position:absolute; width:14px; height:18px; border-radius:50%; background:#2f3242; top:70px; }
+.eye.left { left:58px; }
+.eye.right { right:58px; }
+.nose { position:absolute; width:18px; height:12px; left:50%; top:92px; transform:translateX(-50%); border-radius:999px; background:#ff9ea5; }
+.mouth { position:absolute; width:40px; height:22px; left:50%; top:106px; transform:translateX(-50%); border-radius:0 0 22px 22px; border-bottom:4px solid #e8897f; }
+.listen-ear { position:absolute; right:10px; top:52px; width:44px; height:62px; border-radius:50%; border:6px solid #ffcf9d; border-left:0; transform:rotate(-8deg); }
+.listen-lines { position:absolute; right:-6px; top:46px; display:grid; gap:8px; }
+.listen-lines span { width:26px; height:6px; border-radius:999px; background:#83d0ff; }
+.bear-head { background:#ffeecf; }
+.bear-ear { position:absolute; width:48px; height:48px; border-radius:50%; background:#f0b16b; top:22px; }
+.bear-ear.left { left:18px; }
+.bear-ear.right { right:18px; }
+.bear-body { position:absolute; inset:auto 28px 0; height:80px; border-radius:28px; background:#f0b16b; }
+.puppy-head { background:#fff3de; }
+.puppy-ear { position:absolute; width:42px; height:88px; top:24px; background:#c98a57; border-radius:999px; }
+.puppy-ear.left { left:18px; transform:rotate(-22deg); }
+.puppy-ear.right { right:18px; transform:rotate(22deg); }
+.puppy-cheek { position:absolute; width:20px; height:14px; border-radius:50%; background:#ffcfb2; top:96px; }
+.puppy-cheek.left { left:44px; }
+.puppy-cheek.right { right:44px; }
+.record-rings { position:absolute; inset:42px 42px auto; height:170px; display:grid; place-items:center; z-index:0; }
+.record-rings::before,.record-rings::after { content:''; position:absolute; border-radius:50%; border:2px dashed rgba(117,205,255,.55); inset:8px; }
+.record-rings::after { inset:28px; border-color:rgba(255,188,118,.48); }
+.listen-mode .prompt { background:#fff6dc; }
+.rec-mode .prompt { background:#eefbff; }
+.mini-flow { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-top:24px; }
+.flow-box { border-radius:22px; background:#fff; padding:16px; border:1px solid #dcecff; }
+@media (max-width:1100px){ .kid-grid,.mini-flow{ grid-template-columns:1fr; } }
+</style>
+
+<h2>更面向 3-6 岁的卡通动物反馈</h2>
+<p class="subtitle">这次不再是抽象图形，而是更具体的“卡通动物伙伴陪你听、陪你说”。我把状态做得更直白：<strong>听的时候动物侧耳</strong>，<strong>说的时候麦克风亮起</strong>。</p>
+
+<div class="kid-grid">
+  <div class="card kid-card" data-choice="rabbit" onclick="toggleSelect(this)">
+    <div class="kid-shell">
+      <div class="kid-top"><h3>方案 A：小兔子听你说</h3><span class="kid-badge">最轻快</span></div>
+      <div class="kid-stage rec-mode">
+        <div class="sky-bubbles"></div>
+        <div class="record-rings"></div>
+        <div class="animal">
+          <div class="bunny-ear left"></div><div class="bunny-ear right"></div>
+          <div class="bunny-head"></div>
+          <div class="eye left"></div><div class="eye right"></div>
+          <div class="nose"></div><div class="mouth"></div>
+          <div class="listen-ear"></div>
+        </div>
+        <div class="mic-core">🎙</div>
+        <div class="soft-wave"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="prompt">小兔子在认真听你哦</div>
+      </div>
+      <div class="kid-list">
+        <div>听示范：兔耳朵抖一下，旁边飘出音符</div>
+        <div>开始录音：麦克风从灰色变亮橙色</div>
+        <div>录音中：兔子轻轻点头 + 波形起伏</div>
+      </div>
+      <div class="note">优点：很低龄、轻松。缺点：如果用太多粉色元素，男孩卷子里可能会偏幼一点。</div>
+    </div>
+  </div>
+
+  <div class="card kid-card" data-choice="bear" onclick="toggleSelect(this)">
+    <div class="kid-shell">
+      <div class="kid-top"><h3>方案 B：小熊老师陪伴</h3><span class="kid-badge best">推荐</span></div>
+      <div class="kid-stage listen-mode">
+        <div class="sky-bubbles"></div>
+        <div class="animal">
+          <div class="bear-ear left"></div><div class="bear-ear right"></div>
+          <div class="bear-head"></div>
+          <div class="eye left"></div><div class="eye right"></div>
+          <div class="nose"></div><div class="mouth"></div>
+          <div class="bear-body"></div>
+          <div class="listen-ear"></div>
+          <div class="listen-lines"><span></span><span></span><span></span></div>
+        </div>
+        <div class="prompt">我先听一听，再轮到你说</div>
+        <div class="soft-wave"><span></span><span></span><span></span><span></span><span></span></div>
+      </div>
+      <div class="kid-list">
+        <div>听示范：小熊歪头侧耳，旁边有蓝色声波</div>
+        <div>开始录音：小熊转正看向孩子，麦克风按钮发光</div>
+        <div>录音中：小熊眨眼鼓励，底部波形温和起伏</div>
+      </div>
+      <div class="note">优点：最像“有个卡通老师在陪你”，男女孩接受度都高，也最适合你的测评气质。</div>
+    </div>
+  </div>
+
+  <div class="card kid-card" data-choice="puppy" onclick="toggleSelect(this)">
+    <div class="kid-shell">
+      <div class="kid-top"><h3>方案 C：小狗鼓励员</h3><span class="kid-badge">最活泼</span></div>
+      <div class="kid-stage rec-mode">
+        <div class="sky-bubbles"></div>
+        <div class="record-rings"></div>
+        <div class="animal">
+          <div class="puppy-ear left"></div><div class="puppy-ear right"></div>
+          <div class="puppy-head"></div>
+          <div class="eye left"></div><div class="eye right"></div>
+          <div class="nose"></div><div class="mouth"></div>
+          <div class="puppy-cheek left"></div><div class="puppy-cheek right"></div>
+        </div>
+        <div class="mic-core">🎤</div>
+        <div class="soft-wave"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="prompt">太棒啦，大声说出来！</div>
+      </div>
+      <div class="kid-list">
+        <div>听示范：小狗耳朵跟着节奏摆动</div>
+        <div>开始录音：按钮跳一下，像在喊“轮到你啦”</div>
+        <div>录音中：小狗开心摇尾巴，波形更活泼</div>
+      </div>
+      <div class="note">优点：更有鼓励感。缺点：如果整套题都这样，会比测评更像闯关小游戏。</div>
+    </div>
+  </div>
+</div>
+
+<div class="mini-flow">
+  <div class="flow-box">
+    <h3>“正在听”怎么做更像 3-6 岁</h3>
+    <p class="subtitle">不要只靠波形。最好是：动物侧耳 + 音符/声波 + 文案“先听一听”。这样孩子不需要读字也知道当前状态。</p>
+  </div>
+  <div class="flow-box">
+    <h3>“开始录音”怎么做更像 3-6 岁</h3>
+    <p class="subtitle">不要只改按钮颜色。最好是：动物转向孩子 + 麦克风亮起来 + 轻微波纹。孩子会更直觉地明白“现在该我说”。</p>
+  </div>
+</div>

@@ -1,0 +1,116 @@
+﻿<style>
+.hero-note { margin: 0 0 18px; color: #5c6f91; line-height: 1.6; }
+.cards.compare { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:18px; }
+.card.compare-card { cursor:pointer; overflow:hidden; }
+.badge-rec { display:inline-block; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:800; background:#eef8ff; color:#2f73b6; }
+.badge-best { background:#fff1cf; color:#b06a00; }
+.mock-phone { border-radius:26px; background:linear-gradient(180deg,#fbfdff,#eef7ff); border:1px solid #dbeaff; padding:14px; min-height:420px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.8); }
+.mock-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+.mock-title { font-weight:800; color:#2f5c98; }
+.mock-stage { border-radius:24px; padding:18px; background:linear-gradient(180deg,#fff8e8,#f6fbff); min-height:275px; position:relative; overflow:hidden; }
+.character { width:150px; height:150px; margin:0 auto 12px; border-radius:50%; background:radial-gradient(circle at 35% 35%, #fff7d3, #ffd27f 60%, #ffbf58 100%); position:relative; box-shadow:0 18px 30px rgba(255,170,85,.25); }
+.character::before { content:''; position:absolute; width:90px; height:70px; left:30px; top:38px; border-radius:50% 50% 45% 45%; background:#fff6e4; }
+.character::after { content:''; position:absolute; width:74px; height:40px; left:38px; top:90px; border-radius:0 0 40px 40px; background:#ff9a88; }
+.ear-lift { position:absolute; width:36px; height:54px; right:14px; top:44px; border-radius:50%; border:5px solid #ffbf8f; border-left:0; transform:rotate(-10deg); }
+.mic-orb { width:94px; height:94px; margin:0 auto; border-radius:50%; display:grid; place-items:center; color:white; font-size:40px; font-weight:900; background:linear-gradient(135deg,#ff8f72,#ffb648); box-shadow:0 14px 24px rgba(255,149,89,.25); }
+.rings { display:flex; justify-content:center; gap:8px; margin:14px 0 10px; }
+.rings span { width:12px; border-radius:999px; background:linear-gradient(180deg,#7ac9ff,#4c79ff); display:block; }
+.rings.soft span:nth-child(1){height:20px}.rings.soft span:nth-child(2){height:28px}.rings.soft span:nth-child(3){height:24px}.rings.soft span:nth-child(4){height:34px}.rings.soft span:nth-child(5){height:22px}
+.rings.strong span:nth-child(1){height:28px}.rings.strong span:nth-child(2){height:48px}.rings.strong span:nth-child(3){height:62px}.rings.strong span:nth-child(4){height:40px}.rings.strong span:nth-child(5){height:30px}
+.prompt-pill { margin:12px auto 0; width:fit-content; padding:8px 14px; border-radius:999px; background:#fff; color:#365f9f; font-weight:700; box-shadow:0 8px 14px rgba(61,114,182,.08); }
+.state-row { display:grid; gap:8px; margin-top:14px; }
+.state-chip { padding:10px 12px; border-radius:16px; background:#fff; color:#4e6d9c; font-size:13px; font-weight:700; }
+.footer-note { margin-top:14px; font-size:13px; color:#5f6f86; line-height:1.55; }
+.choice-title { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
+.listen-burst { position:absolute; inset:24px auto auto 50%; transform:translateX(-50%); width:180px; height:180px; border-radius:50%; border:2px dashed rgba(103,196,255,.55); }
+.listen-burst::before, .listen-burst::after { content:''; position:absolute; inset:14px; border-radius:50%; border:2px dashed rgba(255,177,88,.45); }
+.listen-burst::after { inset:28px; border-color: rgba(123,233,184,.45); }
+@media (max-width: 1100px) { .cards.compare { grid-template-columns:1fr; } }
+</style>
+
+<h2>录音题反馈草图</h2>
+<p class="subtitle">先重点看“开始录音 / 录音中”的反馈，再顺带看“听示范 / 正在听”的感觉。你已经倾向“陪伴感 + 明显关键动效”，所以我把混合方案放在中间并标记为推荐。</p>
+<p class="hero-note">竞品里常见的有效做法通常有 3 类：纯波形、纯吉祥物、吉祥物 + 关键动效叠层。对低龄孩子来说，第三种最容易理解“现在在听 / 现在该说了”。</p>
+
+<div class="cards compare">
+  <div class="card compare-card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="choice-title">
+      <h3>方案 A：强游戏感</h3>
+      <span class="badge-rec">更像闯关</span>
+    </div>
+    <div class="mock-phone">
+      <div class="mock-header"><span class="mock-title">录音中</span><span class="badge-rec">GO!</span></div>
+      <div class="mock-stage">
+        <div class="mic-orb">🎙</div>
+        <div class="rings strong"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="prompt-pill">Louder, louder!</div>
+        <div class="state-row">
+          <div class="state-chip">开始录音：按钮放大 + 倒计时 3,2,1</div>
+          <div class="state-chip">录音中：强烈波形 + 分数环上涨</div>
+          <div class="state-chip">完成：啪一下弹出得分卡</div>
+        </div>
+      </div>
+      <div class="footer-note">优点：刺激、明确。缺点：容易太兴奋，像游戏，不够像小老师陪伴。</div>
+    </div>
+  </div>
+
+  <div class="card compare-card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="choice-title">
+      <h3>方案 B：混合推荐</h3>
+      <span class="badge-rec badge-best">推荐</span>
+    </div>
+    <div class="mock-phone">
+      <div class="mock-header"><span class="mock-title">录音中</span><span class="badge-rec">Listening Buddy</span></div>
+      <div class="mock-stage">
+        <div class="listen-burst"></div>
+        <div class="character"><div class="ear-lift"></div></div>
+        <div class="prompt-pill">Great! Say it clearly.</div>
+        <div class="rings soft"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="state-row">
+          <div class="state-chip">听示范：小伙伴侧耳 + 音符飘起</div>
+          <div class="state-chip">开始录音：话筒亮起 + 小伙伴看向孩子</div>
+          <div class="state-chip">录音中：耳朵竖起 + 温和波形 + 呼吸光圈</div>
+        </div>
+      </div>
+      <div class="footer-note">优点：孩子能看懂“轮到我说了”，同时不会太吵。最适合你现在这种儿童测评气质。</div>
+    </div>
+  </div>
+
+  <div class="card compare-card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="choice-title">
+      <h3>方案 C：温柔陪伴感</h3>
+      <span class="badge-rec">最安静</span>
+    </div>
+    <div class="mock-phone">
+      <div class="mock-header"><span class="mock-title">正在听</span><span class="badge-rec">Soft</span></div>
+      <div class="mock-stage">
+        <div class="character"><div class="ear-lift"></div></div>
+        <div class="prompt-pill">I am listening...</div>
+        <div class="state-row">
+          <div class="state-chip">听示范：轻微摇摆 + 小音符</div>
+          <div class="state-chip">开始录音：按钮只换色，不强提醒</div>
+          <div class="state-chip">录音中：几乎没有波形，强调表情陪伴</div>
+        </div>
+      </div>
+      <div class="footer-note">优点：柔和。缺点：孩子未必立刻理解“现在可以开口说了”。</div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:22px;">
+  <div class="mockup">
+    <div class="mockup-header">我建议的状态机</div>
+    <div class="mockup-body">
+      <div class="split">
+        <div>
+          <h3>听示范 / 正在听</h3>
+          <p class="subtitle">角色侧耳、头略微偏向音源、背景出现音符或声波纹。孩子一眼知道“先听”。</p>
+        </div>
+        <div>
+          <h3>开始录音 / 录音中</h3>
+          <p class="subtitle">角色转向孩子、话筒按钮发光、出现温和波形与一圈呼吸光，孩子一眼知道“轮到我说了”。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

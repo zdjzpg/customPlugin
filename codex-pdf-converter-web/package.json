@@ -1,0 +1,67 @@
+{
+  "name": "kids-english-playground",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "concurrently \"npm run api\" \"npm run serve\"",
+    "api": "nodemon server/index.js",
+    "serve": "vue-cli-service serve",
+    "build": "vue-cli-service build",
+    "lint": "vue-cli-service lint",
+    "test:follow-instruction": "node --test tests/followInstruction.test.cjs",
+    "test:auth-student": "node --test tests/authStudent.test.cjs",
+    "test:paper-validation": "node --test tests/paperValidation.test.cjs",
+    "test:share-code": "node --test tests/shareCode.test.cjs",
+    "test:audio-feedback": "node --test tests/audioFeedback.test.cjs",
+    "test:paper-edit-policy": "node --test tests/paperEditPolicy.test.cjs",
+    "test:report-style": "node --test tests/reportKindergartenCraft.test.cjs"
+  },
+  "dependencies": {
+    "@ant-design/icons-vue": "^7.0.1",
+    "ant-design-vue": "^4.2.6",
+    "canvas-confetti": "^1.9.4",
+    "core-js": "^3.8.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.1",
+    "express": "^5.2.1",
+    "ffmpeg-static": "^5.3.0",
+    "gsap": "^3.15.0",
+    "html-to-image": "^1.11.13",
+    "mysql2": "^3.20.0",
+    "tencentcloud-sdk-nodejs": "^4.1.216",
+    "vue": "^3.2.13",
+    "vue-router": "^4.6.4",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.12.16",
+    "@babel/eslint-parser": "^7.12.16",
+    "@vue/cli-plugin-babel": "~5.0.0",
+    "@vue/cli-plugin-eslint": "~5.0.0",
+    "@vue/cli-service": "~5.0.0",
+    "concurrently": "^9.2.1",
+    "eslint": "^7.32.0",
+    "eslint-plugin-vue": "^8.0.3",
+    "nodemon": "^3.1.14"
+  },
+  "eslintConfig": {
+    "root": true,
+    "env": {
+      "node": true
+    },
+    "extends": [
+      "plugin:vue/vue3-essential",
+      "eslint:recommended"
+    ],
+    "parserOptions": {
+      "parser": "@babel/eslint-parser"
+    },
+    "rules": {}
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead",
+    "not ie 11"
+  ]
+}

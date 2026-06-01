@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF Converter Admin</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell shell-admin">
+      <section class="hero">
+        <p class="eyebrow">管理员后台</p>
+        <h1>单管理员登录，先管卡密，后接转换记录。</h1>
+        <p class="hero-copy">
+          这版先提供管理员登录、卡密创建和卡密列表。后续会接转换记录与手动清理。
+        </p>
+      </section>
+
+      <section class="panel" id="admin-login-panel">
+        <div class="panel-header">
+          <h2>管理员登录</h2>
+          <p>默认账号来自环境变量。</p>
+        </div>
+        <form id="admin-login-form" class="stack">
+          <label class="field">
+            <span>账号</span>
+            <input id="admin-username" name="username" type="text" value="admin" required />
+          </label>
+          <label class="field">
+            <span>密码</span>
+            <input id="admin-password" name="password" type="password" required />
+          </label>
+          <button class="button" type="submit">登录后台</button>
+        </form>
+        <p class="message" id="admin-message"></p>
+      </section>
+
+      <section class="panel hidden" id="admin-dashboard">
+        <div class="panel-header">
+          <div>
+            <h2>卡密管理</h2>
+            <p>支持次数型和时效型两种卡密。</p>
+          </div>
+          <a class="ghost-link" href="/">买家入口</a>
+        </div>
+
+        <form id="code-create-form" class="form-grid">
+          <label class="field">
+            <span>卡密值</span>
+            <input id="code-value" name="code" type="text" placeholder="留空则自动生成" />
+          </label>
+          <label class="field">
+            <span>卡密类型</span>
+            <select id="code-access-type" name="accessType">
+              <option value="usage">次数型</option>
+              <option value="duration">时效型</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>次数上限</span>
+            <input id="code-max-uses" name="maxUses" type="number" min="1" placeholder="例如 5" />
+          </label>
+          <label class="field">
+            <span>有效天数</span>
+            <input id="code-duration-days" name="durationDays" type="number" min="1" placeholder="例如 7" />
+          </label>
+          <label class="field field-wide">
+            <span>备注</span>
+            <input id="code-note" name="note" type="text" placeholder="例如：闲鱼订单 001" />
+          </label>
+          <button class="button" type="submit">创建卡密</button>
+        </form>
+
+        <p class="message" id="code-message"></p>
+
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>卡密</th>
+                <th>类型</th>
+                <th>状态</th>
+                <th>使用情况</th>
+                <th>激活/过期</th>
+                <th>备注</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="codes-table-body"></tbody>
+          </table>
+        </div>
+
+        <div class="table-wrap">
+          <h3 class="subheading">最近转换记录</h3>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>卡密</th>
+                <th>转换</th>
+                <th>状态</th>
+                <th>输入</th>
+                <th>输出</th>
+                <th>错误</th>
+              </tr>
+            </thead>
+            <tbody id="conversions-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="/admin.js"></script>
+  </body>
+  </html>

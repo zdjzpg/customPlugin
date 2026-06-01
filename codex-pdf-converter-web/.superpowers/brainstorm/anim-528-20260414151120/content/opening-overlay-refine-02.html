@@ -1,0 +1,119 @@
+﻿<h2>开屏动画重做方向</h2>
+<p class="subtitle">这次只看开屏：核心问题是现在像普通弹窗，不够“仪式感”，而且视觉重心不够稳。下面 3 个方向都默认做成严格居中。</p>
+
+<style>
+.refine-grid { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:18px; }
+.refine-card { border:1px solid #d9e3f2; border-radius:20px; overflow:hidden; background:#fff; }
+.refine-body { padding:16px; }
+.refine-meta { color:#66758f; font-size:13px; line-height:1.6; margin-top:10px; }
+.rec { display:inline-flex; margin-top:8px; padding:5px 10px; border-radius:999px; background:#eaf4ff; color:#225dc0; font-size:12px; font-weight:700; }
+.stage { min-height:280px; border-radius:18px; position:relative; overflow:hidden; padding:18px; }
+.stage.a { background: radial-gradient(circle at 20% 18%, rgba(255,229,117,.7), transparent 16%), radial-gradient(circle at 78% 22%, rgba(255,146,182,.35), transparent 18%), linear-gradient(160deg,#7ad7ff,#70c6ff 42%, #8ff0d8); }
+.stage.b { background: radial-gradient(circle at 50% 8%, rgba(255,255,255,.75), transparent 18%), linear-gradient(160deg,#0f2a59,#274e9a 58%,#4ea7f3); }
+.stage.c { background: radial-gradient(circle at 50% 10%, rgba(255,237,167,.88), transparent 20%), linear-gradient(160deg,#ffb15f,#ff8a6f 52%, #ff79b5); }
+.center-wrap { position:absolute; inset:0; display:grid; place-items:center; }
+.panel { width:min(78%, 420px); border-radius:28px; background:rgba(255,255,255,.9); box-shadow:0 18px 36px rgba(34,74,140,.18); padding:22px; text-align:center; position:relative; }
+.panel.dark { background:rgba(11,25,53,.55); border:1px solid rgba(255,255,255,.08); color:#fff; backdrop-filter:blur(10px); }
+.badge { display:inline-flex; padding:7px 12px; border-radius:999px; background:#eef7ff; color:#2e69b6; font-weight:700; font-size:12px; }
+.badge.dark { background:rgba(255,255,255,.12); color:#f8fbff; }
+.big { margin:12px 0 10px; font-size:28px; font-weight:900; color:#245397; }
+.big.dark { color:#fff; }
+.sub { font-size:13px; line-height:1.7; color:#607faa; }
+.sub.dark { color:rgba(247,250,255,.82); }
+.cta { display:inline-flex; margin-top:18px; padding:11px 20px; border-radius:999px; background:linear-gradient(135deg,#ff9e56,#ffd75c); color:#fff; font-weight:800; }
+.cta.blue { background:linear-gradient(135deg,#4f8dff,#69cbff); }
+.cta.pink { background:linear-gradient(135deg,#ff6f92,#ffb165); }
+.glow { position:absolute; width:220px; height:220px; border-radius:50%; filter:blur(16px); opacity:.7; }
+.glow.a1 { top:18px; left:-20px; background:radial-gradient(circle, rgba(255,225,110,.95), transparent 65%); }
+.glow.a2 { right:-30px; bottom:10px; background:radial-gradient(circle, rgba(255,247,202,.95), transparent 70%); }
+.ring { position:absolute; inset:50% auto auto 50%; width:220px; height:220px; border-radius:50%; border:2px dashed rgba(255,255,255,.35); transform:translate(-50%,-50%); }
+.sparkles span { position:absolute; color:#fff0a8; font-size:20px; }
+.sparkles span:nth-child(1){ top:26px; left:32px; }
+.sparkles span:nth-child(2){ top:46px; right:40px; }
+.sparkles span:nth-child(3){ bottom:30px; left:54px; }
+.sparkles span:nth-child(4){ bottom:40px; right:54px; }
+.curtain { position:absolute; inset:0; background:linear-gradient(90deg, rgba(255,255,255,.08), transparent 24%, transparent 76%, rgba(255,255,255,.08)); }
+.fireworks::before,.fireworks::after{ content:''; position:absolute; width:88px; height:88px; border-radius:50%; background: radial-gradient(circle, rgba(255,255,255,.95) 0 10%, transparent 11%), radial-gradient(circle, rgba(255,216,101,.9) 0 7%, transparent 8%), radial-gradient(circle, rgba(255,119,174,.8) 0 6%, transparent 7%); opacity:.78; }
+.fireworks::before{ top:20px; left:24px; }
+.fireworks::after{ top:18px; right:28px; }
+@media (max-width:1100px){ .refine-grid { grid-template-columns:1fr; } }
+</style>
+
+<div class="cards refine-grid">
+  <div class="card refine-card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="refine-body">
+      <div class="label">A</div>
+      <h3>中心舞台风</h3>
+      <div class="rec">推荐</div>
+      <div class="mockup">
+        <div class="mockup-header">绝对居中 + 光圈扩散 + 标题主角化</div>
+        <div class="mockup-body">
+          <div class="stage a">
+            <div class="glow a1"></div><div class="glow a2"></div>
+            <div class="center-wrap">
+              <div class="panel">
+                <div class="badge">欢迎来到</div>
+                <div class="big">英语冒险乐园</div>
+                <div class="sub">动画重点在“舞台中央感”：背景先散开，标题后落下，按钮最后出现。</div>
+                <div class="cta">进入测评</div>
+              </div>
+            </div>
+            <div class="sparkles"><span>✦</span><span>✦</span><span>✦</span><span>✦</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="refine-meta">优点：最稳、最像“正式开场”，居中感最强，也最不容易翻车。<br>缺点：庆典感比 C 稍弱，但可以在完成动画补强。</div>
+    </div>
+  </div>
+
+  <div class="card refine-card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="refine-body">
+      <div class="label">B</div>
+      <h3>聚光舞台风</h3>
+      <div class="mockup">
+        <div class="mockup-header">中间主舞台 + 聚光灯扫过</div>
+        <div class="mockup-body">
+          <div class="stage b">
+            <div class="ring"></div>
+            <div class="curtain"></div>
+            <div class="center-wrap">
+              <div class="panel dark">
+                <div class="badge dark">Welcome</div>
+                <div class="big dark">开始今天的闯关</div>
+                <div class="sub dark">会更高级、更像演出开场；适合想做得“精致”而不是“热闹”的感觉。</div>
+                <div class="cta blue">进入测评</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="refine-meta">优点：高级感最强。<br>缺点：对儿童产品来说偏成熟，可能没有那么“可爱”。</div>
+    </div>
+  </div>
+
+  <div class="card refine-card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="refine-body">
+      <div class="label">C</div>
+      <h3>庆典烟花风</h3>
+      <div class="mockup">
+        <div class="mockup-header">中心庆典卡 + 烟花彩带更强</div>
+        <div class="mockup-body">
+          <div class="stage c">
+            <div class="fireworks"></div>
+            <div class="center-wrap">
+              <div class="panel">
+                <div class="badge">好运开场</div>
+                <div class="big">闯关准备开始</div>
+                <div class="sub">最热闹、最像庆典，但如果开屏也太热闹，可能会抢答题页的戏。</div>
+                <div class="cta pink">进入测评</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="refine-meta">优点：最有情绪价值。<br>缺点：更适合完成动画，不一定适合开屏常驻。</div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle">我建议：开屏用 A“中心舞台风”，完成动画和转盘继续保留你喜欢的 C“庆典烟花感”。如果你同意，我就按这个混合方案直接实现。</p>

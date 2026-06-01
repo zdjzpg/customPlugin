@@ -1,0 +1,152 @@
+﻿<h2>/papers 老师端改版方向</h2>
+<p class="subtitle">你已经选了左侧菜单栏。下面只比较内容区的信息密度和卷子列表结构，看看哪种最适合老师后台。</p>
+
+<style>
+.admin-grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.admin-card { border: 1px solid #d8e3f2; border-radius: 18px; overflow: hidden; background: #fff; }
+.admin-body { padding: 14px; }
+.admin-meta { color:#6b7a90; font-size:13px; line-height:1.5; margin-top: 10px; }
+.mini-app { display:flex; min-height: 290px; background:#f5f7fb; }
+.mini-sidebar { width: 66px; background:#0f2745; color:#fff; padding: 10px 8px; display:flex; flex-direction:column; gap:10px; }
+.mini-brand { height: 28px; border-radius: 10px; background: rgba(255,255,255,.14); }
+.mini-nav { height: 34px; border-radius: 10px; background: rgba(255,255,255,.1); }
+.mini-nav.active { background: linear-gradient(135deg,#3c82f6,#60a5fa); }
+.mini-main { flex:1; padding: 12px; display:grid; gap: 10px; }
+.mini-topbar { height: 42px; border-radius: 12px; background:#fff; border:1px solid #dbe4f0; }
+.mini-filter { height: 64px; border-radius: 14px; background:#fff; border:1px solid #dbe4f0; }
+.mini-filter.compact { height: 48px; }
+.mini-list { display:grid; gap: 10px; }
+.mini-paper-card { border-radius: 14px; background:#fff; border:1px solid #dbe4f0; padding: 10px; display:grid; gap: 8px; }
+.mini-paper-head { display:flex; justify-content:space-between; gap:10px; }
+.mini-title { width: 42%; height: 12px; border-radius: 999px; background:#21354d; opacity:.92; }
+.mini-badges { width: 26%; height: 10px; border-radius: 999px; background:#93c5fd; }
+.mini-lines { display:grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mini-line { height: 10px; border-radius: 999px; background:#cbd5e1; }
+.mini-actions { display:flex; gap: 6px; flex-wrap:wrap; }
+.mini-btn { width: 54px; height: 24px; border-radius: 999px; background:#eff6ff; border:1px solid #bfdbfe; }
+.mini-btn.primary { background: linear-gradient(135deg,#3b82f6,#60a5fa); }
+.mini-table { border-radius: 14px; overflow: hidden; border:1px solid #dbe4f0; background:#fff; }
+.mini-table-row { display:grid; grid-template-columns: 1.8fr .9fr .9fr 1.1fr 1.4fr; gap: 8px; padding: 9px 10px; align-items:center; border-top:1px solid #edf2f7; }
+.mini-table-row:first-child { background:#f8fafc; border-top:none; }
+.mini-cell { height: 10px; border-radius: 999px; background:#cbd5e1; }
+.mini-cell.dark { background:#21354d; }
+.mini-cell.blue { background:#93c5fd; }
+.recommend { display:inline-flex; margin-top:8px; padding:5px 10px; border-radius:999px; background:#e8f3ff; color:#1d4ed8; font-size:12px; font-weight:700; }
+@media (max-width: 1100px) { .admin-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="cards admin-grid">
+  <div class="card admin-card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-body">
+      <div class="label">A</div>
+      <h3>卡片型列表</h3>
+      <div class="mockup">
+        <div class="mockup-header">每张卷子是一张完整卡片</div>
+        <div class="mockup-body">
+          <div class="mini-app">
+            <div class="mini-sidebar">
+              <div class="mini-brand"></div>
+              <div class="mini-nav active"></div>
+              <div class="mini-nav"></div>
+              <div class="mini-nav"></div>
+            </div>
+            <div class="mini-main">
+              <div class="mini-topbar"></div>
+              <div class="mini-filter"></div>
+              <div class="mini-list">
+                <div class="mini-paper-card">
+                  <div class="mini-paper-head"><div class="mini-title"></div><div class="mini-badges"></div></div>
+                  <div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div></div>
+                  <div class="mini-actions"><div class="mini-btn"></div><div class="mini-btn"></div><div class="mini-btn primary"></div><div class="mini-btn"></div></div>
+                </div>
+                <div class="mini-paper-card">
+                  <div class="mini-paper-head"><div class="mini-title"></div><div class="mini-badges"></div></div>
+                  <div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div></div>
+                  <div class="mini-actions"><div class="mini-btn"></div><div class="mini-btn"></div><div class="mini-btn primary"></div><div class="mini-btn"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="admin-meta">优点：信息分组清楚，改动成本低。<br>缺点：占高，老师一次看到的卷子仍然不够多。</div>
+    </div>
+  </div>
+
+  <div class="card admin-card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-body">
+      <div class="label">B</div>
+      <h3>混合型列表（推荐）</h3>
+      <div class="recommend">推荐</div>
+      <div class="mockup">
+        <div class="mockup-header">顶部筛选更紧凑，卷子区变成扁平卡片行</div>
+        <div class="mockup-body">
+          <div class="mini-app">
+            <div class="mini-sidebar">
+              <div class="mini-brand"></div>
+              <div class="mini-nav active"></div>
+              <div class="mini-nav"></div>
+              <div class="mini-nav"></div>
+            </div>
+            <div class="mini-main">
+              <div class="mini-topbar"></div>
+              <div class="mini-filter compact"></div>
+              <div class="mini-list">
+                <div class="mini-paper-card">
+                  <div class="mini-paper-head"><div class="mini-title"></div><div class="mini-badges"></div></div>
+                  <div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div></div>
+                  <div class="mini-actions"><div class="mini-btn"></div><div class="mini-btn"></div><div class="mini-btn"></div><div class="mini-btn primary"></div><div class="mini-btn"></div></div>
+                </div>
+                <div class="mini-paper-card">
+                  <div class="mini-paper-head"><div class="mini-title"></div><div class="mini-badges"></div></div>
+                  <div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div></div>
+                  <div class="mini-actions"><div class="mini-btn"></div><div class="mini-btn"></div><div class="mini-btn"></div><div class="mini-btn primary"></div><div class="mini-btn"></div></div>
+                </div>
+                <div class="mini-paper-card">
+                  <div class="mini-paper-head"><div class="mini-title"></div><div class="mini-badges"></div></div>
+                  <div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div></div>
+                  <div class="mini-actions"><div class="mini-btn"></div><div class="mini-btn"></div><div class="mini-btn"></div><div class="mini-btn primary"></div><div class="mini-btn"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="admin-meta">优点：比现在紧凑很多，又保留卷子内容概览；大屏下会更适合老师高频操作。<br>缺点：需要把按钮层级重新整理。</div>
+    </div>
+  </div>
+
+  <div class="card admin-card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-body">
+      <div class="label">C</div>
+      <h3>表格型列表</h3>
+      <div class="mockup">
+        <div class="mockup-header">更接近标准后台的表格视图</div>
+        <div class="mockup-body">
+          <div class="mini-app">
+            <div class="mini-sidebar">
+              <div class="mini-brand"></div>
+              <div class="mini-nav active"></div>
+              <div class="mini-nav"></div>
+              <div class="mini-nav"></div>
+            </div>
+            <div class="mini-main">
+              <div class="mini-topbar"></div>
+              <div class="mini-filter compact"></div>
+              <div class="mini-table">
+                <div class="mini-table-row"><div class="mini-cell dark"></div><div class="mini-cell"></div><div class="mini-cell"></div><div class="mini-cell"></div><div class="mini-cell blue"></div></div>
+                <div class="mini-table-row"><div class="mini-cell dark"></div><div class="mini-cell"></div><div class="mini-cell"></div><div class="mini-cell"></div><div class="mini-cell blue"></div></div>
+                <div class="mini-table-row"><div class="mini-cell dark"></div><div class="mini-cell"></div><div class="mini-cell"></div><div class="mini-cell"></div><div class="mini-cell blue"></div></div>
+                <div class="mini-table-row"><div class="mini-cell dark"></div><div class="mini-cell"></div><div class="mini-cell"></div><div class="mini-cell"></div><div class="mini-cell blue"></div></div>
+                <div class="mini-table-row"><div class="mini-cell dark"></div><div class="mini-cell"></div><div class="mini-cell"></div><div class="mini-cell"></div><div class="mini-cell blue"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="admin-meta">优点：信息密度最高，最像传统后台。<br>缺点：卷子里的欢迎语/说明等内容会被压缩，温度感会更弱。</div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle">问题只有一个：你更希望 `/papers` 的卷子列表接近哪种？如果想混搭，也可以说“以 B 为主，但动作区再压缩一点”。</p>
