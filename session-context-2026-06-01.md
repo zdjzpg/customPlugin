@@ -101,22 +101,133 @@ This means the new tool should be developed and tested with the bundled Node 24 
 
 ## Current Status
 
-- No new app scaffold has been created yet
-- User then changed the request and asked to generate session context into `D:\aa-workplace\customPlugin`
-
-## Recommended Next Step
-
-Create a new independent project inside:
+The independent project has now been built inside:
 
 - `D:\aa-workplace\customPlugin\codex-pdf-converter-web\pdf-converter-web`
 
-Recommended immediate scope:
+### Current product status
 
-1. Scaffold a standalone Node.js monolith app
-2. Use bundled Node 24 for install/test/run
-3. Implement redemption-code validation first
-4. Implement one conversion flow first, preferably:
-   - PDF to images
-   - or images to PDF
-5. Add Word to PDF after the base upload/download pipeline is stable
+The first sellable version is already implemented and deployed.
 
+Supported flows:
+
+- Word to PDF
+- PDF to images
+- images to PDF
+
+Current product rules:
+
+- buyers log in with redemption codes
+- admin has a separate backend
+- usage-based and duration-based codes are both supported
+- admin can create codes
+- admin can enable / disable codes
+- conversion records are stored
+
+### Current implementation shape
+
+- Node.js monolith
+- Express backend
+- simple static frontend pages
+- SQLite metadata storage
+- `LibreOffice` for server-side Word to PDF
+- `pdf2image + poppler` for PDF to images
+- `reportlab + Pillow` for images to PDF
+
+### Important implementation decisions already made
+
+- upload pipeline was changed from `base64 JSON` to `multipart/form-data`
+  - reason: large files were causing request bloat and unstable behavior
+- PDF to images no longer exposes page-by-page downloads to buyers
+  - current behavior: generate images, then provide a single ZIP download
+- buyer-facing pages were cleaned up to avoid showing:
+  - backend/internal wording
+  - feature status labels
+  - session-expiry / operational metadata
+- result cards were redesigned so generated files are visually obvious
+
+### Key pitfalls already discovered and resolved
+
+1. **Node version mismatch**
+- local system `node` was too old
+- development and testing were done with bundled Node 24
+- production server also had to be upgraded to Node 24
+
+2. **Environment variables not loaded automatically**
+- server initially fell back to hardcoded Windows default paths on Linux
+- project now auto-loads `.env` at startup
+
+3. **Large upload issues**
+- `413 Payload Too Large` occurred with the old JSON/base64 pipeline
+- fixed by moving to `multipart/form-data`
+- frontend now also does pre-upload size checks
+
+4. **PDF to images memory issue on low-memory server**
+- `pdf2image` originally loaded too much into memory
+- server is low-spec (`2C2G` class machine, ~1.6GiB memory visible in runtime check)
+- conversion was changed to a lower-memory, file-based flow
+
+5. **Word to PDF Chinese rendering issue**
+- local conversion was fine, server output showed Chinese as squares / garbled glyphs
+- root cause: server missing Chinese fonts
+- fixed by installing:
+  - `fonts-noto-cjk`
+  - `fonts-wqy-zenhei`
+  - `fonts-wqy-microhei`
+
+6. **Multipart filename encoding issue**
+- Chinese filenames were initially mangled during upload parsing
+- fixed by decoding multipart filenames before conversion logic
+
+### Local deployment / run notes
+
+- local bundled Node runtime:
+  - `C:\Users\19816\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe`
+- local project entry:
+  - `D:\aa-workplace\customPlugin\codex-pdf-converter-web\pdf-converter-web\server\index.cjs`
+
+### Online deployment status
+
+The new tool now coexists with the old project instead of replacing it.
+
+Old project:
+
+- directory: `/home/admin/EnglishQuestion`
+- PM2 process: `english-question`
+
+New tool:
+
+- directory: `/home/admin/pdf-converter-web`
+- PM2 process: `pdf-converter-web`
+- port: `3015`
+- public URL: `https://pdf.seedling.top/`
+- Nginx config: `/etc/nginx/conf.d/pdf-converter-web.conf`
+
+Certificate path currently used:
+
+- `/home/admin/certs/pdf.seedling.top/pdf.seedling.top.key`
+- `/home/admin/certs/pdf.seedling.top/pdf.seedling.top_bundle.pem`
+
+### Updated recommended next step
+
+The base product is already online, so the next step is no longer scaffolding.
+
+Recommended next feature:
+
+1. Add `PDF 提取页面 / 拆分 PDF`
+2. Keep scope narrow and aligned with current users
+3. Reuse the existing upload / conversion / download pipeline
+4. Keep buyer-facing copy simple and user-task-oriented
+
+### Release / workflow reminder
+
+For this project, future sessions should first read:
+
+- `D:\aa-workplace\customPlugin\codex-pdf-converter-web\agent.md`
+
+That file now contains:
+
+- coexistence deployment rules with the old project
+- PM2 / Nginx / certificate conventions
+- frontend buyer-copy constraints
+- known operational pitfalls
