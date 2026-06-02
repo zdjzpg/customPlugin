@@ -29,11 +29,26 @@ This installs:
 
 - `Node.js 24`
 - `pm2`
+- `Tesseract OCR`
+- `Ghostscript`
 - `LibreOffice`
 - `poppler-utils`
 - Chinese fonts required by LibreOffice PDF export
 - Python runtime packages required by the conversion script
 - `nginx`
+
+The install script also runs:
+
+```bash
+sudo python3 -m pip install pypdf pdf2docx ocrmypdf
+```
+
+This is required by:
+
+- `PDF 转 Word`
+- `PDF 提取页面`
+- `拆分 PDF`
+- `PDF 压缩`
 
 ## 3. Prepare environment variables
 
@@ -55,6 +70,8 @@ BUYER_SESSION_TTL_MS=259200000
 PYTHON_BIN=/usr/bin/python3
 LIBREOFFICE_BIN=/usr/bin/libreoffice
 POPPLER_BIN_DIR=/usr/bin
+GHOSTSCRIPT_BIN=/usr/bin/gs
+OCRMYPDF_BIN=/usr/local/bin/ocrmypdf
 ```
 
 ## 4. Install app dependencies and start with PM2
@@ -115,6 +132,10 @@ Then verify in browser:
 - buyer can use a code to log in
 - `Images -> PDF` works
 - `PDF -> Images` works
+- `PDF 转 Word` works
+- `PDF 压缩` works
+- `PDF 提取页面` works
+- `拆分 PDF` works
 - `Word -> PDF` works
 - admin can see conversion records
 

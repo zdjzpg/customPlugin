@@ -231,3 +231,126 @@ That file now contains:
 - PM2 / Nginx / certificate conventions
 - frontend buyer-copy constraints
 - known operational pitfalls
+
+## 2026-06-01 Latest Progress Update
+
+### New buyer-facing features completed
+
+The previously recommended next feature has now been implemented.
+
+New supported flows:
+
+- PDF extract pages
+- split PDF
+
+Behavior details:
+
+- `PDF extract pages`
+  - accepts page text like `1,3,5-8`
+  - preserves user input order
+  - outputs one new PDF
+- `split PDF`
+  - accepts one output range per line, for example:
+    - `1-3`
+    - `4-6`
+    - `7,9-10`
+  - outputs multiple PDFs packaged into one ZIP
+
+### Frontend interaction change
+
+The buyer dashboard was simplified again to reduce clutter.
+
+Current buyer flow:
+
+1. login with redemption code
+2. see only method cards on the homepage
+3. each card shows:
+   - method name
+   - short introduction
+   - `查看详情`
+4. click into the chosen method detail page
+5. only on the detail page:
+   - upload file
+   - fill page ranges if needed
+   - start conversion
+   - download result
+
+Current layout rules:
+
+- homepage method cards are desktop `3 columns`
+- medium width falls back to `2 columns`
+- mobile falls back to `1 column`
+- overall left/right page padding was reduced from the earlier version
+
+### Backend / runtime additions
+
+New code paths were added for:
+
+- `pdf_extract_pages`
+- `split_pdf`
+
+Implementation notes:
+
+- server parses page selections before conversion
+- Python side uses `pypdf`
+- existing multipart upload / progress / download pipeline is reused
+
+### New local verification completed
+
+The new flows were verified both by automated tests and by real browser interaction.
+
+Automated verification:
+
+- full test suite passed with bundled Node 24
+- count at completion time: `49/49`
+
+Browser verification performed locally:
+
+- buyer login
+- homepage overview card layout
+- click from overview into detail page
+- `PDF extract pages` upload + convert + download
+- `split PDF` upload + convert + ZIP download
+- downloaded outputs were inspected and page order/content matched expectations
+
+Important local note discovered during testing:
+
+- local port `3015` had once been occupied by an old Node process
+- this caused the browser to hit an outdated version of the app
+- if local UI seems inconsistent with current code, first check whether `3015` is already occupied
+
+### Current local buyer test credential note
+
+- `DEMO-USES-5` may already be exhausted in local SQLite data
+- prefer using `DEMO-DAYS-7` for local buyer testing unless codes are reset
+
+### Server update note for this round
+
+This round is not just frontend.
+
+It requires:
+
+- frontend file upload
+- backend upload / conversion logic
+- Python runtime dependency update
+
+Current server-side extra dependency required by the new features:
+
+- `pypdf`
+
+Recommended server command after upload:
+
+```bash
+cd /home/admin/pdf-converter-web
+sudo python3 -m pip install pypdf
+pm2 restart ecosystem.config.cjs --only pdf-converter-web --update-env
+```
+
+Post-update verification should additionally confirm:
+
+- `/api/conversions/catalog` contains:
+  - `pdf_extract_pages`
+  - `split_pdf`
+- homepage shows overview cards instead of direct upload forms
+- desktop homepage shows three cards per row
+- both new PDF flows work end-to-end online

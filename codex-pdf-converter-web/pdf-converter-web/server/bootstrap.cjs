@@ -17,6 +17,7 @@ function bootstrapApplication(config) {
   const codeRepository = createSqliteCodeRepository(database);
   const sessionRepository = createSqliteSessionRepository(database);
   const conversionRepository = createSqliteConversionRepository(database);
+  const usageStatsRepository = createSqliteUsageStatsRepository(database);
 
   seedCodesIfEmpty(codeRepository);
 
@@ -37,7 +38,9 @@ function bootstrapApplication(config) {
     storageRoot: path.join(__dirname, '..', 'data'),
     pythonBin: config.pythonBin,
     libreOfficeBin: config.libreOfficeBin,
-    popplerBinDir: config.popplerBinDir
+    popplerBinDir: config.popplerBinDir,
+    ghostscriptBin: config.ghostscriptBin,
+    ocrmypdfBin: config.ocrmypdfBin
   });
 
   return createApp({
@@ -46,7 +49,8 @@ function bootstrapApplication(config) {
     codeRepository,
     sessionRepository,
     conversionRepository,
-    conversionService
+    conversionService,
+    usageStatsRepository
   });
 }
 
@@ -86,6 +90,15 @@ function initializeDatabase(database) {
       error_message TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS usage_stats (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code_id INTEGER NULL,
+      code_value TEXT NULL,
+      conversion_key TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      created_at TEXT NOT NULL
     );
   `);
 }
@@ -349,6 +362,98 @@ function createSqliteConversionRepository(database) {
       return row ? mapConversionRow(row) : null;
     }
   };
+}
+
+function createSqliteUsageStatsRepository(database) {
+  const insertStatement = database.prepare(`
+    INSERT INTO usage_stats (
+      code_id,
+      code_value,
+      conversion_key,
+      event_type,
+      created_at
+    ) VALUES (?, ?, ?, ?, ?)
+  `);
+
+  return {
+    recordConversionStart(input) {
+      insertStatement.run(
+        input.codeId || null,
+        input.codeValue || null,
+        input.conversionKey,
+        'conversion_start',
+        new Date().toISOString()
+      );
+    },
+    listByDay(query) {
+      const { dateFrom, dateTo } = resolveUsageStatsDateRange(query);
+      const statement = database.prepare(`
+        SELECT
+          substr(created_at, 1, 10) AS day,
+          conversion_key,
+          COUNT(1) AS count
+        FROM usage_stats
+        WHERE event_type = 'conversion_start'
+          AND substr(created_at, 1, 10) >= ?
+          AND substr(created_at, 1, 10) <= ?
+        GROUP BY substr(created_at, 1, 10), conversion_key
+        ORDER BY day DESC, count DESC, conversion_key ASC
+      `);
+
+      return statement.all(dateFrom, dateTo).map((row) => ({
+        day: row.day,
+        conversionKey: row.conversion_key,
+        count: row.count
+      }));
+    }
+  };
+}
+
+function resolveUsageStatsDateRange(query) {
+  const today = new Date();
+  const end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  const start = new Date(end);
+  const preset = query?.preset || 'last7days';
+
+  if (preset === 'today') {
+    return {
+      dateFrom: formatDateOnly(end),
+      dateTo: formatDateOnly(end)
+    };
+  }
+
+  if (preset === 'yesterday') {
+    start.setUTCDate(start.getUTCDate() - 1);
+    return {
+      dateFrom: formatDateOnly(start),
+      dateTo: formatDateOnly(start)
+    };
+  }
+
+  if (preset === 'last30days') {
+    start.setUTCDate(start.getUTCDate() - 29);
+    return {
+      dateFrom: formatDateOnly(start),
+      dateTo: formatDateOnly(end)
+    };
+  }
+
+  if (preset === 'custom' && query?.dateFrom && query?.dateTo) {
+    return {
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo
+    };
+  }
+
+  start.setUTCDate(start.getUTCDate() - 6);
+  return {
+    dateFrom: formatDateOnly(start),
+    dateTo: formatDateOnly(end)
+  };
+}
+
+function formatDateOnly(date) {
+  return date.toISOString().slice(0, 10);
 }
 
 function mapCodeRow(row) {

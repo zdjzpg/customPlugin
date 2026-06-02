@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
+const { parsePageSelection } = require('./pageSelectionParser.cjs');
 
 function createConversionService(options) {
   const {
@@ -8,16 +9,18 @@ function createConversionService(options) {
     storageRoot,
     pythonBin,
     libreOfficeBin = process.env.LIBREOFFICE_BIN || '',
-    popplerBinDir = process.env.POPPLER_BIN_DIR || ''
+    popplerBinDir = process.env.POPPLER_BIN_DIR || '',
+    ghostscriptBin = process.env.GHOSTSCRIPT_BIN || '',
+    ocrmypdfBin = process.env.OCRMYPDF_BIN || ''
   } = options;
 
   async function runConversion(input) {
     const record = conversionRepository.create({
       codeId: input.session.codeId || null,
       codeValue: input.session.codeValue || null,
-      conversionKey: input.conversionKey,
-      inputFileNames: input.files.map((file) => file.fileName)
-    });
+        conversionKey: input.conversionKey,
+        inputFileNames: input.files.map((file) => file.fileName)
+      });
 
     const conversionId = record.id;
     const baseDirectory = path.join(storageRoot, 'conversions', String(conversionId));
@@ -32,11 +35,14 @@ function createConversionService(options) {
     try {
       const outputFiles = await executeConversion({
         conversionKey: input.conversionKey,
+        conversionOptions: input.conversionOptions,
         writtenFiles,
         outputDirectory,
         pythonBin,
         libreOfficeBin,
-        popplerBinDir
+        popplerBinDir,
+        ghostscriptBin,
+        ocrmypdfBin
       });
 
       const mappedFiles = outputFiles.map((filePath) => ({
@@ -52,7 +58,8 @@ function createConversionService(options) {
         files: mappedFiles.map((file) => ({
           fileName: file.fileName,
           downloadUrl: `/api/downloads/conversions/${conversionId}/${encodeURIComponent(file.fileName)}`
-        }))
+        })),
+        summary: outputFiles.summary || null
       };
     } catch (error) {
       conversionRepository.markFailed(conversionId, error.message);
@@ -78,6 +85,14 @@ function createConversionService(options) {
           : '当前仅支持 .docx，建议单个文件不超过 20MB。'
       },
       {
+        key: 'pdf_to_word',
+        label: 'PDF 转 Word',
+        status: 'available',
+        accepts: '.pdf',
+        maxFileSizeMb: 30,
+        helperText: '支持文本型 PDF 直接转 Word，也支持 OCR 识别扫描件后导出 Word。'
+      },
+      {
         key: 'pdf_to_images',
         label: 'PDF -> Images',
         status: 'available',
@@ -93,6 +108,39 @@ function createConversionService(options) {
         maxFileSizeMb: 10,
         maxTotalFileSizeMb: 20,
         helperText: '可一次上传多张图片并合并为 PDF，单张建议不超过 10MB。'
+      },
+      {
+        key: 'merge_pdf',
+        label: 'PDF 合并',
+        status: 'available',
+        accepts: '.pdf',
+        maxFileSizeMb: 20,
+        maxTotalFileSizeMb: 60,
+        helperText: '可一次上传多个 PDF，按当前顺序合并为一个 PDF。'
+      },
+      {
+        key: 'compress_pdf',
+        label: 'PDF 压缩',
+        status: 'available',
+        accepts: '.pdf',
+        maxFileSizeMb: 30,
+        helperText: '可选标准压缩或强力压缩，并显示压缩前后体积对比。'
+      },
+      {
+        key: 'pdf_extract_pages',
+        label: 'PDF 提取页面',
+        status: 'available',
+        accepts: '.pdf',
+        maxFileSizeMb: 20,
+        helperText: '输入页码范围后提取为一个新的 PDF，例如 1,3,5-8。'
+      },
+      {
+        key: 'split_pdf',
+        label: '拆分 PDF',
+        status: 'available',
+        accepts: '.pdf',
+        maxFileSizeMb: 20,
+        helperText: '按范围拆成多个 PDF，并统一打包为 ZIP 下载。'
       }
     ];
   }
@@ -116,7 +164,17 @@ function writeInputFiles(files, inputDirectory) {
 }
 
 async function executeConversion(options) {
-  const { conversionKey, writtenFiles, outputDirectory, pythonBin, libreOfficeBin, popplerBinDir } = options;
+  const {
+    conversionKey,
+    conversionOptions,
+    writtenFiles,
+    outputDirectory,
+    pythonBin,
+    libreOfficeBin,
+    popplerBinDir,
+    ghostscriptBin,
+    ocrmypdfBin
+  } = options;
 
   if (conversionKey === 'images_to_pdf') {
     const outputPath = path.join(
@@ -157,6 +215,135 @@ async function executeConversion(options) {
     await runPythonScript(pythonBin, ['zip_files', zipPath, ...generatedImages]);
 
     return [zipPath];
+  }
+
+  if (conversionKey === 'pdf_to_word') {
+    if (writtenFiles.length !== 1) {
+      throw new Error('pdf_to_word requires exactly one PDF file');
+    }
+
+    const conversionMode = conversionOptions?.pdfToWordMode === 'ocr' ? 'ocr' : 'no_ocr';
+    const ocrLanguage = normalizeOcrLanguage(conversionOptions?.ocrLanguage);
+    if (conversionMode === 'ocr' && !ocrmypdfBin) {
+      throw createConversionError(
+        'OCRMYPDF_NOT_CONFIGURED',
+        '当前环境还不能处理扫描件，请先安装并配置 OCRmyPDF。',
+        400
+      );
+    }
+
+    const outputPath = path.join(
+      outputDirectory,
+      `${path.parse(writtenFiles[0]).name}.docx`
+    );
+
+    await runPythonScript(pythonBin, [
+      'pdf_to_word',
+      outputPath,
+      writtenFiles[0],
+      conversionMode,
+      conversionMode === 'ocr' ? ocrmypdfBin : '',
+      ocrLanguage
+    ]);
+
+    return [outputPath];
+  }
+
+  if (conversionKey === 'merge_pdf') {
+    if (writtenFiles.length < 2) {
+      throw createConversionError(
+        'INSUFFICIENT_PDF_FILES',
+        '请至少选择两个 PDF 再开始合并。',
+        400
+      );
+    }
+
+    const outputPath = path.join(outputDirectory, 'merged.pdf');
+    await runPythonScript(pythonBin, ['merge_pdf', outputPath, ...writtenFiles]);
+    return [outputPath];
+  }
+
+  if (conversionKey === 'compress_pdf') {
+    if (writtenFiles.length !== 1) {
+      throw new Error('compress_pdf requires exactly one PDF file');
+    }
+
+    if (!ghostscriptBin) {
+      throw createConversionError(
+        'GHOSTSCRIPT_NOT_CONFIGURED',
+        '当前环境还不能压缩 PDF，请先安装并配置 Ghostscript。',
+        400
+      );
+    }
+
+    const compressionLevel =
+      conversionOptions?.compressionLevel === 'strong' ? 'strong' : 'standard';
+    const inputPath = writtenFiles[0];
+    const outputPath = path.join(
+      outputDirectory,
+      `${path.parse(inputPath).name}-compressed.pdf`
+    );
+
+    await runPythonScript(pythonBin, [
+      'compress_pdf',
+      outputPath,
+      inputPath,
+      compressionLevel,
+      ghostscriptBin
+    ]);
+
+    const inputSizeBytes = fs.statSync(inputPath).size;
+    const outputSizeBytes = fs.statSync(outputPath).size;
+    const outputFiles = [outputPath];
+    outputFiles.summary = {
+      inputSizeBytes,
+      outputSizeBytes,
+      savedBytes: inputSizeBytes - outputSizeBytes,
+      compressionLevel
+    };
+    return outputFiles;
+  }
+
+  if (conversionKey === 'pdf_extract_pages') {
+    if (writtenFiles.length !== 1) {
+      throw new Error('pdf_extract_pages requires exactly one PDF file');
+    }
+
+    const selection = parsePageSelection(conversionKey, conversionOptions);
+    const outputPath = path.join(
+      outputDirectory,
+      `${path.parse(writtenFiles[0]).name}-extracted.pdf`
+    );
+
+    await runPythonScript(pythonBin, [
+      'pdf_extract_pages',
+      outputPath,
+      writtenFiles[0],
+      JSON.stringify(selection)
+    ]);
+
+    return [outputPath];
+  }
+
+  if (conversionKey === 'split_pdf') {
+    if (writtenFiles.length !== 1) {
+      throw new Error('split_pdf requires exactly one PDF file');
+    }
+
+    const selection = parsePageSelection(conversionKey, conversionOptions);
+    const outputPath = path.join(
+      outputDirectory,
+      `${path.parse(writtenFiles[0]).name}-split.zip`
+    );
+
+    await runPythonScript(pythonBin, [
+      'split_pdf',
+      outputPath,
+      writtenFiles[0],
+      JSON.stringify(selection)
+    ]);
+
+    return [outputPath];
   }
 
   if (conversionKey === 'word_to_pdf') {
@@ -271,6 +458,10 @@ function createConversionError(reason, message, statusCode) {
   error.reason = reason;
   error.statusCode = statusCode;
   return error;
+}
+
+function normalizeOcrLanguage(value) {
+  return ['chi_sim+eng', 'chi_sim', 'eng'].includes(value) ? value : 'chi_sim+eng';
 }
 
 module.exports = {

@@ -11,6 +11,7 @@ function createApp(dependencies) {
     sessionRepository,
     conversionRepository,
     conversionService,
+    usageStatsRepository,
     jsonLimit = '50mb',
     uploadTempDirectory = path.join(__dirname, '..', 'data', 'upload-temp')
   } = dependencies;
@@ -227,19 +228,31 @@ function createApp(dependencies) {
     }
 
     try {
+      usageStatsRepository?.recordConversionStart({
+        codeId: session.codeId || null,
+        codeValue: session.codeValue || null,
+        conversionKey: input.conversionKey
+      });
+
       const result = await conversionService.runConversion({
         session,
         conversionKey: input.conversionKey,
+        conversionOptions: input.conversionOptions,
         files: input.files
       });
 
+      const conversionResponse = {
+        id: result.conversionId,
+        status: result.status,
+        files: result.files
+      };
+      if (result.summary) {
+        conversionResponse.summary = result.summary;
+      }
+
       response.json({
         ok: true,
-        conversion: {
-          id: result.conversionId,
-          status: result.status,
-          files: result.files
-        }
+        conversion: conversionResponse
       });
     } catch (error) {
       response.status(error.statusCode || 500).json({
@@ -267,6 +280,22 @@ function createApp(dependencies) {
     response.json({
       ok: true,
       conversions: conversionRepository.listRecent()
+    });
+  });
+
+  app.get('/api/admin/usage-stats', (request, response) => {
+    const session = readAuthorizedSession(request, sessionRepository, 'admin');
+    if (!session) {
+      response.status(401).json({
+        ok: false,
+        reason: 'UNAUTHORIZED'
+      });
+      return;
+    }
+
+    response.json({
+      ok: true,
+      stats: usageStatsRepository?.listByDay(normalizeUsageStatsQuery(request.query)) || []
     });
   });
 
@@ -406,6 +435,7 @@ function toNullableInteger(value) {
 
 function normalizeConversionRequest(input) {
   const request = input;
+  const normalizedConversionOptions = normalizeConversionOptions(request.body?.conversionOptions);
   const files = Array.isArray(request.files) && request.files.length > 0
     ? request.files.map((file) => ({
         fileName:
@@ -426,11 +456,17 @@ function normalizeConversionRequest(input) {
   return {
     conversionKey:
       typeof request.body?.conversionKey === 'string' ? request.body.conversionKey.trim() : '',
+    conversionOptions: normalizedConversionOptions.value,
+    conversionOptionsInvalid: normalizedConversionOptions.invalid,
     files
   };
 }
 
 function isValidConversionRequest(input) {
+  if (input.conversionOptionsInvalid) {
+    return false;
+  }
+
   if (!input.conversionKey || input.files.length === 0) {
     return false;
   }
@@ -460,6 +496,55 @@ function decodeMultipartFileName(value) {
   }
 }
 
+function normalizeConversionOptions(value) {
+  if (typeof value === 'undefined') {
+    return {
+      value: {},
+      invalid: false
+    };
+  }
+
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return {
+      value,
+      invalid: false
+    };
+  }
+
+  if (typeof value !== 'string') {
+    return {
+      value: {},
+      invalid: false
+    };
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return {
+      value: {},
+      invalid: false
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? {
+          value: parsed,
+          invalid: false
+        }
+      : {
+          value: {},
+          invalid: true
+        };
+  } catch {
+    return {
+      value: {},
+      invalid: true
+    };
+  }
+}
+
 function cleanupUploadedFiles(files) {
   if (!Array.isArray(files)) {
     return;
@@ -470,6 +555,18 @@ function cleanupUploadedFiles(files) {
       fs.unlinkSync(file.path);
     }
   }
+}
+
+function normalizeUsageStatsQuery(query) {
+  const preset = typeof query?.preset === 'string' && query.preset.trim()
+    ? query.preset.trim()
+    : 'last7days';
+
+  return {
+    preset,
+    dateFrom: preset === 'custom' && typeof query?.dateFrom === 'string' ? query.dateFrom.trim() || null : null,
+    dateTo: preset === 'custom' && typeof query?.dateTo === 'string' ? query.dateTo.trim() || null : null
+  };
 }
 
 module.exports = {

@@ -8,11 +8,11 @@
   </head>
   <body>
     <main class="shell shell-user">
-      <section class="hero">
+      <section class="hero" id="buyer-hero">
         <p class="eyebrow">文件转换工具</p>
-        <h1>Word 转 PDF、PDF 转图片、图片转 PDF。</h1>
+        <h1>Word 转 PDF、PDF 转 Word、PDF 转图片、图片转 PDF、PDF 合并、PDF 压缩、提取页面、拆分 PDF。</h1>
         <p class="hero-copy">
-          输入卡密后即可使用 Word 转 PDF、PDF 转图片、图片转 PDF。
+          输入卡密后即可使用 Word 转 PDF、PDF 转 Word、PDF 转图片、图片转 PDF、PDF 合并、PDF 压缩、PDF 提取页面和拆分 PDF。
         </p>
       </section>
 
@@ -32,10 +32,14 @@
       </section>
 
       <section class="panel hidden" id="buyer-dashboard">
-        <div class="panel-header">
-          <h2>选择转换方式</h2>
+        <div class="panel-header" id="buyer-dashboard-header">
+          <div>
+            <h2 id="dashboard-title">选择转换方式</h2>
+            <p id="dashboard-copy">先选择一种方法，再进入详情页上传文件和填写参数。</p>
+          </div>
         </div>
-        <div class="tool-grid" id="conversion-grid"></div>
+        <div class="tool-grid" id="conversion-overview"></div>
+        <div class="hidden" id="conversion-detail"></div>
         <p class="message" id="conversion-message"></p>
       </section>
     </main>

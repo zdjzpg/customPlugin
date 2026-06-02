@@ -3,8 +3,13 @@
 Independent web app for:
 
 - `Word -> PDF`
+- `PDF -> Word`
 - `PDF -> Images`
 - `Images -> PDF`
+- `PDF Merge`
+- `PDF 压缩`
+- `PDF 提取页面`
+- `拆分 PDF`
 
 Current scope:
 
@@ -64,6 +69,8 @@ See [.env.example](D:/aa-workplace/customPlugin/codex-pdf-converter-web/pdf-conv
 - `PYTHON_BIN`
 - `LIBREOFFICE_BIN`
 - `POPPLER_BIN_DIR`
+- `GHOSTSCRIPT_BIN`
+- `OCRMYPDF_BIN`
 
 ## Conversion notes
 
@@ -77,12 +84,42 @@ See [.env.example](D:/aa-workplace/customPlugin/codex-pdf-converter-web/pdf-conv
 - If LibreOffice is unavailable, `.docx` files fall back to a basic text-first PDF export using `python-docx + reportlab`
 - The fallback is intentionally limited and does not preserve full Word layout fidelity
 
+### PDF -> Word
+
+- Uses Python `pdf2docx`
+- Supports:
+  - text PDF to editable `.docx`
+  - OCR mode for scanned PDFs
+- OCR mode requires:
+  - `ocrmypdf`
+  - `tesseract-ocr`
+  - OCR language packs such as Chinese and English
+- The market-standard tradeoff still applies:
+  - text PDFs usually preserve editability and layout better
+  - scanned PDFs depend on OCR quality and page complexity
+
 ### PDF -> Images
 
 - Uses Python `pdf2image`
 - Requires poppler binaries such as `pdfinfo` and `pdftoppm`
 - If `tools/poppler/poppler-25.07.0/Library/bin` exists locally, the app auto-detects it
 - On Ubuntu 22.04, install poppler before using this feature
+
+### PDF 提取页面 / 拆分 PDF
+
+- Uses Python `pypdf`
+- `PDF 提取页面` supports text input such as `1,3,5-8`
+- `拆分 PDF` supports one output range per line and returns one ZIP package
+- On Ubuntu 22.04, ensure `pypdf` is installed for these two features
+
+### PDF 压缩
+
+- Uses `Ghostscript`
+- Supports:
+  - `标准压缩`
+  - `强力压缩`
+- Returns one compressed PDF
+- Shows size comparison between the original file and the compressed result
 
 ## Deployment
 

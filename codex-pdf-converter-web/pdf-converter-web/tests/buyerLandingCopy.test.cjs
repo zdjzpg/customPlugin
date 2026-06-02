@@ -10,7 +10,7 @@ test('buyer landing copy stays user-facing and does not expose internal status l
   );
 
   assert.match(html, /文件转换工具/);
-  assert.match(html, /输入卡密后即可使用 Word 转 PDF、PDF 转图片、图片转 PDF。/);
+  assert.match(html, /输入卡密后即可使用 Word 转 PDF、PDF 转 Word、PDF 转图片、图片转 PDF、PDF 合并、PDF 压缩、PDF 提取页面和拆分 PDF。/);
   assert.match(html, /请输入卖家提供的卡密/);
 
   assert.doesNotMatch(html, /后台卡密管理/);

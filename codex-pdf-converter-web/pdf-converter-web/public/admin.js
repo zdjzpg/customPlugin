@@ -1,3 +1,8 @@
+import {
+  createUsageStatsFilterMarkup,
+  createUsageStatsTableMarkup
+} from './adminUsageStatsMarkup.mjs';
+
 const adminLoginPanel = document.querySelector('#admin-login-panel');
 const adminDashboard = document.querySelector('#admin-dashboard');
 const adminLoginForm = document.querySelector('#admin-login-form');
@@ -6,6 +11,15 @@ const codeCreateForm = document.querySelector('#code-create-form');
 const codeMessage = document.querySelector('#code-message');
 const codesTableBody = document.querySelector('#codes-table-body');
 const conversionsTableBody = document.querySelector('#conversions-table-body');
+const usageStatsFilterHost = document.querySelector('#usage-stats-filter-host');
+const usageStatsMessage = document.querySelector('#usage-stats-message');
+const usageStatsTableBody = document.querySelector('#usage-stats-table-body');
+
+let usageStatsFilter = {
+  preset: 'last7days',
+  dateFrom: '',
+  dateTo: ''
+};
 
 initializeAdmin();
 
@@ -16,6 +30,7 @@ async function initializeAdmin() {
     showAdminDashboard();
     await loadCodes();
     await loadConversions();
+    await loadUsageStats();
     return;
   }
 
@@ -47,6 +62,7 @@ adminLoginForm.addEventListener('submit', async (event) => {
   showAdminDashboard();
   await loadCodes();
   await loadConversions();
+  await loadUsageStats();
 });
 
 codeCreateForm.addEventListener('submit', async (event) => {
@@ -146,6 +162,31 @@ async function loadConversions() {
     .join('');
 }
 
+async function loadUsageStats() {
+  renderUsageStatsFilter();
+
+  const query = new URLSearchParams({
+    preset: usageStatsFilter.preset
+  });
+  if (usageStatsFilter.preset === 'custom') {
+    query.set('dateFrom', usageStatsFilter.dateFrom || '');
+    query.set('dateTo', usageStatsFilter.dateTo || '');
+  }
+
+  const response = await fetch(`/api/admin/usage-stats?${query.toString()}`);
+  const body = await response.json();
+
+  usageStatsTableBody.innerHTML = createUsageStatsTableMarkup(body.stats || []);
+  setMessage(usageStatsMessage, usageStatsFilter.preset === 'custom' ? '已按自定义日期统计。' : '已更新功能统计。');
+}
+
+function renderUsageStatsFilter() {
+  usageStatsFilterHost.innerHTML = createUsageStatsFilterMarkup(usageStatsFilter);
+  usageStatsFilterHost
+    .querySelector('#usage-stats-filter-form')
+    ?.addEventListener('submit', handleUsageStatsFilterSubmit);
+}
+
 function formatOutputs(conversionId, files) {
   if (!files.length) {
     return '-';
@@ -208,6 +249,18 @@ async function handleCodeStatusToggle(event) {
 
   setMessage(codeMessage, nextStatus === 'disabled' ? '卡密已禁用。' : '卡密已启用。');
   await loadCodes();
+}
+
+async function handleUsageStatsFilterSubmit(event) {
+  event.preventDefault();
+  usageStatsFilter = {
+    preset: document.querySelector('#usage-stats-preset').value,
+    dateFrom: document.querySelector('#usage-stats-date-from').value,
+    dateTo: document.querySelector('#usage-stats-date-to').value
+  };
+
+  setMessage(usageStatsMessage, '正在加载功能统计...');
+  await loadUsageStats();
 }
 
 function formatDate(value) {
