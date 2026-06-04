@@ -681,6 +681,642 @@ test('POST /api/conversions/run forwards pdf_to_word mode and OCR language optio
   }
 });
 
+test('POST /api/conversions/run forwards watermark options and separate watermark image uploads', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-form-watermark-1',
+    role: 'buyer',
+    codeId: 22,
+    codeValue: 'DEMO-USES-5',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+
+  const uploadTempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-upload-'));
+
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    conversionRepository: createNoopConversionRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() {
+        return [];
+      },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'watermark_pdf');
+        assert.deepEqual(input.conversionOptions, {
+          watermarkType: 'image',
+          imagePosition: 'center',
+          imageScalePercent: 40,
+          opacity: 0.3
+        });
+        assert.equal(input.files.length, 2);
+        assert.equal(input.files[0].fieldName, 'files');
+        assert.equal(input.files[1].fieldName, 'watermarkImage');
+
+        return {
+          conversionId: 58,
+          status: 'completed',
+          files: [
+            {
+              fileName: 'storybook-watermarked.pdf',
+              downloadUrl: '/api/downloads/conversions/58/storybook-watermarked.pdf'
+            }
+          ]
+        };
+      }
+    },
+    uploadTempDirectory
+  });
+
+  const server = http.createServer(app);
+  await listen(server);
+
+  try {
+    const form = new FormData();
+    form.append('conversionKey', 'watermark_pdf');
+    form.append(
+      'conversionOptions',
+      JSON.stringify({
+        watermarkType: 'image',
+        imagePosition: 'center',
+        imageScalePercent: 40,
+        opacity: 0.3
+      })
+    );
+    form.append(
+      'files',
+      new Blob([Buffer.from('fake-pdf')], { type: 'application/pdf' }),
+      'storybook.pdf'
+    );
+    form.append(
+      'watermarkImage',
+      new Blob([Buffer.from('fake-image')], { type: 'image/png' }),
+      'stamp.png'
+    );
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, {
+      method: 'POST',
+      headers: {
+        cookie: 'pdf_converter_session=buyer-token-form-watermark-1'
+      },
+      body: form
+    });
+
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'storybook-watermarked.pdf');
+  } finally {
+    await close(server);
+    fs.rmSync(uploadTempDirectory, { recursive: true, force: true });
+  }
+});
+
+test('POST /api/conversions/run forwards page-number options for add_page_numbers_pdf', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-form-number-1',
+    role: 'buyer',
+    codeId: 23,
+    codeValue: 'DEMO-USES-5',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+
+  const uploadTempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-upload-'));
+
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    conversionRepository: createNoopConversionRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() {
+        return [];
+      },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'add_page_numbers_pdf');
+        assert.deepEqual(input.conversionOptions, {
+          pageNumberPosition: 'footer_center',
+          pageNumberStart: 3,
+          pageNumberFormat: 'cn_page'
+        });
+        return {
+          conversionId: 59,
+          status: 'completed',
+          files: [
+            {
+              fileName: 'storybook-numbered.pdf',
+              downloadUrl: '/api/downloads/conversions/59/storybook-numbered.pdf'
+            }
+          ]
+        };
+      }
+    },
+    uploadTempDirectory
+  });
+
+  const server = http.createServer(app);
+  await listen(server);
+
+  try {
+    const form = new FormData();
+    form.append('conversionKey', 'add_page_numbers_pdf');
+    form.append('conversionOptions', JSON.stringify({
+      pageNumberPosition: 'footer_center',
+      pageNumberStart: 3,
+      pageNumberFormat: 'cn_page'
+    }));
+    form.append('files', new Blob([Buffer.from('fake-pdf')], { type: 'application/pdf' }), 'storybook.pdf');
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, {
+      method: 'POST',
+      headers: { cookie: 'pdf_converter_session=buyer-token-form-number-1' },
+      body: form
+    });
+
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'storybook-numbered.pdf');
+  } finally {
+    await close(server);
+    fs.rmSync(uploadTempDirectory, { recursive: true, force: true });
+  }
+});
+
+test('POST /api/conversions/run forwards sign/stamp options and separate stamp image uploads', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-form-stamp-1',
+    role: 'buyer',
+    codeId: 24,
+    codeValue: 'DEMO-USES-5',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+
+  const uploadTempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-upload-'));
+
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    conversionRepository: createNoopConversionRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() {
+        return [];
+      },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'sign_stamp_pdf');
+        assert.deepEqual(input.conversionOptions, {
+          stampSourceType: 'image',
+          stampPosition: 'bottom_right',
+          stampScalePercent: 35,
+          opacity: 0.4
+        });
+        assert.equal(input.files[1].fieldName, 'stampImage');
+        return {
+          conversionId: 60,
+          status: 'completed',
+          files: [
+            {
+              fileName: 'storybook-signed.pdf',
+              downloadUrl: '/api/downloads/conversions/60/storybook-signed.pdf'
+            }
+          ]
+        };
+      }
+    },
+    uploadTempDirectory
+  });
+
+  const server = http.createServer(app);
+  await listen(server);
+
+  try {
+    const form = new FormData();
+    form.append('conversionKey', 'sign_stamp_pdf');
+    form.append('conversionOptions', JSON.stringify({
+      stampSourceType: 'image',
+      stampPosition: 'bottom_right',
+      stampScalePercent: 35,
+      opacity: 0.4
+    }));
+    form.append('files', new Blob([Buffer.from('fake-pdf')], { type: 'application/pdf' }), 'storybook.pdf');
+    form.append('stampImage', new Blob([Buffer.from('fake-image')], { type: 'image/png' }), 'stamp.png');
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, {
+      method: 'POST',
+      headers: { cookie: 'pdf_converter_session=buyer-token-form-stamp-1' },
+      body: form
+    });
+
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'storybook-signed.pdf');
+  } finally {
+    await close(server);
+    fs.rmSync(uploadTempDirectory, { recursive: true, force: true });
+  }
+});
+
+test('POST /api/conversions/run forwards rotation angle options for rotate_pdf', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-form-rotate-1',
+    role: 'buyer',
+    codeId: 25,
+    codeValue: 'DEMO-USES-5',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+
+  const uploadTempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-upload-'));
+
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    conversionRepository: createNoopConversionRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() {
+        return [];
+      },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'rotate_pdf');
+        assert.deepEqual(input.conversionOptions, {
+          rotationAngle: 270
+        });
+        return {
+          conversionId: 61,
+          status: 'completed',
+          files: [
+            {
+              fileName: 'storybook-rotated.pdf',
+              downloadUrl: '/api/downloads/conversions/61/storybook-rotated.pdf'
+            }
+          ]
+        };
+      }
+    },
+    uploadTempDirectory
+  });
+
+  const server = http.createServer(app);
+  await listen(server);
+
+  try {
+    const form = new FormData();
+    form.append('conversionKey', 'rotate_pdf');
+    form.append('conversionOptions', JSON.stringify({ rotationAngle: 270 }));
+    form.append('files', new Blob([Buffer.from('fake-pdf')], { type: 'application/pdf' }), 'storybook.pdf');
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, {
+      method: 'POST',
+      headers: { cookie: 'pdf_converter_session=buyer-token-form-rotate-1' },
+      body: form
+    });
+
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'storybook-rotated.pdf');
+  } finally {
+    await close(server);
+    fs.rmSync(uploadTempDirectory, { recursive: true, force: true });
+  }
+});
+
+test('POST /api/conversions/run forwards Excel conversion requests', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-form-excel-1',
+    role: 'buyer',
+    codeId: 26,
+    codeValue: 'DEMO-USES-5',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+
+  const uploadTempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-upload-'));
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    conversionRepository: createNoopConversionRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() {
+        return [];
+      },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'excel_to_pdf');
+        assert.equal(input.files[0].fileName, 'report.xlsx');
+        return {
+          conversionId: 62,
+          status: 'completed',
+          files: [
+            {
+              fileName: 'report.pdf',
+              downloadUrl: '/api/downloads/conversions/62/report.pdf'
+            }
+          ]
+        };
+      }
+    },
+    uploadTempDirectory
+  });
+
+  const server = http.createServer(app);
+  await listen(server);
+  try {
+    const form = new FormData();
+    form.append('conversionKey', 'excel_to_pdf');
+    form.append('files', new Blob([Buffer.from('fake-excel')], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'report.xlsx');
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, {
+      method: 'POST',
+      headers: { cookie: 'pdf_converter_session=buyer-token-form-excel-1' },
+      body: form
+    });
+
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'report.pdf');
+  } finally {
+    await close(server);
+    fs.rmSync(uploadTempDirectory, { recursive: true, force: true });
+  }
+});
+
+test('POST /api/conversions/run forwards PPT conversion requests', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-form-ppt-1',
+    role: 'buyer',
+    codeId: 27,
+    codeValue: 'DEMO-USES-5',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+
+  const uploadTempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-upload-'));
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    conversionRepository: createNoopConversionRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() {
+        return [];
+      },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'ppt_to_pdf');
+        assert.equal(input.files[0].fileName, 'deck.pptx');
+        return {
+          conversionId: 63,
+          status: 'completed',
+          files: [
+            {
+              fileName: 'deck.pdf',
+              downloadUrl: '/api/downloads/conversions/63/deck.pdf'
+            }
+          ]
+        };
+      }
+    },
+    uploadTempDirectory
+  });
+
+  const server = http.createServer(app);
+  await listen(server);
+  try {
+    const form = new FormData();
+    form.append('conversionKey', 'ppt_to_pdf');
+    form.append('files', new Blob([Buffer.from('fake-ppt')], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }), 'deck.pptx');
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, {
+      method: 'POST',
+      headers: { cookie: 'pdf_converter_session=buyer-token-form-ppt-1' },
+      body: form
+    });
+
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'deck.pdf');
+  } finally {
+    await close(server);
+    fs.rmSync(uploadTempDirectory, { recursive: true, force: true });
+  }
+});
+
+test('POST /api/conversions/run forwards PDF-to-PPT conversion requests', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-form-pdf-to-ppt-1',
+    role: 'buyer',
+    codeId: 271,
+    codeValue: 'DEMO-USES-5',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+
+  const uploadTempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-upload-'));
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    conversionRepository: createNoopConversionRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() {
+        return [];
+      },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'pdf_to_pptx');
+        assert.equal(input.files[0].fileName, 'deck.pdf');
+        return {
+          conversionId: 631,
+          status: 'completed',
+          files: [
+            {
+              fileName: 'deck.pptx',
+              downloadUrl: '/api/downloads/conversions/631/deck.pptx'
+            }
+          ]
+        };
+      }
+    },
+    uploadTempDirectory
+  });
+
+  const server = http.createServer(app);
+  await listen(server);
+  try {
+    const form = new FormData();
+    form.append('conversionKey', 'pdf_to_pptx');
+    form.append('files', new Blob([Buffer.from('fake-pdf')], { type: 'application/pdf' }), 'deck.pdf');
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, {
+      method: 'POST',
+      headers: { cookie: 'pdf_converter_session=buyer-token-form-pdf-to-ppt-1' },
+      body: form
+    });
+
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'deck.pptx');
+  } finally {
+    await close(server);
+    fs.rmSync(uploadTempDirectory, { recursive: true, force: true });
+  }
+});
+
+test('POST /api/conversions/run forwards delete-pages options', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-form-delete-1',
+    role: 'buyer',
+    codeId: 28,
+    codeValue: 'DEMO-USES-5',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+
+  const uploadTempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-upload-'));
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    conversionRepository: createNoopConversionRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() { return []; },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'delete_pages_pdf');
+        assert.deepEqual(input.conversionOptions, { rangeText: '2,4' });
+        return {
+          conversionId: 64,
+          status: 'completed',
+          files: [{ fileName: 'storybook-deleted-pages.pdf', downloadUrl: '/api/downloads/conversions/64/storybook-deleted-pages.pdf' }]
+        };
+      }
+    },
+    uploadTempDirectory
+  });
+  const server = http.createServer(app);
+  await listen(server);
+  try {
+    const form = new FormData();
+    form.append('conversionKey', 'delete_pages_pdf');
+    form.append('conversionOptions', JSON.stringify({ rangeText: '2,4' }));
+    form.append('files', new Blob([Buffer.from('fake-pdf')], { type: 'application/pdf' }), 'storybook.pdf');
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, { method: 'POST', headers: { cookie: 'pdf_converter_session=buyer-token-form-delete-1' }, body: form });
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'storybook-deleted-pages.pdf');
+  } finally {
+    await close(server);
+    fs.rmSync(uploadTempDirectory, { recursive: true, force: true });
+  }
+});
+
+test('POST /api/conversions/run forwards reorder-pages options', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-form-reorder-1',
+    role: 'buyer',
+    codeId: 29,
+    codeValue: 'DEMO-USES-5',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+  const uploadTempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-upload-'));
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    conversionRepository: createNoopConversionRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() { return []; },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'reorder_pages_pdf');
+        assert.deepEqual(input.conversionOptions, { orderText: '3,1,2' });
+        return {
+          conversionId: 65,
+          status: 'completed',
+          files: [{ fileName: 'storybook-reordered.pdf', downloadUrl: '/api/downloads/conversions/65/storybook-reordered.pdf' }]
+        };
+      }
+    },
+    uploadTempDirectory
+  });
+  const server = http.createServer(app);
+  await listen(server);
+  try {
+    const form = new FormData();
+    form.append('conversionKey', 'reorder_pages_pdf');
+    form.append('conversionOptions', JSON.stringify({ orderText: '3,1,2' }));
+    form.append('files', new Blob([Buffer.from('fake-pdf')], { type: 'application/pdf' }), 'storybook.pdf');
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, { method: 'POST', headers: { cookie: 'pdf_converter_session=buyer-token-form-reorder-1' }, body: form });
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'storybook-reordered.pdf');
+  } finally {
+    await close(server);
+    fs.rmSync(uploadTempDirectory, { recursive: true, force: true });
+  }
+});
+
+test('POST /api/conversions/run forwards protect/unlock options', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-form-protect-1',
+    role: 'buyer',
+    codeId: 30,
+    codeValue: 'DEMO-USES-5',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+  const uploadTempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-upload-'));
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    conversionRepository: createNoopConversionRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() { return []; },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'protect_unlock_pdf');
+        assert.deepEqual(input.conversionOptions, {
+          mode: 'protect',
+          password: 'Abcd1234',
+          confirmPassword: 'Abcd1234'
+        });
+        return {
+          conversionId: 66,
+          status: 'completed',
+          files: [{ fileName: 'storybook-protected.pdf', downloadUrl: '/api/downloads/conversions/66/storybook-protected.pdf' }]
+        };
+      }
+    },
+    uploadTempDirectory
+  });
+  const server = http.createServer(app);
+  await listen(server);
+  try {
+    const form = new FormData();
+    form.append('conversionKey', 'protect_unlock_pdf');
+    form.append('conversionOptions', JSON.stringify({ mode: 'protect', password: 'Abcd1234', confirmPassword: 'Abcd1234' }));
+    form.append('files', new Blob([Buffer.from('fake-pdf')], { type: 'application/pdf' }), 'storybook.pdf');
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, { method: 'POST', headers: { cookie: 'pdf_converter_session=buyer-token-form-protect-1' }, body: form });
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'storybook-protected.pdf');
+  } finally {
+    await close(server);
+    fs.rmSync(uploadTempDirectory, { recursive: true, force: true });
+  }
+});
+
 test('POST /api/conversions/run returns a validation error for malformed payloads', async () => {
   const sessionRepository = createInMemorySessionRepository();
   sessionRepository.save({

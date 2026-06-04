@@ -11,6 +11,7 @@ function createApp(dependencies) {
     sessionRepository,
     conversionRepository,
     conversionService,
+    devToolsService,
     usageStatsRepository,
     jsonLimit = '50mb',
     uploadTempDirectory = path.join(__dirname, '..', 'data', 'upload-temp')
@@ -206,7 +207,7 @@ function createApp(dependencies) {
     });
   });
 
-  app.post('/api/conversions/run', upload.array('files', 20), async (request, response) => {
+  app.post('/api/conversions/run', upload.any(), async (request, response) => {
     const session = readAuthorizedSession(request, sessionRepository, 'buyer');
     if (!session) {
       cleanupUploadedFiles(request.files);
@@ -258,6 +259,51 @@ function createApp(dependencies) {
       response.status(error.statusCode || 500).json({
         ok: false,
         reason: error.reason || 'CONVERSION_FAILED',
+        message: error.message
+      });
+    }
+  });
+
+  app.post('/api/dev-tools/run', async (request, response) => {
+    const session = readAuthorizedSession(request, sessionRepository, 'buyer');
+    if (!session) {
+      response.status(401).json({
+        ok: false,
+        reason: 'UNAUTHORIZED'
+      });
+      return;
+    }
+
+    const input = normalizeDevToolRequest(request.body || {});
+    if (!isValidDevToolRequest(input)) {
+      response.status(400).json({
+        ok: false,
+        reason: 'INVALID_DEV_TOOL_REQUEST'
+      });
+      return;
+    }
+
+    try {
+      usageStatsRepository?.recordConversionStart({
+        codeId: session.codeId || null,
+        codeValue: session.codeValue || null,
+        conversionKey: input.toolKey
+      });
+
+      const result = await devToolsService.runTool({
+        session,
+        toolKey: input.toolKey,
+        toolOptions: input.toolOptions
+      });
+
+      response.json({
+        ok: true,
+        result
+      });
+    } catch (error) {
+      response.status(error.statusCode || 500).json({
+        ok: false,
+        reason: error.reason || 'DEV_TOOL_RUN_FAILED',
         message: error.message
       });
     }
@@ -442,6 +488,7 @@ function normalizeConversionRequest(input) {
           typeof file?.originalname === 'string'
             ? decodeMultipartFileName(file.originalname).trim()
             : '',
+        fieldName: typeof file?.fieldname === 'string' ? file.fieldname : 'files',
         tempPath: file.path,
         sizeBytes: file.size
       }))
@@ -462,6 +509,15 @@ function normalizeConversionRequest(input) {
   };
 }
 
+function normalizeDevToolRequest(body) {
+  return {
+    toolKey: typeof body?.toolKey === 'string' ? body.toolKey.trim() : '',
+    toolOptions: body?.toolOptions && typeof body.toolOptions === 'object' && !Array.isArray(body.toolOptions)
+      ? body.toolOptions
+      : {}
+  };
+}
+
 function isValidConversionRequest(input) {
   if (input.conversionOptionsInvalid) {
     return false;
@@ -472,6 +528,13 @@ function isValidConversionRequest(input) {
   }
 
   return input.files.every((file) => file.fileName && (file.contentBase64 || file.tempPath));
+}
+
+function isValidDevToolRequest(input) {
+  return Boolean(input.toolKey) &&
+    Boolean(input.toolOptions) &&
+    typeof input.toolOptions === 'object' &&
+    !Array.isArray(input.toolOptions);
 }
 
 function buildUploadedFileName(originalName) {

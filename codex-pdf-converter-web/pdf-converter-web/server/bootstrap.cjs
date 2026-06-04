@@ -5,6 +5,8 @@ const { DatabaseSync } = require('node:sqlite');
 const { createApp } = require('./app.cjs');
 const { createAuthService } = require('./services/authService.cjs');
 const { createConversionService } = require('./services/conversionService.cjs');
+const { createDevToolsService } = require('./services/devToolsService.cjs');
+const { createMediaToolsService } = require('./services/mediaToolsService.cjs');
 const { createRedemptionCodeService } = require('./services/redemptionCodeService.cjs');
 
 function bootstrapApplication(config) {
@@ -42,6 +44,13 @@ function bootstrapApplication(config) {
     ghostscriptBin: config.ghostscriptBin,
     ocrmypdfBin: config.ocrmypdfBin
   });
+  const devToolsService = createDevToolsService();
+  const mediaToolsService = createMediaToolsService({
+    conversionRepository,
+    storageRoot: path.join(__dirname, '..', 'data'),
+    ffmpegBin: config.ffmpegBin,
+    pythonBin: config.pythonBin
+  });
 
   return createApp({
     authService,
@@ -50,6 +59,8 @@ function bootstrapApplication(config) {
     sessionRepository,
     conversionRepository,
     conversionService,
+    devToolsService,
+    mediaToolsService,
     usageStatsRepository
   });
 }

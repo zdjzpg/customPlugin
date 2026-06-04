@@ -11,8 +11,13 @@
     "test": "node --test tests/*.test.cjs"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "clean-css": "^5.3.3",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
+    "html-minifier-terser": "^7.2.0",
+    "js-beautify": "^1.15.4",
+    "terser": "^5.43.1",
     "multer": "^2.0.2"
   }
 }

@@ -40,11 +40,12 @@ This installs:
 The install script also runs:
 
 ```bash
-sudo python3 -m pip install pypdf pdf2docx ocrmypdf
+sudo python3 -m pip install pypdf pdf2docx ocrmypdf pymupdf python-pptx
 ```
 
 This is required by:
 
+- `PDF 转 PPT`
 - `PDF 转 Word`
 - `PDF 提取页面`
 - `拆分 PDF`
@@ -132,6 +133,7 @@ Then verify in browser:
 - buyer can use a code to log in
 - `Images -> PDF` works
 - `PDF -> Images` works
+- `PDF 转 PPT` works
 - `PDF 转 Word` works
 - `PDF 压缩` works
 - `PDF 提取页面` works

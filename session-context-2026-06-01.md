@@ -354,3 +354,641 @@ Post-update verification should additionally confirm:
 - homepage shows overview cards instead of direct upload forms
 - desktop homepage shows three cards per row
 - both new PDF flows work end-to-end online
+
+## 2026-06-03 Latest Progress Update
+
+### More buyer-facing PDF tools completed
+
+The product now also supports:
+
+- PDF to Word
+- delete PDF pages
+- reorder PDF pages
+- protect/unlock PDF
+- PDF merge
+- PDF compress
+- PDF watermark
+- PDF page numbers
+- PDF sign / stamp
+- PDF rotate pages
+
+Behavior details:
+
+- `PDF to Word`
+  - `no_ocr` mode for text PDFs
+  - `ocr` mode for scanned/image PDFs
+  - OCR language options:
+    - `chi_sim+eng`
+    - `chi_sim`
+    - `eng`
+- `PDF merge`
+  - upload multiple PDFs
+  - reorder before merge
+  - outputs one merged PDF
+- `delete PDF pages`
+  - supports page-range input
+  - supports thumbnail selection
+  - outputs one new PDF
+- `reorder PDF pages`
+  - supports page-order input
+  - supports thumbnail reorder
+  - supports up/down controls
+  - outputs one new PDF
+- `protect/unlock PDF`
+  - one tool with two modes:
+    - protect
+    - unlock
+  - protect uses:
+    - password
+    - confirm password
+  - unlock uses:
+    - original password
+- `PDF compress`
+  - `标准压缩`
+  - `强力压缩`
+  - result shows size comparison
+- `PDF watermark`
+  - text watermark
+  - image watermark
+  - whole-document unified config
+- `PDF page numbers`
+  - whole-document unified numbering
+  - footer center / bottom-right
+  - start page number
+  - `1` / `第 1 页`
+- `PDF sign / stamp`
+  - uploaded image
+  - drawn signature
+  - center / bottom-left / bottom-right
+- `PDF rotate pages`
+  - whole-document rotation
+  - `90° / 180° / 270°`
+
+### Buyer UI update
+
+Buyer UI is no longer only a responsive resize of one layout.
+
+Current device-specific behavior:
+
+- desktop:
+  - current overview + detail style remains
+- mobile:
+  - dedicated single-column large-card toolbox
+  - full-screen detail page feel
+  - dedicated `返回工具列表`
+  - no large homepage hero inside detail page
+
+### Current public-facing copy direction
+
+Current preferred buyer-facing title direction:
+
+- `PDF 处理工具丨转 Word / 合并 / 拆分 / 压缩 / 加水印`
+
+Current preferred subtitle direction:
+
+- `常用文件处理一站完成，网页打开即用`
+
+Current first-screen copy should be maintained in sync with actual buyer-facing features.
+
+Latest Xianyu-facing copy candidate:
+
+- title:
+  - `PDF / Office 文件处理工具丨转 Word / 合并 / 压缩 / 加水印 / 页码 / 签章`
+- subtitle:
+  - `常用文件处理一站完成，网页打开即用`
+- first-screen copy:
+  - `这是一个专门做 PDF / Word / Excel / PPT 文件处理的在线工具。`
+  - `不需要安装复杂软件，打开网页即可使用，适合日常办公、资料整理、教学文件处理。`
+
+At the current stage, public copy should mention:
+
+- `PDF 转 Word`
+- `Word 转 PDF`
+- `Excel 转 PDF`
+- `PPT 转 PDF`
+- `PDF 合并`
+- `PDF 拆分`
+- `PDF 提取页面`
+- `PDF 删除页面`
+- `PDF 调整页面顺序`
+- `PDF 压缩`
+- `PDF 加水印`
+- `PDF 加页码`
+- `PDF 签名/盖章`
+- `PDF 旋转页面`
+- `PDF 转图片`
+- `图片转 PDF`
+- `PDF 保护 / 解锁`
+
+### 2026-06-04 Latest Xianyu Copy Update
+
+Current latest recommended Xianyu-facing copy is now:
+
+- title:
+  - `PDF / Office 文件处理工具丨转 Word / 转 PPT / 合并 / 压缩 / 加水印 / 页码 / 签章`
+- subtitle:
+  - `常用文件处理一站完成，网页打开即用`
+- first-screen copy:
+  - `这是一个专门做 PDF / Word / Excel / PPT 文件处理的在线工具。`
+  - `不需要安装复杂软件，打开网页即可使用，适合日常办公、资料整理、教学文件处理。`
+
+Current recommended selling-point copy:
+
+- `支持 PDF 转 Word、PDF 转 PPT、Word 转 PDF、Excel 转 PDF、PPT 转 PDF。`
+- `也支持 PDF 合并、拆分、提取页面、删除页面、调整顺序、压缩、加水印、加页码、签名盖章、旋转页面、保护/解锁。`
+- `常见文件处理集中在一个网页里完成，省去安装和找软件的麻烦。`
+
+Current recommended short detail-page description:
+
+- `适合日常办公和资料整理。`
+- `文本类 PDF 可转成可继续修改的 Word / PPT；复杂排版文件会有少量偏差，扫描件可继续配合 OCR 处理。`
+
+Current recommended short Xianyu listing body:
+
+- `在线 PDF / Office 文件处理工具，网页打开即用。`
+- `支持 PDF 转 Word、PDF 转 PPT、Word/Excel/PPT 转 PDF。`
+- `支持 PDF 合并、拆分、提取页面、删除页面、调整顺序、压缩、加水印、加页码、签名/盖章、旋转页面、保护/解锁。`
+- `适合办公文档、教学资料、日常文件整理。`
+
+### Additional runtime notes
+
+Current newer runtime pieces already used by later features include:
+
+- `pdf2docx`
+- `ocrmypdf`
+- `ghostscript`
+- `tesseract-ocr`
+- `tesseract-ocr-chi-sim`
+- `tesseract-ocr-eng`
+
+### Current local verification status
+
+By now, the local browser self-tests have covered:
+
+- delete PDF pages
+- reorder PDF pages
+- protect/unlock PDF
+- PDF extract pages
+- split PDF
+- PDF merge
+- PDF compress
+- PDF to Word
+- PDF watermark
+- PDF page numbers
+- PDF sign / stamp
+- PDF rotate pages
+- mobile buyer UI
+
+### Current admin stats rule
+
+The admin statistics panel now exists inside the current admin backend.
+
+Current rule:
+
+- one count is recorded only when buyer clicks `开始转换`
+- opening detail pages does not count
+- stats are grouped by day
+- stats show Chinese feature names in admin UI
+- filters support:
+  - today
+  - yesterday
+  - last 7 days
+  - last 30 days
+  - custom date range
+
+## 2026-06-03 PDF to PPTX Follow-up
+
+### New buyer-facing feature completed
+
+The product now also supports:
+
+- PDF to PPTX
+
+Behavior details:
+
+- `PDF to PPTX`
+  - pure open-source implementation
+  - `1 page PDF = 1 PPT slide`
+  - text PDFs:
+    - extract text blocks into editable text boxes when possible
+    - extract page images when possible
+  - scanned PDFs:
+    - if `ocrmypdf` is configured, run OCR first and then generate PPTX
+    - if OCR is unavailable or a page cannot be reconstructed cleanly, the page can fall back to a full-page screenshot inside the slide
+  - current product promise:
+    - editable content is preferred
+    - complex layout fidelity is not guaranteed
+
+### Implementation direction chosen
+
+The previously considered commercial-library route was rejected.
+
+Current implementation uses:
+
+- `PyMuPDF`
+- `python-pptx`
+- existing `ocrmypdf` pipeline when available
+
+### Current public-facing copy note
+
+Current buyer-facing helper text for this tool is aligned to the actual capability boundary:
+
+- `适合把常见 PDF 内容快速整理成可修改 PPT，复杂排版可能会有偏差。`
+
+Do not market this feature as high-fidelity layout restoration at the current stage.
+
+### Additional runtime notes
+
+Current newer runtime pieces now also include:
+
+- `pymupdf`
+- `python-pptx`
+
+### Current local verification status
+
+Additional local verification was completed after implementation:
+
+- full Node test suite passed
+  - count at completion time: `103/103`
+- real browser self-test was run locally against a temporary local port `3025`
+
+Real browser self-test results:
+
+- buyer login worked
+- `PDF 转 PPT` detail page opened correctly
+- text PDF:
+  - upload + convert + download passed end-to-end
+  - downloaded PPTX was inspected
+  - slide count and extracted text matched expectations
+- scanned PDF:
+  - upload + convert + download passed end-to-end
+  - downloaded PPTX contained a slide image fallback
+
+Important local limitation discovered during this round:
+
+- the local environment did not have:
+  - `OCRMYPDF_BIN`
+  - reachable `ocrmypdf` command
+- because of that, the real browser self-test did **not** verify scanned-PDF editable text reconstruction
+- the scanned-PDF browser result verified the current fallback path, not real OCR output quality
+
+### Server update note for this round
+
+This round is also a mixed change.
+
+It requires:
+
+- backend conversion logic
+- Python runtime dependency update
+- buyer tool catalog exposure
+- admin label mapping update
+
+Current server-side extra dependencies required by the new feature:
+
+- `pymupdf`
+- `python-pptx`
+
+Recommended server command after upload:
+
+```bash
+cd /home/admin/pdf-converter-web
+sudo python3 -m pip install pymupdf python-pptx
+pm2 restart ecosystem.config.cjs --only pdf-converter-web --update-env
+```
+
+Post-update verification should additionally confirm:
+
+- `/api/conversions/catalog` contains:
+  - `pdf_to_pptx`
+- buyer homepage shows the `PDF 转 PPT` tool card
+- text-PDF to PPTX works end-to-end online
+- if OCR is configured online, scanned-PDF to PPTX should additionally be checked with a real scan sample
+
+## 2026-06-04 Text Tools And Homepage Productization Update
+
+### New buyer-facing category and feature line completed
+
+The product now also supports:
+
+- 文本工具
+
+Current completed text-tool batches are now:
+
+1. 高频文本处理
+- 文本去重
+- 删除空行
+- 删除所有空格
+- 批量替换
+- 字符数统计
+- 英文大小写转换
+
+2. 提取与筛选
+- 链接提取
+- 邮箱提取
+- 手机号提取
+- 域名提取
+- IP 提取
+- 数字提取
+
+3. 列表与表格辅助
+- 文本转列表
+- 列表转文本
+- 列表排序
+- 列表随机打乱
+- 列表重复统计
+- 列表前后缀添加
+- 列表截取左边字符
+- 列表截取右边字符
+
+4. 高级与长尾
+- 正则提取
+- Unicode 编解码
+- 金额大写转换
+- 中英文符号转换
+- 通用违禁词检测
+- UUID 生成
+
+### Buyer homepage productization completed
+
+The following bullets describe the state of the product at that round, before the later `编程工具` line and later buyer list cleanup were completed.
+
+The buyer homepage is no longer only a single file-tool listing.
+
+At that stage, the buyer homepage included:
+
+- homepage category cards:
+  - `PPT 工具`
+  - `文本工具`
+- full-site search across both categories
+- grouped text-tool presentation inside `文本工具`
+
+At that stage, the text-tool grouped sections were:
+
+- `高频文本处理`
+- `提取与筛选`
+- `列表与表格辅助`
+- `高级与长尾`
+
+Current buyer-facing brand in the product UI is now:
+
+- `PP 工具站`
+
+Current homepage short description direction is now:
+
+- `文件处理与文本处理一站完成`
+
+### Local verification status at that round
+
+Additional local verification was completed after the text-tool line and homepage organization were added:
+
+- full Node test suite passed
+  - count at completion time: `144/144`
+
+Real browser self-tests additionally covered:
+
+- homepage category cards for:
+  - `PPT 工具`
+  - `文本工具`
+- full-site search across both categories
+- `文本去重`
+  - input / output
+  - detail-page refresh persistence
+- `链接提取`
+  - input / output
+- `列表排序`
+  - input / output
+- `正则提取`
+  - input / output
+
+### Server update note for this round
+
+This round is mainly buyer-side frontend productization plus local text-tool runtime.
+
+It requires:
+
+- buyer UI update
+- new local text-tool modules
+- category exposure update
+- search behavior update
+
+Current update classification for this round:
+
+- mostly `frontend only`
+
+Recommended server command after upload:
+
+```bash
+cd /home/admin/pdf-converter-web
+pm2 restart ecosystem.config.cjs --only pdf-converter-web --update-env
+```
+
+Post-update verification should additionally confirm:
+
+- buyer homepage shows:
+  - `PPT 工具`
+  - `文本工具`
+- buyer search can find text tools across categories
+- `文本工具` category shows grouped sections
+- at least these text tools work online:
+  - `文本去重`
+  - `链接提取`
+  - `列表排序`
+  - `正则提取`
+
+## 2026-06-04 编程工具与列表样式更新
+
+### 新买家端类目已完成
+
+产品现在已经新增第三个一级类目：
+
+- `编程工具`
+
+当前 buyer 首页类目现状：
+
+- `PPT 工具`
+- `文本工具`
+- `编程工具`
+
+当前搜索现状：
+
+- 全站搜索同时覆盖以上三个类目
+
+### 当前已完成的编程工具批次
+
+当前已完成并接入 buyer 端的编程工具，覆盖本地前端工具、轻后端抓取工具、网络检测工具。
+
+#### 本地前端工具
+
+- Base64 加解密
+- 中文转 Unicode
+- Unicode 还原
+- 半角转全角
+- 全角转半角
+- 文本转十进制 Unicode
+- URL 编解码
+- Basic Auth 凭证计算
+- md5 加密
+- md5 批量加密
+- 字符串哈希/散列
+- 时间戳转换
+- Crontab 解析
+- 任意进制转换
+- 文本转进制
+- 进制转文本
+- HTML 转 JS 字符串
+- HTML 标签去除
+- 回车转 BR 标签
+- SVG 转 DataURI
+- HTML 实体编解码
+- HTTP 头转 JSON
+- Cookie 转 JSON
+- JSON 格式化
+- 列表转 JSON
+- JSON 转列表
+- JSON 字段提取
+- JSON 字符串值转数值
+- JSON 数值转字符串
+- UUID 生成器
+- 浏览器 UA 查询
+- 设备屏幕参数检测
+- URL 转 sitemap
+- Robots 生成
+- HTML 预览
+
+#### 轻后端抓取工具
+
+- sitemap 链接提取
+- 网页链接提取
+- 网页 meta 信息检测
+- 网页 TDK 信息检测
+- 网页关键词密度检测
+- 网页蜘蛛模拟抓取
+- SSL 证书解析
+
+#### 网络检测工具
+
+- 网站 SSL 证书检测
+- SSL 证书过期查询
+- 网页 gzip 压缩检测
+- 网页 brotli 压缩检测
+- URL 重定向分析
+- 域名 whois 查询
+- 网站 CDN 检测
+
+### 当前 buyer 列表页规则已变更
+
+当前列表页规则不再沿用之前的文本工具分组方式。
+
+当前规则：
+
+- `文本工具` 不再显示：
+  - `高频文本处理`
+  - `提取与筛选`
+  - `列表与表格辅助`
+  - `高级与长尾`
+- `文本工具` 与 `编程工具` 一样直接平铺工具卡
+- 正文区域不再重复渲染首页类目卡
+- 左侧菜单顶部的 `工具分类` 文案已移除
+
+### 当前工具卡视觉与交互规则
+
+当前 buyer 工具卡已更新为更接近 `uutool` 的风格：
+
+- 每张卡有浅色渐变背景
+- 不同卡片按 tone 使用不同淡彩色板
+- 标题与 badge 现在在同一行：
+  - 标题靠左
+  - badge 靠右
+- 卡片高度已压缩并统一
+- 标题限制为两行
+- 描述限制为两行
+- 卡片底部重复的小标签已删除
+- `查看详情` 按钮已删除
+- 当前规则改为：
+  - 整张卡片可点击进入详情页
+  - 键盘 `Enter` / 空格也可打开详情页
+
+### 当前类目图标规则
+
+当前 buyer 端一级类目图标已不再使用首字母占位。
+
+当前规则：
+
+- `PPT 工具`
+- `文本工具`
+- `编程工具`
+
+都已经改成 SVG 图标显示。
+
+### 当前自动化与真实页面验证状态
+
+本轮新增编程工具与 buyer UI 调整后，自动化与真实页面自测都已继续补齐。
+
+当前全量自动化状态：
+
+- Node 全量测试通过
+- latest count at completion time:
+  - `221/221`
+
+当前真实页面自测已覆盖：
+
+- 编程工具首页卡片进入详情
+- Base64 加解密
+- 网站 SSL 证书检测
+- JSON 字段提取
+- 文本去重
+- 移动端类目进入与文本工具回归
+- md5 加密
+- URL 转 sitemap
+- Robots 生成
+- 浏览器 UA 查询
+- 设备屏幕参数检测
+- SSL 证书过期查询
+- Basic Auth 凭证计算
+- HTML 预览
+- SSL 证书解析
+- 域名 whois 查询
+- 网站 CDN 检测
+- 网页 meta 信息检测
+- 网页关键词密度检测
+- 当前工具卡整卡点击效果
+- 当前卡片高度与 title/badge 排版效果
+
+### 当前未完成范围
+
+当前 `https://uutool.cn/type/code/` 还没有做到完全搬完。
+
+仍未完成或未确认完成的方向包括：
+
+- `ICP备案查询`
+- `ICP备案批量查询`
+- `ICP备案反查`
+- `Nslookup 查询`
+- `SSL 证书链下载`
+- `批量请求`
+- `API 批量请求`
+- `死链检测`
+- `多节点 IP 检测`
+- `IP 地址获取主机名`
+- `浏览器指纹检测`
+- `PHP password_hash`
+- `JSON 转 CSV`
+- `JSON 转 PHP`
+- `JS 对象转 JSON`
+- `JSON 转 JS 对象`
+- `JSON 合并`
+- `JSON 键值对提取`
+- `RSA 密钥对生成`
+- `JS 美化压缩`
+- `CSS 美化压缩`
+- `HTML 美化压缩`
+- `CSS/JS 清除`
+- 其它依赖更重数据源或更重运行时的长尾工具
+
+### 当前推荐下一步
+
+如果继续搬运 `uutool` 编程页，当前最自然的下一步是：
+
+1. 做 `ICP备案查询 / 批量查询 / 备案反查`
+2. 做 `Nslookup / IP反查主机名 / 死链检测`
+3. 做 `JSON/CSV/PHP/JS 对象互转` 与 `RSA / 代码美化压缩`

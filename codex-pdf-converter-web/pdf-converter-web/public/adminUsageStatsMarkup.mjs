@@ -62,13 +62,28 @@ function escapeHtml(value) {
 function formatConversionKey(conversionKey) {
   const labels = {
     word_to_pdf: 'Word 转 PDF',
+    pdf_to_pptx: 'PDF 转 PPT',
     pdf_to_word: 'PDF 转 Word',
     pdf_to_images: 'PDF 转图片',
     images_to_pdf: '图片转 PDF',
     merge_pdf: 'PDF 合并',
     compress_pdf: 'PDF 压缩',
     pdf_extract_pages: 'PDF 提取页面',
-    split_pdf: '拆分 PDF'
+    split_pdf: '拆分 PDF',
+    dev_sitemap_extract: 'sitemap 链接提取',
+    dev_html_link_extract: '网页链接提取',
+    dev_ssl_check: '网站 SSL 证书检测',
+    dev_ssl_expiry_check: 'SSL 证书过期查询',
+    dev_ssl_cert_parse: 'SSL 证书解析',
+    dev_gzip_check: '网页 gzip 压缩检测',
+    dev_brotli_check: '网页 brotli 压缩检测',
+    dev_redirect_analysis: 'URL 重定向分析',
+    dev_whois_lookup: '域名 whois 查询',
+    dev_cdn_check: '网站 CDN 检测',
+    dev_meta_info_check: '网页 meta 信息检测',
+    dev_tdk_check: '网页 TDK 信息检测',
+    dev_keyword_density_check: '网页关键词密度检测',
+    dev_spider_preview: '网页蜘蛛模拟抓取'
   };
 
   return labels[conversionKey] || conversionKey;

@@ -47,7 +47,7 @@ test('catalog exposes doc and docx Word conversion when LibreOffice is available
   });
 });
 
-test('catalog exposes PDF to Word, merge, compression, extract-pages, and split tools', () => {
+test('catalog exposes current office/pdf toolset including delete/reorder/protect tools', () => {
   const conversionService = createConversionService({
     conversionRepository: createNoopConversionRepository(),
     storageRoot: os.tmpdir(),
@@ -58,11 +58,76 @@ test('catalog exposes PDF to Word, merge, compression, extract-pages, and split 
 
   const catalog = conversionService.getCatalog();
 
-  const targetedCatalog = catalog.filter((item) =>
-    ['pdf_to_word', 'merge_pdf', 'compress_pdf', 'pdf_extract_pages', 'split_pdf'].includes(item.key)
-  );
+  const orderedKeys = [
+    'delete_pages_pdf',
+    'reorder_pages_pdf',
+    'protect_unlock_pdf',
+    'excel_to_pdf',
+    'ppt_to_pdf',
+    'pdf_to_pptx',
+    'pdf_to_word',
+    'watermark_pdf',
+    'add_page_numbers_pdf',
+    'sign_stamp_pdf',
+    'rotate_pdf',
+    'merge_pdf',
+    'compress_pdf',
+    'pdf_extract_pages',
+    'split_pdf'
+  ];
+  const targetedCatalog = orderedKeys
+    .map((key) => catalog.find((item) => item.key === key))
+    .filter(Boolean);
 
   assert.deepEqual(targetedCatalog, [
+    {
+      key: 'delete_pages_pdf',
+      label: '删除 PDF 页面',
+      status: 'available',
+      accepts: '.pdf',
+      maxFileSizeMb: 30,
+      helperText: '支持页码输入和缩略图选择删除页面。'
+    },
+    {
+      key: 'reorder_pages_pdf',
+      label: '调整 PDF 页面顺序',
+      status: 'available',
+      accepts: '.pdf',
+      maxFileSizeMb: 30,
+      helperText: '支持页码输入和缩略图拖拽调整页面顺序。'
+    },
+    {
+      key: 'protect_unlock_pdf',
+      label: '保护 PDF / 解锁 PDF',
+      status: 'available',
+      accepts: '.pdf',
+      maxFileSizeMb: 30,
+      helperText: '支持设置打开密码，或输入已有密码后解锁 PDF。'
+    },
+    {
+      key: 'excel_to_pdf',
+      label: 'Excel 转 PDF',
+      status: 'available',
+      accepts: '.xlsx,.xls',
+      maxFileSizeMb: 20,
+      helperText: '支持 Excel 表格转 PDF，复杂分页按实际导出结果为准。'
+    },
+    {
+      key: 'ppt_to_pdf',
+      label: 'PPT 转 PDF',
+      status: 'available',
+      accepts: '.ppt,.pptx',
+      maxFileSizeMb: 30,
+      helperText: '支持 PPT 演示文稿转 PDF，动画和切换效果不保留。'
+    },
+    {
+      key: 'pdf_to_pptx',
+      label: 'PDF 转 PPT',
+      status: 'available',
+      accepts: '.pdf',
+      maxFileSizeMb: 30,
+      helperText: '适合把常见 PDF 内容快速整理成可修改 PPT，复杂排版可能会有偏差。'
+    },
     {
       key: 'pdf_to_word',
       label: 'PDF 转 Word',
@@ -70,6 +135,38 @@ test('catalog exposes PDF to Word, merge, compression, extract-pages, and split 
       accepts: '.pdf',
       maxFileSizeMb: 30,
       helperText: '支持文本型 PDF 直接转 Word，也支持 OCR 识别扫描件后导出 Word。'
+    },
+    {
+      key: 'watermark_pdf',
+      label: 'PDF 加水印',
+      status: 'available',
+      accepts: '.pdf',
+      maxFileSizeMb: 30,
+      helperText: '支持整份 PDF 添加文字水印或图片水印。'
+    },
+    {
+      key: 'add_page_numbers_pdf',
+      label: 'PDF 加页码',
+      status: 'available',
+      accepts: '.pdf',
+      maxFileSizeMb: 30,
+      helperText: '支持整份 PDF 统一添加页码。'
+    },
+    {
+      key: 'sign_stamp_pdf',
+      label: 'PDF 签名 / 盖章',
+      status: 'available',
+      accepts: '.pdf',
+      maxFileSizeMb: 30,
+      helperText: '支持上传签名图片或手写签名后整份统一盖章。'
+    },
+    {
+      key: 'rotate_pdf',
+      label: 'PDF 旋转页面',
+      status: 'available',
+      accepts: '.pdf',
+      maxFileSizeMb: 30,
+      helperText: '支持整份 PDF 统一旋转 90°、180°、270°。'
     },
     {
       key: 'merge_pdf',
@@ -105,6 +202,490 @@ test('catalog exposes PDF to Word, merge, compression, extract-pages, and split 
       helperText: '按范围拆成多个 PDF，并统一打包为 ZIP 下载。'
     }
   ]);
+});
+
+test('delete_pages_pdf removes selected pages and keeps the rest in original order', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputPdfPath = path.join(tempRoot, 'storybook.pdf');
+  writePdfFixture(inputPdfPath, ['page 1', 'page 2', 'page 3', 'page 4']);
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      conversionKey: 'delete_pages_pdf',
+      conversionOptions: {
+        rangeText: '2,4'
+      },
+      files: [
+        {
+          fileName: 'storybook.pdf',
+          tempPath: inputPdfPath
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'storybook-deleted-pages.pdf');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'storybook-deleted-pages.pdf');
+    assert.deepEqual(readPdfPageTexts(outputPath), ['page 1', 'page 3']);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('reorder_pages_pdf writes a new PDF in the requested order', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputPdfPath = path.join(tempRoot, 'storybook.pdf');
+  writePdfFixture(inputPdfPath, ['page 1', 'page 2', 'page 3']);
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      conversionKey: 'reorder_pages_pdf',
+      conversionOptions: {
+        orderText: '3,1,2'
+      },
+      files: [
+        {
+          fileName: 'storybook.pdf',
+          tempPath: inputPdfPath
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'storybook-reordered.pdf');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'storybook-reordered.pdf');
+    assert.deepEqual(readPdfPageTexts(outputPath), ['page 3', 'page 1', 'page 2']);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('protect_unlock_pdf can protect a PDF with an open password and later unlock it', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputPdfPath = path.join(tempRoot, 'storybook.pdf');
+  writePdfFixture(inputPdfPath, ['page 1']);
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN
+  });
+
+  try {
+    const protectedResult = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      conversionKey: 'protect_unlock_pdf',
+      conversionOptions: {
+        mode: 'protect',
+        password: 'Abcd1234',
+        confirmPassword: 'Abcd1234'
+      },
+      files: [
+        {
+          fileName: 'storybook.pdf',
+          tempPath: inputPdfPath
+        }
+      ]
+    });
+
+    const protectedPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'storybook-protected.pdf');
+    assert.equal(protectedResult.files[0].fileName, 'storybook-protected.pdf');
+    assert.equal(readPdfEncryptionState(protectedPath).encrypted, true);
+
+    const unlockedInputPath = path.join(tempRoot, 'locked.pdf');
+    fs.copyFileSync(protectedPath, unlockedInputPath);
+
+    const unlockedResult = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      conversionKey: 'protect_unlock_pdf',
+      conversionOptions: {
+        mode: 'unlock',
+        password: 'Abcd1234'
+      },
+      files: [
+        {
+          fileName: 'locked.pdf',
+          tempPath: unlockedInputPath
+        }
+      ]
+    });
+
+    const unlockedPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'locked-unlocked.pdf');
+    assert.equal(unlockedResult.files[0].fileName, 'locked-unlocked.pdf');
+    assert.equal(readPdfEncryptionState(unlockedPath).encrypted, false);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('excel_to_pdf writes a PDF output file using LibreOffice conversion', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputExcelPath = path.join(tempRoot, 'report.xlsx');
+  fs.writeFileSync(inputExcelPath, Buffer.from('fake-excel'));
+  const fakeLibreOfficePath = writeFakeLibreOffice(tempRoot);
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN,
+    libreOfficeBin: fakeLibreOfficePath
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      conversionKey: 'excel_to_pdf',
+      files: [
+        {
+          fileName: 'report.xlsx',
+          tempPath: inputExcelPath
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'report.pdf');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'report.pdf');
+    assert.equal(fs.existsSync(outputPath), true);
+    assert.match(fs.readFileSync(outputPath).toString('utf8', 0, 4), /^%PDF/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('ppt_to_pdf writes a PDF output file using LibreOffice conversion', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputPptPath = path.join(tempRoot, 'deck.pptx');
+  fs.writeFileSync(inputPptPath, Buffer.from('fake-ppt'));
+  const fakeLibreOfficePath = writeFakeLibreOffice(tempRoot);
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN,
+    libreOfficeBin: fakeLibreOfficePath
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      conversionKey: 'ppt_to_pdf',
+      files: [
+        {
+          fileName: 'deck.pptx',
+          tempPath: inputPptPath
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'deck.pdf');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'deck.pdf');
+    assert.equal(fs.existsSync(outputPath), true);
+    assert.match(fs.readFileSync(outputPath).toString('utf8', 0, 4), /^%PDF/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('pdf_to_pptx writes an editable PPTX from a text PDF', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputPdfPath = path.join(tempRoot, 'notes.pdf');
+  writePdfFixture(inputPdfPath, ['Hello PPT', 'Second slide text']);
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      conversionKey: 'pdf_to_pptx',
+      files: [
+        {
+          fileName: 'notes.pdf',
+          tempPath: inputPdfPath
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'notes.pptx');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'notes.pptx');
+    assert.deepEqual(readPptxSlideTexts(outputPath), ['Hello PPT', 'Second slide text']);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('pdf_to_pptx can use OCR fallback when the source PDF has no extractable text', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputPdfPath = path.join(tempRoot, 'scan.pdf');
+  writeImageOnlyPdfFixture(inputPdfPath, 'OCR source');
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN,
+    ocrmypdfBin: writeFakeOcrmypdfWithTextOutput(tempRoot, 'Recovered OCR text')
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      conversionKey: 'pdf_to_pptx',
+      files: [
+        {
+          fileName: 'scan.pdf',
+          tempPath: inputPdfPath
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'scan.pptx');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'scan.pptx');
+    assert.deepEqual(readPptxSlideTexts(outputPath), ['Recovered OCR text']);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('add_page_numbers_pdf writes a new PDF with page numbers', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputPdfPath = path.join(tempRoot, 'storybook.pdf');
+  writePdfFixture(inputPdfPath, ['storybook page 1', 'storybook page 2']);
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      conversionKey: 'add_page_numbers_pdf',
+      conversionOptions: {
+        pageNumberPosition: 'footer_center',
+        pageNumberStart: 3,
+        pageNumberFormat: 'cn_page'
+      },
+      files: [
+        {
+          fileName: 'storybook.pdf',
+          tempPath: inputPdfPath
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'storybook-numbered.pdf');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'storybook-numbered.pdf');
+    assert.equal(fs.existsSync(outputPath), true);
+    const extractedTexts = readPdfPageTexts(outputPath);
+    assert.match(extractedTexts[0], /storybook page 1/);
+    assert.match(extractedTexts[0], /3/);
+    assert.match(extractedTexts[1], /4/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('sign_stamp_pdf writes a new PDF with a fixed-position uploaded stamp image', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputPdfPath = path.join(tempRoot, 'storybook.pdf');
+  const stampImagePath = path.join(tempRoot, 'stamp.png');
+  writePdfFixture(inputPdfPath, ['storybook page 1']);
+  fs.writeFileSync(
+    stampImagePath,
+    Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7ZLzQAAAAASUVORK5CYII=', 'base64')
+  );
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      conversionKey: 'sign_stamp_pdf',
+      conversionOptions: {
+        stampSourceType: 'image',
+        stampPosition: 'bottom_right',
+        stampScalePercent: 35,
+        opacity: 0.4
+      },
+      files: [
+        {
+          fileName: 'storybook.pdf',
+          tempPath: inputPdfPath,
+          fieldName: 'files'
+        },
+        {
+          fileName: 'stamp.png',
+          tempPath: stampImagePath,
+          fieldName: 'stampImage'
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'storybook-signed.pdf');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'storybook-signed.pdf');
+    assert.equal(fs.existsSync(outputPath), true);
+    assert.ok(fs.statSync(outputPath).size > 0);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('rotate_pdf writes a new PDF with every page rotated by the selected angle', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputPdfPath = path.join(tempRoot, 'storybook.pdf');
+  writePdfFixture(inputPdfPath, ['storybook page 1', 'storybook page 2']);
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      conversionKey: 'rotate_pdf',
+      conversionOptions: {
+        rotationAngle: 90
+      },
+      files: [
+        {
+          fileName: 'storybook.pdf',
+          tempPath: inputPdfPath
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'storybook-rotated.pdf');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'storybook-rotated.pdf');
+    assert.equal(fs.existsSync(outputPath), true);
+    assert.deepEqual(readPdfRotations(outputPath), [90, 90]);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('watermark_pdf writes a new PDF with tiled text watermark settings', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputPdfPath = path.join(tempRoot, 'storybook.pdf');
+  writePdfFixture(inputPdfPath, ['storybook page 1', 'storybook page 2']);
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: {
+        codeId: 9,
+        codeValue: 'DEMO-USES-5'
+      },
+      conversionKey: 'watermark_pdf',
+      conversionOptions: {
+        watermarkType: 'text',
+        textLayout: 'tile',
+        textContent: '仅供内部使用',
+        fontSize: 26,
+        opacity: 0.18,
+        rotation: -32
+      },
+      files: [
+        {
+          fileName: 'storybook.pdf',
+          tempPath: inputPdfPath
+        }
+      ]
+    });
+
+    assert.equal(result.files.length, 1);
+    assert.equal(result.files[0].fileName, 'storybook-watermarked.pdf');
+
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'storybook-watermarked.pdf');
+    assert.equal(fs.existsSync(outputPath), true);
+    const extractedTexts = readPdfPageTexts(outputPath);
+    assert.match(extractedTexts[0], /storybook page 1/);
+    assert.match(extractedTexts[1], /storybook page 2/);
+    assert.ok(fs.statSync(outputPath).size > 0);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('watermark_pdf writes a new PDF with fixed-position image watermark settings', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputPdfPath = path.join(tempRoot, 'storybook.pdf');
+  const watermarkImagePath = path.join(tempRoot, 'stamp.png');
+  writePdfFixture(inputPdfPath, ['storybook page 1']);
+  fs.writeFileSync(
+    watermarkImagePath,
+    Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7ZLzQAAAAASUVORK5CYII=',
+      'base64'
+    )
+  );
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: {
+        codeId: 9,
+        codeValue: 'DEMO-USES-5'
+      },
+      conversionKey: 'watermark_pdf',
+      conversionOptions: {
+        watermarkType: 'image',
+        imagePosition: 'bottom_right',
+        imageScalePercent: 30,
+        opacity: 0.3
+      },
+      files: [
+        {
+          fileName: 'storybook.pdf',
+          tempPath: inputPdfPath,
+          fieldName: 'files'
+        },
+        {
+          fileName: 'stamp.png',
+          tempPath: watermarkImagePath,
+          fieldName: 'watermarkImage'
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'storybook-watermarked.pdf');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'storybook-watermarked.pdf');
+    assert.equal(fs.existsSync(outputPath), true);
+    assert.ok(fs.statSync(outputPath).size > 0);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('pdf_to_word converts a text PDF into an editable docx without OCR', async () => {
@@ -647,6 +1228,58 @@ for paragraph in document.paragraphs:
     .join('\n');
 }
 
+function readPptxSlideTexts(pptxPath) {
+  const script = `
+from pathlib import Path
+from xml.etree import ElementTree as ET
+from zipfile import ZipFile
+
+ns = {'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'}
+
+with ZipFile(r"${pptxPath.replace(/\\/g, '\\\\')}") as archive:
+    slide_names = sorted(
+        name for name in archive.namelist()
+        if name.startswith('ppt/slides/slide') and name.endswith('.xml')
+    )
+    for name in slide_names:
+        root = ET.fromstring(archive.read(name))
+        text = ''.join(node.text or '' for node in root.findall('.//a:t', ns)).strip()
+        print(text)
+`;
+
+  return execFileSync(PYTHON_BIN, ['-c', script], { encoding: 'utf8' })
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function readPdfRotations(pdfPath) {
+  const script = `
+from pypdf import PdfReader
+reader = PdfReader(r"${pdfPath.replace(/\\/g, '\\\\')}")
+for page in reader.pages:
+    print(int(page.rotation or 0))
+`;
+
+  return execFileSync(PYTHON_BIN, ['-c', script], { encoding: 'utf8' })
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => Number.parseInt(line, 10));
+}
+
+function readPdfEncryptionState(pdfPath) {
+  const script = `
+from pypdf import PdfReader
+reader = PdfReader(r"${pdfPath.replace(/\\/g, '\\\\')}")
+print('encrypted=' + str(reader.is_encrypted))
+`;
+  const output = execFileSync(PYTHON_BIN, ['-c', script], { encoding: 'utf8' }).trim();
+  return {
+    encrypted: output === 'encrypted=True'
+  };
+}
+
 function writeFakeGhostscript(tempRoot) {
   const scriptPath = path.join(tempRoot, 'fake-gs.cmd');
   const helperPath = path.join(tempRoot, 'fake_gs_helper.py');
@@ -699,6 +1332,87 @@ output_path = sys.argv[-1]
 output = Path(output_path)
 output.parent.mkdir(parents=True, exist_ok=True)
 shutil.copyfile(input_path, output_path)
+`.trim(),
+    'utf8'
+  );
+
+  fs.writeFileSync(
+    scriptPath,
+    `@echo off\r\n"${PYTHON_BIN}" "${helperPath}" %*\r\n`,
+    'utf8'
+  );
+
+  return scriptPath;
+}
+
+function writeFakeOcrmypdfWithTextOutput(tempRoot, pageText) {
+  const scriptPath = path.join(tempRoot, 'fake-ocrmypdf-text.cmd');
+  const helperPath = path.join(tempRoot, 'fake_ocrmypdf_text_helper.py');
+
+  fs.writeFileSync(
+    helperPath,
+    `
+import sys
+from pathlib import Path
+from reportlab.pdfgen import canvas
+
+output_path = sys.argv[-1]
+output = Path(output_path)
+output.parent.mkdir(parents=True, exist_ok=True)
+c = canvas.Canvas(str(output))
+c.drawString(72, 720, ${JSON.stringify(pageText)})
+c.save()
+`.trim(),
+    'utf8'
+  );
+
+  fs.writeFileSync(
+    scriptPath,
+    `@echo off\r\n"${PYTHON_BIN}" "${helperPath}" %*\r\n`,
+    'utf8'
+  );
+
+  return scriptPath;
+}
+
+function writeImageOnlyPdfFixture(outputPath, imageText = 'scan image') {
+  const imagePath = outputPath.replace(/\.pdf$/i, '.png');
+  const script = `
+from PIL import Image, ImageDraw
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfgen import canvas
+
+image = Image.new('RGB', (600, 200), 'white')
+draw = ImageDraw.Draw(image)
+draw.text((40, 80), ${JSON.stringify(imageText)}, fill='black')
+image.save(r"${imagePath.replace(/\\/g, '\\\\')}")
+
+c = canvas.Canvas(r"${outputPath.replace(/\\/g, '\\\\')}")
+c.drawImage(ImageReader(r"${imagePath.replace(/\\/g, '\\\\')}"), 72, 520, width=420, height=140)
+c.save()
+`;
+  execFileSync(PYTHON_BIN, ['-c', script], { stdio: 'ignore' });
+}
+
+function writeFakeLibreOffice(tempRoot) {
+  const scriptPath = path.join(tempRoot, 'fake-soffice.cmd');
+  const helperPath = path.join(tempRoot, 'fake_soffice_helper.py');
+
+  fs.writeFileSync(
+    helperPath,
+    `
+import sys
+from pathlib import Path
+from reportlab.pdfgen import canvas
+
+args = sys.argv[1:]
+outdir = Path(args[args.index('--outdir') + 1])
+input_path = Path(args[-1])
+output_path = outdir / f"{input_path.stem}.pdf"
+outdir.mkdir(parents=True, exist_ok=True)
+c = canvas.Canvas(str(output_path))
+c.drawString(72, 720, input_path.name)
+c.save()
 `.trim(),
     'utf8'
   );

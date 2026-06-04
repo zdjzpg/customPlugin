@@ -3,11 +3,18 @@
 Independent web app for:
 
 - `Word -> PDF`
+- `Excel -> PDF`
+- `PPT -> PDF`
+- `PDF -> PPTX`
 - `PDF -> Word`
 - `PDF -> Images`
 - `Images -> PDF`
 - `PDF Merge`
 - `PDF 压缩`
+- `PDF 加水印`
+- `PDF 加页码`
+- `PDF 签名 / 盖章`
+- `PDF 旋转页面`
 - `PDF 提取页面`
 - `拆分 PDF`
 
@@ -84,6 +91,16 @@ See [.env.example](D:/aa-workplace/customPlugin/codex-pdf-converter-web/pdf-conv
 - If LibreOffice is unavailable, `.docx` files fall back to a basic text-first PDF export using `python-docx + reportlab`
 - The fallback is intentionally limited and does not preserve full Word layout fidelity
 
+### Excel -> PDF / PPT -> PDF
+
+- Uses LibreOffice headless
+- Supports:
+  - `.xlsx`
+  - `.xls`
+  - `.pptx`
+  - `.ppt`
+- Complex pagination, print areas, slide/export nuances follow actual LibreOffice output
+
 ### PDF -> Word
 
 - Uses Python `pdf2docx`
@@ -97,6 +114,16 @@ See [.env.example](D:/aa-workplace/customPlugin/codex-pdf-converter-web/pdf-conv
 - The market-standard tradeoff still applies:
   - text PDFs usually preserve editability and layout better
   - scanned PDFs depend on OCR quality and page complexity
+
+### PDF -> PPTX
+
+- Uses Python `PyMuPDF + python-pptx`
+- Each PDF page becomes one PPT slide
+- Tries to extract:
+  - editable text blocks
+  - separate images
+- If a PDF has no extractable text and `ocrmypdf` is configured, the server runs OCR first
+- Complex layouts, tables, and multi-column pages may shift during output
 
 ### PDF -> Images
 
@@ -120,6 +147,55 @@ See [.env.example](D:/aa-workplace/customPlugin/codex-pdf-converter-web/pdf-conv
   - `强力压缩`
 - Returns one compressed PDF
 - Shows size comparison between the original file and the compressed result
+
+### PDF 加水印
+
+- Supports:
+  - text watermark
+  - image watermark
+- Text watermark supports:
+  - tiled diagonal layout
+  - single centered layout
+- Image watermark supports:
+  - `PNG`
+  - `JPG`
+  - fixed positions:
+    - center
+    - bottom-left
+    - bottom-right
+
+### PDF 加页码
+
+- Supports whole-document unified page numbering
+- Positions:
+  - footer center
+  - bottom-right
+- Supports:
+  - start page number
+  - plain format like `1`
+  - Chinese format like `第 1 页`
+
+### PDF 签名 / 盖章
+
+- Supports whole-document unified sign/stamp placement
+- Supports:
+  - uploaded sign/stamp image
+  - drawn signature in browser
+- Fixed positions:
+  - center
+  - bottom-left
+  - bottom-right
+- Adjustable:
+  - scale
+  - opacity
+
+### PDF 旋转页面
+
+- Supports whole-document unified rotation
+- Angles:
+  - `90°`
+  - `180°`
+  - `270°`
 
 ## Deployment
 

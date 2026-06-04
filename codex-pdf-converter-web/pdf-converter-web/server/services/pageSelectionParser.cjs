@@ -1,4 +1,16 @@
 function parsePageSelection(conversionKey, conversionOptions = {}) {
+  if (conversionKey === 'delete_pages_pdf') {
+    return {
+      orderedPages: readDeletePages(conversionOptions)
+    };
+  }
+
+  if (conversionKey === 'reorder_pages_pdf') {
+    return {
+      orderedPages: readReorderPages(conversionOptions)
+    };
+  }
+
   if (conversionKey === 'pdf_extract_pages') {
     return {
       orderedPages: readExtractPages(conversionOptions)
@@ -12,6 +24,44 @@ function parsePageSelection(conversionKey, conversionOptions = {}) {
   }
 
   return null;
+}
+
+function readDeletePages(conversionOptions) {
+  if (Array.isArray(conversionOptions?.selectedPages) && conversionOptions.selectedPages.length > 0) {
+    return conversionOptions.selectedPages.map((pageNumber) => {
+      const normalized = toPositiveInteger(pageNumber);
+      if (!normalized) {
+        throw createValidationError('删除页码格式不正确，请检查缩略图选择。');
+      }
+      return normalized;
+    });
+  }
+
+  const rangeText = readRangeText(conversionOptions);
+  if (rangeText) {
+    return parsePageExpression(rangeText, '删除页码格式不正确，请按 1,3,5-8 填写。');
+  }
+
+  throw createValidationError('请先填写要删除的页码。');
+}
+
+function readReorderPages(conversionOptions) {
+  if (Array.isArray(conversionOptions?.orderedPages) && conversionOptions.orderedPages.length > 0) {
+    return conversionOptions.orderedPages.map((pageNumber) => {
+      const normalized = toPositiveInteger(pageNumber);
+      if (!normalized) {
+        throw createValidationError('页顺序格式不正确，请检查缩略图顺序。');
+      }
+      return normalized;
+    });
+  }
+
+  const orderText = typeof conversionOptions?.orderText === 'string' ? conversionOptions.orderText.trim() : '';
+  if (orderText) {
+    return parsePageExpression(orderText, '页顺序格式不正确，请按 3,1,2 这样的格式填写。');
+  }
+
+  throw createValidationError('请先填写新的页顺序。');
 }
 
 function readExtractPages(conversionOptions) {

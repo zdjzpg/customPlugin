@@ -9,9 +9,10 @@ test('buyer landing copy stays user-facing and does not expose internal status l
     'utf8'
   );
 
-  assert.match(html, /文件转换工具/);
-  assert.match(html, /输入卡密后即可使用 Word 转 PDF、PDF 转 Word、PDF 转图片、图片转 PDF、PDF 合并、PDF 压缩、PDF 提取页面和拆分 PDF。/);
+  assert.match(html, /PP 工具站/);
+  assert.match(html, /输入卡密后进入工具页/);
   assert.match(html, /请输入卖家提供的卡密/);
+  assert.match(html, /进入工具页/);
 
   assert.doesNotMatch(html, /后台卡密管理/);
   assert.doesNotMatch(html, /上传转换链路下一步接入/);
@@ -27,8 +28,36 @@ test('buyer dashboard source does not include customer-irrelevant status and ses
     'utf8'
   );
 
+  assert.match(script, /PPT 工具/);
+  assert.match(script, /searchKeyword/);
+  assert.match(script, /mobileNavOpen/);
   assert.doesNotMatch(script, /状态：/);
   assert.doesNotMatch(script, /转换目录/);
   assert.doesNotMatch(script, /本次登录有效至/);
   assert.doesNotMatch(script, /buyerSessionCopy/);
+});
+
+test('text tools no longer render grouped section headings inside the category page', () => {
+  const script = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'app.js'),
+    'utf8'
+  );
+
+  assert.doesNotMatch(script, /createTextToolGroupedMarkup/);
+  assert.doesNotMatch(script, /shouldUseTextGrouping/);
+});
+
+test('tool list markup should not render a duplicated inner list title block', () => {
+  const script = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'app.js'),
+    'utf8'
+  );
+
+  const buildToolListMarkupSource = script.slice(
+    script.indexOf('function buildToolListMarkup()'),
+    script.indexOf('function buildDetailMarkup(')
+  );
+
+  assert.doesNotMatch(buildToolListMarkupSource, /buyer-section-head/);
+  assert.doesNotMatch(buildToolListMarkupSource, /<h2>\$\{title\}<\/h2>/);
 });
