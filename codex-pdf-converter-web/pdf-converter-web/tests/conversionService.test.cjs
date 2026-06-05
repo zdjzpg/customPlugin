@@ -69,6 +69,7 @@ test('catalog exposes current office/pdf toolset including delete/reorder/protec
     'watermark_pdf',
     'add_page_numbers_pdf',
     'sign_stamp_pdf',
+    'batch_sign_stamp_pdf',
     'rotate_pdf',
     'merge_pdf',
     'compress_pdf',
@@ -161,6 +162,16 @@ test('catalog exposes current office/pdf toolset including delete/reorder/protec
       helperText: '支持上传签名图片或手写签名后整份统一盖章。'
     },
     {
+      key: 'batch_sign_stamp_pdf',
+      label: '批量 PDF 盖章',
+      status: 'available',
+      accepts: '.pdf',
+      maxFileSizeMb: 50,
+      maxTotalFileSizeMb: 300,
+      allowMultipleFiles: true,
+      helperText: '可一次上传多个 PDF，按同一套盖章配置逐个处理后打包下载。'
+    },
+    {
       key: 'rotate_pdf',
       label: 'PDF 旋转页面',
       status: 'available',
@@ -202,6 +213,167 @@ test('catalog exposes current office/pdf toolset including delete/reorder/protec
       helperText: '按范围拆成多个 PDF，并统一打包为 ZIP 下载。'
     }
   ]);
+});
+
+test('catalog exposes OCR and batch-rename tools under the text_tools category', () => {
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: os.tmpdir(),
+    pythonBin: PYTHON_BIN,
+    tesseractBin: 'C:\\Tools\\tesseract.exe'
+  });
+
+  const catalog = conversionService.getCatalog();
+  const ocrTool = catalog.find((item) => item.key === 'ocr_text_extract');
+  const renameTool = catalog.find((item) => item.key === 'batch_file_rename');
+
+  assert.deepEqual(ocrTool, {
+    key: 'ocr_text_extract',
+    label: 'OCR 文字识别',
+    categoryKey: 'text_tools',
+    status: 'available',
+    accepts: '.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff',
+    maxFileSizeMb: 15,
+    helperText: '支持截图和常见图片 OCR 识别，结果可下载为 TXT 文本。'
+  });
+  assert.deepEqual(renameTool, {
+    key: 'batch_file_rename',
+    label: '批量文件重命名',
+    categoryKey: 'text_tools',
+    status: 'available',
+    accepts: '.txt,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.gif,.mp3,.wav,.mp4,.zip',
+    maxFileSizeMb: 50,
+    maxTotalFileSizeMb: 200,
+    allowMultipleFiles: true,
+    helperText: '按模板批量重命名文件并打包下载，适合资料整理。'
+  });
+});
+
+test('batch_file_rename outputs one renamed zip package', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const firstFilePath = path.join(tempRoot, '原图-A.png');
+  const secondFilePath = path.join(tempRoot, '原图-B.png');
+  fs.writeFileSync(firstFilePath, Buffer.from('a'));
+  fs.writeFileSync(secondFilePath, Buffer.from('b'));
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      conversionKey: 'batch_file_rename',
+      conversionOptions: {
+        template: '资料-{n}-{name}',
+        startNumber: 7,
+        numberWidth: 2
+      },
+      files: [
+        {
+          fileName: '原图-A.png',
+          tempPath: firstFilePath
+        },
+        {
+          fileName: '原图-B.png',
+          tempPath: secondFilePath
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'renamed-files.zip');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'renamed-files.zip');
+    assert.deepEqual(readZipEntryNames(outputPath), [
+      '资料-07-原图-A.png',
+      '资料-08-原图-B.png'
+    ]);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('ocr_text_extract writes recognized text into a txt file and summary preview', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputImagePath = path.join(tempRoot, 'ocr-source.png');
+  writePngFixture(inputImagePath, 80, 40, '#ffffff');
+  const fakeTesseractPath = writeFakeTesseract(tempRoot, '识别成功\n第二行文本');
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN,
+    tesseractBin: PYTHON_BIN
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      conversionKey: 'ocr_text_extract',
+      conversionOptions: {
+        ocrLanguage: 'chi_sim+eng',
+        tesseractScriptPath: fakeTesseractPath
+      },
+      files: [
+        {
+          fileName: 'ocr-source.png',
+          tempPath: inputImagePath
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'ocr-source-ocr.txt');
+    assert.deepEqual(result.summary, {
+      kind: 'text_preview',
+      previewText: '识别成功\n第二行文本'
+    });
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'ocr-source-ocr.txt');
+    assert.equal(
+      fs.readFileSync(outputPath, 'utf8').trim().replace(/\r\n/g, '\n'),
+      '识别成功\n第二行文本'
+    );
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('image_heic_convert converts one heic file into a jpg output', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputImagePath = path.join(tempRoot, 'iphone-photo.heic');
+  writeHeicFixture(inputImagePath, 64, 48, '#4d79ff');
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-DAYS-7' },
+      conversionKey: 'image_heic_convert',
+      conversionOptions: {
+        outputFormat: 'jpg'
+      },
+      files: [
+        {
+          fileName: 'iphone-photo.heic',
+          tempPath: inputImagePath
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'iphone-photo-heic-converted.jpg');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'iphone-photo-heic-converted.jpg');
+    assert.deepEqual(readImageMeta(outputPath), {
+      format: 'JPEG',
+      width: 64,
+      height: 48
+    });
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('delete_pages_pdf removes selected pages and keeps the rest in original order', async () => {
@@ -545,6 +717,66 @@ test('sign_stamp_pdf writes a new PDF with a fixed-position uploaded stamp image
     const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'storybook-signed.pdf');
     assert.equal(fs.existsSync(outputPath), true);
     assert.ok(fs.statSync(outputPath).size > 0);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('batch_sign_stamp_pdf writes a stamped zip package for multiple PDFs', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const firstPdfPath = path.join(tempRoot, 'contract-a.pdf');
+  const secondPdfPath = path.join(tempRoot, 'contract-b.pdf');
+  const stampImagePath = path.join(tempRoot, 'stamp.png');
+  writePdfFixture(firstPdfPath, ['contract a page 1', 'contract a page 2']);
+  writePdfFixture(secondPdfPath, ['contract b page 1']);
+  fs.writeFileSync(
+    stampImagePath,
+    Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7ZLzQAAAAASUVORK5CYII=', 'base64')
+  );
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      conversionKey: 'batch_sign_stamp_pdf',
+      conversionOptions: {
+        stampSourceType: 'image',
+        stampPosition: 'bottom_right',
+        stampScalePercent: 35,
+        opacity: 0.4
+      },
+      files: [
+        {
+          fileName: 'contract-a.pdf',
+          tempPath: firstPdfPath,
+          fieldName: 'files'
+        },
+        {
+          fileName: 'contract-b.pdf',
+          tempPath: secondPdfPath,
+          fieldName: 'files'
+        },
+        {
+          fileName: 'stamp.png',
+          tempPath: stampImagePath,
+          fieldName: 'stampImage'
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'batch-stamped-pdfs.zip');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'batch-stamped-pdfs.zip');
+    assert.equal(fs.existsSync(outputPath), true);
+    assert.deepEqual(readZipEntryNames(outputPath), ['contract-a-stamped.pdf', 'contract-b-stamped.pdf']);
+    assert.deepEqual(readZippedPdfTexts(outputPath), {
+      'contract-a-stamped.pdf': ['contract a page 1', 'contract a page 2'],
+      'contract-b-stamped.pdf': ['contract b page 1']
+    });
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
@@ -1169,6 +1401,47 @@ c.save()
   execFileSync(PYTHON_BIN, ['-c', script], { stdio: 'ignore' });
 }
 
+function writePngFixture(outputPath, width, height, colorHex) {
+  const script = `
+from PIL import Image
+image = Image.new('RGBA', (${width}, ${height}), '${colorHex}')
+image.save(r"${outputPath.replace(/\\/g, '\\\\')}", format='PNG')
+`;
+  execFileSync(PYTHON_BIN, ['-c', script], { stdio: 'ignore' });
+}
+
+function readImageMeta(imagePath) {
+  const script = `
+from PIL import Image
+image = Image.open(r"${imagePath.replace(/\\/g, '\\\\')}")
+print(image.format)
+print(f"{image.size[0]}x{image.size[1]}")
+`;
+  const output = execFileSync(PYTHON_BIN, ['-c', script], { encoding: 'utf8' })
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const [format, sizeText] = output;
+  const [width, height] = String(sizeText || '0x0').split('x').map((value) => Number.parseInt(value, 10));
+  return {
+    format,
+    width,
+    height
+  };
+}
+
+function writeHeicFixture(outputPath, width, height, colorHex) {
+  const script = `
+from PIL import Image
+from pillow_heif import register_heif_opener
+register_heif_opener()
+image = Image.new('RGBA', (${width}, ${height}), '${colorHex}')
+image.save(r"${outputPath.replace(/\\/g, '\\\\')}", format='HEIF', quality=90)
+`;
+  execFileSync(PYTHON_BIN, ['-c', script], { stdio: 'ignore' });
+}
+
 function readPdfPageTexts(pdfPath) {
   const script = `
 from pypdf import PdfReader
@@ -1253,6 +1526,22 @@ with ZipFile(r"${pptxPath.replace(/\\/g, '\\\\')}") as archive:
     .filter(Boolean);
 }
 
+function readZipEntryNames(zipPath) {
+  const script = `
+import sys
+from zipfile import ZipFile
+sys.stdout.reconfigure(encoding='utf-8')
+with ZipFile(r"${zipPath.replace(/\\/g, '\\\\')}") as archive:
+    for name in sorted(archive.namelist()):
+        print(name)
+`;
+
+  return execFileSync(PYTHON_BIN, ['-c', script], { encoding: 'utf8' })
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 function readPdfRotations(pdfPath) {
   const script = `
 from pypdf import PdfReader
@@ -1278,6 +1567,25 @@ print('encrypted=' + str(reader.is_encrypted))
   return {
     encrypted: output === 'encrypted=True'
   };
+}
+
+function writeFakeTesseract(tempRoot, text) {
+  const scriptPath = path.join(tempRoot, 'fake_tesseract.py');
+  const encodedText = Buffer.from(text, 'utf8').toString('base64');
+  fs.writeFileSync(
+    scriptPath,
+    [
+      'import base64',
+      'from pathlib import Path',
+      'import sys',
+      '',
+      'input_path = sys.argv[1]',
+      'output_base = sys.argv[2]',
+      `Path(output_base + '.txt').write_text(base64.b64decode('${encodedText}').decode('utf8'), encoding='utf8')`
+    ].join('\n'),
+    'utf8'
+  );
+  return scriptPath;
 }
 
 function writeFakeGhostscript(tempRoot) {

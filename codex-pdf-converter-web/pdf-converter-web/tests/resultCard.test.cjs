@@ -53,3 +53,28 @@ test('createConversionResultMarkup renders size comparison for compression resul
   assert.match(html, /减少了/);
   assert.match(html, /强力压缩/);
 });
+
+test('createConversionResultMarkup renders plain-text preview for OCR or transcript results', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'resultCard.mjs')
+  ).href;
+  const { createConversionResultMarkup } = await import(moduleUrl);
+
+  const html = createConversionResultMarkup(
+    [
+      {
+        fileName: 'meeting-transcript.txt',
+        downloadUrl: '/api/downloads/conversions/3/meeting-transcript.txt'
+      }
+    ],
+    '刚刚生成',
+    {
+      kind: 'text_preview',
+      previewText: '第一行会议记录\n第二行待办'
+    }
+  );
+
+  assert.match(html, /识别预览/);
+  assert.match(html, /第一行会议记录/);
+  assert.match(html, /第二行待办/);
+});

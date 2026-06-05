@@ -12,7 +12,8 @@ function createConversionService(options) {
     libreOfficeBin = process.env.LIBREOFFICE_BIN || '',
     popplerBinDir = process.env.POPPLER_BIN_DIR || '',
     ghostscriptBin = process.env.GHOSTSCRIPT_BIN || '',
-    ocrmypdfBin = process.env.OCRMYPDF_BIN || ''
+    ocrmypdfBin = process.env.OCRMYPDF_BIN || '',
+    tesseractBin = process.env.TESSERACT_BIN || ''
   } = options;
 
   async function runConversion(input) {
@@ -44,7 +45,8 @@ function createConversionService(options) {
         libreOfficeBin,
         popplerBinDir,
         ghostscriptBin,
-        ocrmypdfBin
+        ocrmypdfBin,
+        tesseractBin
       });
 
       const mappedFiles = outputFiles.map((filePath) => ({
@@ -119,6 +121,26 @@ function createConversionService(options) {
         helperText: '支持文本型 PDF 直接转 Word，也支持 OCR 识别扫描件后导出 Word。'
       },
       {
+        key: 'ocr_text_extract',
+        label: 'OCR 文字识别',
+        categoryKey: 'text_tools',
+        status: 'available',
+        accepts: '.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff',
+        maxFileSizeMb: 15,
+        helperText: '支持截图和常见图片 OCR 识别，结果可下载为 TXT 文本。'
+      },
+      {
+        key: 'batch_file_rename',
+        label: '批量文件重命名',
+        categoryKey: 'text_tools',
+        status: 'available',
+        accepts: '.txt,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.gif,.mp3,.wav,.mp4,.zip',
+        maxFileSizeMb: 50,
+        maxTotalFileSizeMb: 200,
+        allowMultipleFiles: true,
+        helperText: '按模板批量重命名文件并打包下载，适合资料整理。'
+      },
+      {
         key: 'delete_pages_pdf',
         label: '删除 PDF 页面',
         status: 'available',
@@ -165,6 +187,16 @@ function createConversionService(options) {
         accepts: '.pdf',
         maxFileSizeMb: 30,
         helperText: '支持上传签名图片或手写签名后整份统一盖章。'
+      },
+      {
+        key: 'batch_sign_stamp_pdf',
+        label: '批量 PDF 盖章',
+        status: 'available',
+        accepts: '.pdf',
+        maxFileSizeMb: 50,
+        maxTotalFileSizeMb: 300,
+        allowMultipleFiles: true,
+        helperText: '可一次上传多个 PDF，按同一套盖章配置逐个处理后打包下载。'
       },
       {
         key: 'rotate_pdf',
@@ -260,7 +292,8 @@ async function executeConversion(options) {
     libreOfficeBin,
     popplerBinDir,
     ghostscriptBin,
-    ocrmypdfBin
+    ocrmypdfBin,
+    tesseractBin
   } = options;
 
   if (conversionKey === 'images_to_pdf') {
@@ -355,6 +388,128 @@ async function executeConversion(options) {
     ]);
 
     return [outputPath];
+  }
+
+  if (conversionKey === 'ocr_text_extract') {
+    const sourcePath = requireSingleImageFile(conversionKey, inputFiles, writtenFiles);
+    if (!tesseractBin) {
+      throw createConversionError(
+        'TESSERACT_NOT_CONFIGURED',
+        '当前环境还不能处理 OCR 识别，请先安装并配置 Tesseract。',
+        400
+      );
+    }
+
+    const outputPath = path.join(outputDirectory, `${path.parse(sourcePath).name}-ocr.txt`);
+    await runPythonScript(pythonBin, [
+      'ocr_text_extract',
+      outputPath,
+      sourcePath,
+      JSON.stringify({
+        ocrLanguage: normalizeOcrLanguage(conversionOptions?.ocrLanguage),
+        tesseractBin,
+        tesseractScriptPath: typeof conversionOptions?.tesseractScriptPath === 'string'
+          ? conversionOptions.tesseractScriptPath
+          : ''
+      })
+    ]);
+
+    const outputFiles = [outputPath];
+    outputFiles.summary = {
+      kind: 'text_preview',
+      previewText: buildTextPreview(outputPath)
+    };
+    return outputFiles;
+  }
+
+  if (conversionKey === 'batch_file_rename') {
+    if (writtenFiles.length === 0) {
+      throw createConversionError('FILE_REQUIRED', '请先选择至少一个文件。', 400);
+    }
+
+    const outputPath = path.join(outputDirectory, 'renamed-files.zip');
+    await runPythonScript(pythonBin, [
+      'batch_file_rename',
+      outputPath,
+      JSON.stringify({
+        template: String(conversionOptions?.template || '资料-{n}-{name}'),
+        startNumber: Number.parseInt(String(conversionOptions?.startNumber ?? '1'), 10) || 1,
+        numberWidth: Number.parseInt(String(conversionOptions?.numberWidth ?? '2'), 10) || 2
+      }),
+      ...writtenFiles
+    ]);
+    return [outputPath];
+  }
+
+  if (conversionKey === 'payment_code_merge') {
+    if (writtenFiles.length < 2) {
+      throw createConversionError('IMAGE_REQUIRED', '请至少选择两张收款码图片。', 400);
+    }
+
+    const outputPath = path.join(outputDirectory, 'merged-payment-codes.png');
+    await runPythonScript(pythonBin, [
+      'payment_code_merge',
+      outputPath,
+      JSON.stringify({
+        layout: conversionOptions?.layout === 'horizontal' ? 'horizontal' : 'vertical',
+        mainTitle: String(conversionOptions?.mainTitle || '收款码')
+      }),
+      ...writtenFiles
+    ]);
+    return [outputPath];
+  }
+
+  if (conversionKey === 'qr_generate') {
+    const qrText = String(conversionOptions?.qrText || '').trim();
+    if (!qrText) {
+      throw createConversionError('QR_TEXT_REQUIRED', '请先输入二维码内容。', 400);
+    }
+
+    const outputPath = path.join(outputDirectory, 'qr-code.png');
+    await runPythonScript(pythonBin, [
+      'qr_generate',
+      outputPath,
+      JSON.stringify({
+        qrText,
+        sizePx: Number.parseInt(String(conversionOptions?.sizePx ?? '320'), 10) || 320
+      })
+    ]);
+    return [outputPath];
+  }
+
+  if (conversionKey === 'qr_generate_batch') {
+    const qrLinesText = String(conversionOptions?.qrLinesText || '');
+    if (!qrLinesText.trim()) {
+      throw createConversionError('QR_TEXT_REQUIRED', '请先输入至少一行二维码内容。', 400);
+    }
+
+    const outputPath = path.join(outputDirectory, 'qr-codes.zip');
+    await runPythonScript(pythonBin, [
+      'qr_generate_batch',
+      outputPath,
+      JSON.stringify({
+        qrLinesText,
+        sizePx: Number.parseInt(String(conversionOptions?.sizePx ?? '256'), 10) || 256
+      })
+    ]);
+    return [outputPath];
+  }
+
+  if (conversionKey === 'qr_decode') {
+    const sourcePath = requireSingleImageFile(conversionKey, inputFiles, writtenFiles);
+    const outputPath = path.join(outputDirectory, `${path.parse(sourcePath).name}-qr.txt`);
+    await runPythonScript(pythonBin, [
+      'qr_decode',
+      outputPath,
+      sourcePath
+    ]);
+
+    const outputFiles = [outputPath];
+    outputFiles.summary = {
+      kind: 'text_preview',
+      previewText: buildTextPreview(outputPath)
+    };
+    return outputFiles;
   }
 
   if (conversionKey === 'delete_pages_pdf') {
@@ -540,6 +695,38 @@ async function executeConversion(options) {
         opacity: toBoundedNumber(conversionOptions?.opacity, 0.4, 0.02, 0.95),
         stampImagePath
       })
+    ]);
+    return [outputPath];
+  }
+
+  if (conversionKey === 'batch_sign_stamp_pdf') {
+    const sourcePdfs = findPrimaryPdfPaths(inputFiles, writtenFiles);
+    if (sourcePdfs.length < 2) {
+      throw createConversionError(
+        'INSUFFICIENT_PDF_FILES',
+        '请至少选择两个 PDF 文件再开始批量盖章。',
+        400
+      );
+    }
+
+    const stampImagePath = findAuxiliaryFilePath(inputFiles, writtenFiles, 'stampImage');
+    if (!stampImagePath) {
+      throw createConversionError('STAMP_IMAGE_REQUIRED', '请上传签名或盖章图片。', 400);
+    }
+
+    const outputPath = path.join(outputDirectory, 'batch-stamped-pdfs.zip');
+    await runPythonScript(pythonBin, [
+      'batch_sign_stamp_pdf',
+      outputPath,
+      JSON.stringify({
+        stampPosition: ['center', 'bottom_left', 'bottom_right'].includes(conversionOptions?.stampPosition)
+          ? conversionOptions.stampPosition
+          : 'bottom_right',
+        stampScalePercent: Number.parseInt(String(conversionOptions?.stampScalePercent ?? '35'), 10) || 35,
+        opacity: toBoundedNumber(conversionOptions?.opacity, 0.4, 0.02, 0.95),
+        stampImagePath
+      }),
+      ...sourcePdfs
     ]);
     return [outputPath];
   }
@@ -778,6 +965,22 @@ async function executeConversion(options) {
     return [zipPath];
   }
 
+  if (conversionKey === 'image_nine_grid') {
+    const sourcePath = requireSingleImageFile(conversionKey, inputFiles, writtenFiles);
+    const zipPath = path.join(outputDirectory, `${path.parse(sourcePath).name}-nine-grid.zip`);
+    await runPythonScript(pythonBin, [
+      'image_split_grid',
+      zipPath,
+      sourcePath,
+      JSON.stringify({
+        rows: 3,
+        columns: 3,
+        outputFormat: normalizeImageOutputFormat(conversionOptions?.outputFormat, sourcePath)
+      })
+    ]);
+    return [zipPath];
+  }
+
   if (conversionKey === 'image_concat_long' || conversionKey === 'image_collage') {
     if (writtenFiles.length === 0) {
       throw createConversionError('IMAGE_REQUIRED', '请先选择至少一张图片。', 400);
@@ -800,7 +1003,7 @@ async function executeConversion(options) {
     return [outputPath];
   }
 
-  if (['image_fill_background', 'image_dark_mode_background', 'image_grayscale', 'image_invert', 'image_printmaking', 'image_emboss', 'image_remove_solid_bg', 'image_add_padding', 'image_pixelate', 'image_increase_size', 'image_clear_content', 'image_format_convert', 'image_modify_dpi', 'png_alpha_invert', 'image_round_corner', 'image_tile_fill', 'id_photo_resize', 'exam_id_photo_process', 'id_photo_crop', 'id_photo_bg_swap', 'anti_ocr_image', 'image_watermark_tile'].includes(conversionKey)) {
+  if (['image_fill_background', 'image_dark_mode_background', 'image_grayscale', 'image_invert', 'image_printmaking', 'image_emboss', 'image_remove_solid_bg', 'image_smart_bg_remove', 'image_add_padding', 'image_pixelate', 'image_increase_size', 'image_clear_content', 'image_heic_convert', 'image_format_convert', 'image_modify_dpi', 'png_alpha_invert', 'image_round_corner', 'image_tile_fill', 'id_photo_resize', 'exam_id_photo_process', 'id_photo_crop', 'id_photo_bg_swap', 'anti_ocr_image', 'image_watermark_tile'].includes(conversionKey)) {
     if (conversionKey !== 'image_format_convert' || writtenFiles.length <= 1) {
       const sourcePath = requireSingleImageFile(conversionKey, inputFiles, writtenFiles);
       const ext = resolveImageCommandOutputExtension(conversionKey, sourcePath, conversionOptions);
@@ -1017,6 +1220,12 @@ function findPrimaryPdfPath(inputFiles, writtenFiles) {
   return index === -1 ? '' : writtenFiles[index];
 }
 
+function findPrimaryPdfPaths(inputFiles, writtenFiles) {
+  return inputFiles
+    .map((file, index) => ((file.fieldName || 'files') === 'files' ? writtenFiles[index] : ''))
+    .filter(Boolean);
+}
+
 function findAuxiliaryFilePath(inputFiles, writtenFiles, fieldName) {
   const index = inputFiles.findIndex((file) => file.fieldName === fieldName);
   return index === -1 ? '' : writtenFiles[index];
@@ -1054,6 +1263,7 @@ function buildImageCommandSuffix(conversionKey) {
     image_printmaking: 'printmaking',
     image_emboss: 'emboss',
     image_remove_solid_bg: 'cutout',
+    image_smart_bg_remove: 'smart-cutout',
     favicon_generate: 'favicon',
     app_icon_generate: 'icons',
     chrome_icon_generate: 'chrome-icons',
@@ -1061,6 +1271,7 @@ function buildImageCommandSuffix(conversionKey) {
     image_pixelate: 'pixelated',
     image_increase_size: 'upsized',
     image_clear_content: 'cleared',
+    image_heic_convert: 'heic-converted',
     image_format_convert: 'converted',
     excel_extract_images: 'images',
     ppt_extract_images: 'images',
@@ -1087,6 +1298,9 @@ function resolveImageCommandOutputExtension(conversionKey, sourcePath, conversio
     return 'png';
   }
   if (conversionKey === 'id_photo_resize' || conversionKey === 'exam_id_photo_process' || conversionKey === 'id_photo_crop' || conversionKey === 'id_photo_bg_swap') {
+    return normalizeImageOutputFormat(conversionOptions?.outputFormat, sourcePath, 'jpg');
+  }
+  if (conversionKey === 'image_heic_convert') {
     return normalizeImageOutputFormat(conversionOptions?.outputFormat, sourcePath, 'jpg');
   }
   return normalizeImageOutputFormat(conversionOptions?.outputFormat, sourcePath, 'png');
@@ -1120,6 +1334,13 @@ function buildImageCommandOptions(conversionKey, conversionOptions = {}) {
   if (conversionKey === 'image_remove_solid_bg') {
     return { tolerance, outputFormat: 'png' };
   }
+  if (conversionKey === 'image_smart_bg_remove') {
+    return {
+      tolerance,
+      featherRadius: Number.parseInt(String(conversionOptions?.featherRadius ?? '1'), 10) || 1,
+      outputFormat: 'png'
+    };
+  }
   if (conversionKey === 'image_add_padding') {
     return {
       paddingTop: Number.parseInt(String(conversionOptions?.paddingTop ?? '40'), 10) || 40,
@@ -1141,6 +1362,9 @@ function buildImageCommandOptions(conversionKey, conversionOptions = {}) {
   }
   if (conversionKey === 'image_format_convert') {
     return { outputFormat };
+  }
+  if (conversionKey === 'image_heic_convert') {
+    return { outputFormat: ['jpg', 'png'].includes(outputFormat) ? outputFormat : 'jpg' };
   }
   if (conversionKey === 'image_modify_dpi') {
     return { dpi: Number.parseInt(String(conversionOptions?.dpi ?? '300'), 10) || 300, outputFormat };
@@ -1182,6 +1406,15 @@ function buildImageCommandOptions(conversionKey, conversionOptions = {}) {
     return {};
   }
   return { outputFormat };
+}
+
+function buildTextPreview(outputPath) {
+  return fs.readFileSync(outputPath, 'utf8')
+    .trim()
+    .split(/\r?\n/)
+    .slice(0, 12)
+    .join('\n')
+    .slice(0, 1200);
 }
 
 module.exports = {

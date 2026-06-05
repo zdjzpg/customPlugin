@@ -27,10 +27,25 @@ export function createToolOverviewMarkup(conversions) {
     .join('');
 }
 
+export function createPreviewToolOverviewMarkup(conversions) {
+  return conversions
+    .map(
+      (item) => {
+        return createUuToolCardMarkup(item, createToolSummary(item), {
+          interactionMode: 'preview'
+        });
+      }
+    )
+    .join('');
+}
+
 export function createToolDetailMarkup(item, options = {}) {
   const { showHeader = true } = options;
   if (item.kind === 'local_text') {
-    return createLocalTextToolDetailMarkup(item, options);
+    return createEnhancedLocalTextToolDetailMarkup(item, options);
+  }
+  if (item.kind === 'local_image_tool') {
+    return createEnhancedLocalImageToolDetailMarkup(item, options);
   }
   if (item.kind === 'local_media_tool') {
     return createLocalMediaToolDetailMarkup(item, options);
@@ -41,8 +56,12 @@ export function createToolDetailMarkup(item, options = {}) {
   if (['local_dev_tool', 'backend_dev_tool', 'network_dev_tool', 'server_dev_tool'].includes(item.kind)) {
     return createDevToolDetailMarkup(item, options);
   }
+  if (item.requiresUpload === false) {
+    return createNoUploadToolDetailMarkup(item, options);
+  }
 
   const submitLabel = item.kind === 'file_media_tool' ? '开始处理' : '开始转换';
+  const requiresUpload = item.requiresUpload !== false;
   return `
     <article class="tool-detail-card">
       ${showHeader ? `
@@ -58,17 +77,1074 @@ export function createToolDetailMarkup(item, options = {}) {
         data-max-file-size-mb="${item.maxFileSizeMb || ''}"
         data-max-total-file-size-mb="${item.maxTotalFileSizeMb || ''}"
       >
-        <label class="field">
-          <span>选择文件</span>
-          <input type="file" data-file-input data-accepts="${item.accepts}" accept="${item.accepts}" ${supportsMultipleFiles(item) ? 'multiple' : ''} required />
-        </label>
-        ${createSelectedFileListMarkup(item)}
+        ${requiresUpload ? `
+          <label class="field">
+            <span>选择文件</span>
+            <input type="file" data-file-input data-accepts="${item.accepts}" accept="${item.accepts}" ${supportsMultipleFiles(item) ? 'multiple' : ''} required />
+          </label>
+          ${createSelectedFileListMarkup(item)}
+        ` : ''}
         ${createConversionOptionsMarkup(item)}
         <button class="button" type="submit">${submitLabel}</button>
       </form>
       <div class="upload-progress-host" data-progress="${item.key}"></div>
       <div class="tool-results" data-results="${item.key}"></div>
     </article>
+  `;
+}
+
+function createNoUploadToolDetailMarkup(item, options = {}) {
+  const { showHeader = true } = options;
+  return `
+    <article class="tool-detail-card">
+      ${showHeader ? `
+        <div class="tool-detail-head">
+          <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+          <h3>${item.label}</h3>
+          <p>${item.helperText || ''}</p>
+        </div>
+      ` : ''}
+      <form
+        class="tool-form"
+        data-conversion-key="${item.key}"
+        data-max-file-size-mb="${item.maxFileSizeMb || ''}"
+        data-max-total-file-size-mb="${item.maxTotalFileSizeMb || ''}"
+      >
+        ${createConversionOptionsMarkup(item)}
+        <button class="button" type="submit">开始转换</button>
+      </form>
+      <div class="upload-progress-host" data-progress="${item.key}"></div>
+      <div class="tool-results" data-results="${item.key}"></div>
+    </article>
+  `;
+}
+
+function createEnhancedLocalImageToolDetailMarkup(item, options = {}) {
+  if (item.key === 'image_add_border_frame') {
+    return createBorderLocalImageToolDetailMarkup(item, options);
+  }
+  if (item.key === 'image_platform_cover_template') {
+    return createPlatformTemplateLocalImageToolDetailMarkup(item, options);
+  }
+  if (item.key === 'image_annotate_canvas') {
+    return createAnnotateLocalImageToolDetailMarkup(item, options);
+  }
+  return createLocalImageToolDetailMarkup(item, options);
+}
+
+function createBorderLocalImageToolDetailMarkup(item, options = {}) {
+  const { showHeader = true } = options;
+  return `
+    <article class="tool-detail-card">
+      ${showHeader ? `
+        <div class="tool-detail-head">
+          <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+          <h3>${item.label}</h3>
+          <p>${item.helperText || ''}</p>
+        </div>
+      ` : ''}
+      <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+        <label class="field field-wide">
+          <span>选择图片</span>
+          <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+        </label>
+        <label class="field">
+          <span>边框样式</span>
+          <select data-image-border-style>
+            <option value="solid">纯色边框</option>
+            <option value="gradient">渐变边框</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>边框宽度</span>
+          <input type="number" min="0" max="200" step="1" data-image-border-width value="18" />
+        </label>
+        <label class="field">
+          <span>内边距</span>
+          <input type="number" min="0" max="400" step="1" data-image-padding value="60" />
+        </label>
+        <label class="field">
+          <span>圆角</span>
+          <input type="number" min="0" max="200" step="1" data-image-corner-radius value="36" />
+        </label>
+        <label class="field">
+          <span>阴影强度</span>
+          <input type="number" min="0" max="80" step="1" data-image-shadow-strength value="18" />
+        </label>
+        <label class="field">
+          <span>边框颜色</span>
+          <input type="color" data-image-border-color value="#2563eb" />
+        </label>
+        <label class="field">
+          <span>渐变起点</span>
+          <input type="color" data-image-gradient-start value="#2563eb" />
+        </label>
+        <label class="field">
+          <span>渐变终点</span>
+          <input type="color" data-image-gradient-end value="#7c3aed" />
+        </label>
+        <label class="field">
+          <span>导出格式</span>
+          <select data-image-output-format>
+            <option value="png">PNG</option>
+            <option value="jpg">JPG</option>
+          </select>
+        </label>
+        <button class="button" type="submit">生成预览</button>
+      </form>
+      ${createSharedLocalImageResultHost(item, { canvasHeight: 900 })}
+    </article>
+  `;
+}
+
+function createPlatformTemplateLocalImageToolDetailMarkup(item, options = {}) {
+  const { showHeader = true } = options;
+  return `
+    <article class="tool-detail-card">
+      ${showHeader ? `
+        <div class="tool-detail-head">
+          <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+          <h3>${item.label}</h3>
+          <p>${item.helperText || ''}</p>
+        </div>
+      ` : ''}
+      <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+        <label class="field field-wide">
+          <span>选择图片</span>
+          <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+        </label>
+        <label class="field">
+          <span>目标模板</span>
+          <select data-image-template-preset>
+            <option value="xianyu_main">闲鱼主图</option>
+            <option value="xiaohongshu_cover">小红书封面</option>
+            <option value="pengyouquan_single">朋友圈单图</option>
+            <option value="wechat_article_cover">公众号首图</option>
+            <option value="ppt_cover">PPT 封面</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>铺图方式</span>
+          <select data-image-fit-mode>
+            <option value="cover">铺满裁切</option>
+            <option value="contain">完整居中留白</option>
+            <option value="stretch">拉伸铺满</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>背景模式</span>
+          <select data-image-template-bg-mode>
+            <option value="solid">纯色背景</option>
+            <option value="blur">模糊铺底</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>背景颜色</span>
+          <input type="color" data-image-template-bg-color value="#f3f4f6" />
+        </label>
+        <div class="field field-wide">
+          <span>批量导出模板</span>
+          <div class="local-image-template-checkbox-grid">
+            <label class="local-image-checkbox"><input type="checkbox" data-image-batch-template-option value="xianyu_main" checked /> 闲鱼主图</label>
+            <label class="local-image-checkbox"><input type="checkbox" data-image-batch-template-option value="xiaohongshu_cover" checked /> 小红书封面</label>
+            <label class="local-image-checkbox"><input type="checkbox" data-image-batch-template-option value="pengyouquan_single" /> 朋友圈单图</label>
+            <label class="local-image-checkbox"><input type="checkbox" data-image-batch-template-option value="wechat_article_cover" /> 公众号首图</label>
+            <label class="local-image-checkbox"><input type="checkbox" data-image-batch-template-option value="ppt_cover" /> PPT 封面</label>
+          </div>
+        </div>
+        <label class="field">
+          <span>导出格式</span>
+          <select data-image-output-format>
+            <option value="png">PNG</option>
+            <option value="jpg">JPG</option>
+          </select>
+        </label>
+        <div class="local-image-action-row">
+          <button class="button" type="submit">生成预览</button>
+          <button class="button button-muted" type="button" data-local-image-batch-export>批量导出 ZIP</button>
+        </div>
+      </form>
+      ${createSharedLocalImageResultHost(item, { canvasWidth: 1242, canvasHeight: 1660 })}
+    </article>
+  `;
+}
+
+function createAnnotateLocalImageToolDetailMarkup(item, options = {}) {
+  const { showHeader = true } = options;
+  return `
+    <article class="tool-detail-card">
+      ${showHeader ? `
+        <div class="tool-detail-head">
+          <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+          <h3>${item.label}</h3>
+          <p>${item.helperText || ''}</p>
+        </div>
+      ` : ''}
+      <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+        <label class="field field-wide">
+          <span>选择图片</span>
+          <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+        </label>
+        <label class="field">
+          <span>标注类型</span>
+          <select data-image-annotation-mode>
+            <option value="arrow">箭头</option>
+            <option value="rect">矩形框</option>
+            <option value="circle">圆形框</option>
+            <option value="number">序号点</option>
+            <option value="text">文字注释</option>
+            <option value="mosaic">局部马赛克</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>说明文字</span>
+          <input type="text" data-image-annotation-label value="1" placeholder="序号或说明文字" />
+        </label>
+        <label class="field">
+          <span>方向</span>
+          <select data-image-arrow-direction>
+            <option value="right_up">右上</option>
+            <option value="right_down">右下</option>
+            <option value="left_up">左上</option>
+            <option value="left_down">左下</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>颜色</span>
+          <input type="color" data-image-annotation-color value="#ff3355" />
+        </label>
+        <label class="field">
+          <span>线宽</span>
+          <input type="number" min="1" max="48" step="1" data-image-annotation-line-width value="6" />
+        </label>
+        <label class="field">
+          <span>尺寸</span>
+          <input type="number" min="24" max="400" step="1" data-image-annotation-size value="96" />
+        </label>
+        <label class="field">
+          <span>局部马赛克</span>
+          <input type="number" min="4" max="64" step="1" data-image-annotation-mosaic value="14" />
+        </label>
+        <label class="field">
+          <span>导出格式</span>
+          <select data-image-output-format>
+            <option value="png">PNG</option>
+            <option value="jpg">JPG</option>
+          </select>
+        </label>
+        <p class="field-tip">先加载画布，再点击下方预览区域即可逐个添加标注。</p>
+        <button class="button" type="submit">加载画布</button>
+      </form>
+      <div class="tool-results" data-results="${item.key}">
+        <div class="local-image-result-shell">
+          <p class="field-tip" data-local-image-status>选择图片后可直接生成预览并导出。</p>
+          <div class="local-image-action-row">
+            <button class="button button-muted" type="button" data-local-image-undo>撤销最后一个</button>
+            <button class="button button-muted" type="button" data-local-image-clear>清空标注</button>
+          </div>
+          <div class="local-image-preview-shell">
+            <canvas class="local-image-preview-canvas local-image-preview-canvas-annotate" data-local-image-preview width="1200" height="900"></canvas>
+          </div>
+          <a class="button button-muted hidden" data-local-image-download download>导出图片</a>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function createSharedLocalImageResultHost(item, options = {}) {
+  const canvasWidth = options.canvasWidth || 1200;
+  const canvasHeight = options.canvasHeight || 900;
+  return `
+    <div class="tool-results" data-results="${item.key}">
+      <div class="local-image-result-shell">
+        <p class="field-tip" data-local-image-status>选择图片后可直接生成预览并导出。</p>
+        <div class="local-image-preview-shell">
+          <canvas class="local-image-preview-canvas" data-local-image-preview width="${canvasWidth}" height="${canvasHeight}"></canvas>
+        </div>
+        <a class="button button-muted hidden" data-local-image-download download>导出图片</a>
+      </div>
+    </div>
+  `;
+}
+
+function createEnhancedLocalTextToolDetailMarkup(item, options = {}) {
+  if (item.key === 'text_srt_to_text' || item.key === 'text_text_to_srt') {
+    return createSubtitleLocalTextToolDetailMarkup(item, options);
+  }
+  return createLocalTextToolDetailMarkup(item, options);
+}
+
+function createSubtitleLocalTextToolDetailMarkup(item, options = {}) {
+  const { showHeader = true } = options;
+  return `
+    <article class="tool-detail-card">
+      ${showHeader ? `
+        <div class="tool-detail-head">
+          <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+          <h3>${item.label}</h3>
+          <p>${item.helperText || ''}</p>
+        </div>
+      ` : ''}
+      <form class="tool-form tool-form-text" data-conversion-key="${item.key}" data-tool-kind="local_text">
+        ${item.key === 'text_srt_to_text' ? `
+          <label class="field field-wide">
+            <span>字幕文件</span>
+            <input type="file" data-local-text-file-input accept=".srt" />
+          </label>
+        ` : ''}
+        <label class="field field-wide">
+          <span>原始文本</span>
+          <textarea data-source-text rows="10" placeholder="${item.key === 'text_srt_to_text' ? '请粘贴 SRT 内容，或直接上传字幕文件' : '请每行输入一条字幕文本'}"></textarea>
+        </label>
+        ${item.key === 'text_text_to_srt' ? `
+          <label class="field">
+            <span>每条字幕时长</span>
+            <input type="number" min="0.2" max="30" step="0.1" data-subtitle-duration-seconds value="2.5" />
+          </label>
+          <label class="field">
+            <span>起始时间</span>
+            <input type="text" data-subtitle-start-time value="00:00:05,000" placeholder="例如：00:00:05,000" />
+          </label>
+        ` : ''}
+        <button class="button" type="submit">开始处理</button>
+      </form>
+      <div class="tool-results" data-results="${item.key}">
+        <div class="text-tool-result-shell">
+          <div class="text-tool-result-summary hidden" data-text-tool-summary></div>
+          <label class="field field-wide">
+            <span>处理结果</span>
+            <textarea data-output-text rows="10" readonly placeholder="处理结果会显示在这里"></textarea>
+          </label>
+          <a class="button button-muted hidden" data-text-download-link download="${item.key === 'text_text_to_srt' ? 'generated-subtitles.srt' : 'subtitle-text.txt'}">导出文件</a>
+          <button class="button button-muted" type="button" data-copy-output="${item.key}">复制结果</button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function createLocalImageToolDetailMarkup(item, options = {}) {
+  const { showHeader = true } = options;
+  if (item.key === 'image_add_border_frame') {
+    return `
+      <article class="tool-detail-card">
+        ${showHeader ? `
+          <div class="tool-detail-head">
+            <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+            <h3>${item.label}</h3>
+            <p>${item.helperText || ''}</p>
+          </div>
+        ` : ''}
+        <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+          <label class="field field-wide">
+            <span>选择图片</span>
+            <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+          </label>
+          <label class="field">
+            <span>边框样式</span>
+            <select data-image-border-style>
+              <option value="solid">纯色边框</option>
+              <option value="gradient">渐变边框</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>边框宽度</span>
+            <input type="number" min="0" max="120" step="1" data-image-border-width value="16" />
+          </label>
+          <label class="field">
+            <span>阴影强度</span>
+            <input type="number" min="0" max="80" step="1" data-image-shadow-strength value="18" />
+          </label>
+          <label class="field">
+            <span>圆角半径</span>
+            <input type="number" min="0" max="240" step="1" data-image-corner-radius value="28" />
+          </label>
+          <button class="button" type="submit">生成预览</button>
+        </form>
+        ${createLocalImageResultShell(item.key, 1200, 900)}
+      </article>
+    `;
+  }
+
+  if (item.key === 'image_privacy_redact') {
+    return `
+      <article class="tool-detail-card">
+        ${showHeader ? `
+          <div class="tool-detail-head">
+            <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+            <h3>${item.label}</h3>
+            <p>${item.helperText || ''}</p>
+          </div>
+        ` : ''}
+        <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+          <label class="field field-wide">
+            <span>选择图片</span>
+            <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+          </label>
+          <label class="field">
+            <span>打码方式</span>
+            <select data-image-redact-mode>
+              <option value="mosaic">局部马赛克</option>
+              <option value="blur">模糊打码</option>
+              <option value="fill">纯色遮挡</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>打码区域大小</span>
+            <input type="number" min="24" max="1200" step="4" data-image-redact-size value="160" />
+          </label>
+          <button class="button" type="submit">生成预览</button>
+        </form>
+        <div class="tool-results" data-results="${item.key}">
+          <div class="local-image-result-shell">
+            <div class="button-row">
+              <button class="button button-muted" type="button" data-local-image-undo>撤销一步</button>
+              <button class="button button-muted" type="button" data-local-image-clear>清空打码</button>
+            </div>
+            <p class="field-tip" data-local-image-status>选择图片后点击画布即可添加打码区域。</p>
+            <div class="local-image-preview-shell">
+              <canvas class="local-image-preview-canvas local-image-preview-canvas-annotate" data-local-image-preview width="1200" height="900"></canvas>
+            </div>
+            <a class="button button-muted hidden" data-local-image-download download>导出图片</a>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  if (item.key === 'image_blur_background_fill') {
+    return `
+      <article class="tool-detail-card">
+        ${showHeader ? `
+          <div class="tool-detail-head">
+            <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+            <h3>${item.label}</h3>
+            <p>${item.helperText || ''}</p>
+          </div>
+        ` : ''}
+        <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+          <label class="field field-wide">
+            <span>选择图片</span>
+            <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+          </label>
+          <label class="field">
+            <span>目标比例</span>
+            <select data-social-cover-ratio>
+              <option value="1:1">1:1</option>
+              <option value="4:3">4:3</option>
+              <option value="16:9">16:9</option>
+              <option value="3:4">3:4</option>
+              <option value="9:16">9:16</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>模糊强度</span>
+            <input type="number" min="8" max="48" step="1" data-image-blur-radius value="28" />
+          </label>
+          <label class="field">
+            <span>导出格式</span>
+            <select data-image-output-format>
+              <option value="png">PNG</option>
+              <option value="jpg">JPG</option>
+            </select>
+          </label>
+          <button class="button" type="submit">生成预览</button>
+        </form>
+        ${createLocalImageResultShell(item.key, 1200, 1200)}
+      </article>
+    `;
+  }
+
+  if (item.key === 'image_flip_mirror') {
+    return `
+      <article class="tool-detail-card">
+        ${showHeader ? `
+          <div class="tool-detail-head">
+            <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+            <h3>${item.label}</h3>
+            <p>${item.helperText || ''}</p>
+          </div>
+        ` : ''}
+        <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+          <label class="field field-wide">
+            <span>选择图片</span>
+            <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+          </label>
+          <label class="field">
+            <span>翻转方向</span>
+            <select data-image-flip-mode>
+              <option value="horizontal">水平镜像</option>
+              <option value="vertical">垂直翻转</option>
+              <option value="both">双向翻转</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>导出格式</span>
+            <select data-image-output-format>
+              <option value="png">PNG</option>
+              <option value="jpg">JPG</option>
+            </select>
+          </label>
+          <button class="button" type="submit">生成预览</button>
+        </form>
+        ${createLocalImageResultShell(item.key, 1200, 900)}
+      </article>
+    `;
+  }
+
+  if (item.key === 'image_metadata_view_clear') {
+    return `
+      <article class="tool-detail-card">
+        ${showHeader ? `
+          <div class="tool-detail-head">
+            <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+            <h3>${item.label}</h3>
+            <p>${item.helperText || ''}</p>
+          </div>
+        ` : ''}
+        <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+          <label class="field field-wide">
+            <span>选择图片</span>
+            <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+          </label>
+          <label class="field">
+            <span>处理模式</span>
+            <select data-image-metadata-mode>
+              <option value="view">仅查看</option>
+              <option value="clear">清除元数据并导出</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>导出格式</span>
+            <select data-image-output-format>
+              <option value="png">PNG</option>
+              <option value="jpg">JPG</option>
+            </select>
+          </label>
+          <button class="button" type="submit">读取信息</button>
+        </form>
+        <div class="tool-results" data-results="${item.key}">
+          <div class="local-image-result-shell">
+            <p class="field-tip" data-local-image-status>选择图片后可查看基本信息，或导出去除元数据后的图片。</p>
+            <label class="field field-wide">
+              <span>元数据预览</span>
+              <textarea data-local-image-metadata-output rows="7" readonly placeholder="图片信息会显示在这里"></textarea>
+            </label>
+            <div class="local-image-preview-shell">
+              <canvas class="local-image-preview-canvas" data-local-image-preview width="1200" height="900"></canvas>
+            </div>
+            <a class="button button-muted hidden" data-local-image-download download>导出图片</a>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  if (item.key === 'image_blur_redact') {
+    return `
+      <article class="tool-detail-card">
+        ${showHeader ? `
+          <div class="tool-detail-head">
+            <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+            <h3>${item.label}</h3>
+            <p>${item.helperText || ''}</p>
+          </div>
+        ` : ''}
+        <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+          <label class="field field-wide">
+            <span>选择图片</span>
+            <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+          </label>
+          <label class="field">
+            <span>处理方式</span>
+            <select data-image-redact-mode>
+              <option value="blur">模糊</option>
+              <option value="mosaic">马赛克</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>区域宽度</span>
+            <input type="number" min="24" max="1200" step="4" data-image-redact-size value="160" />
+          </label>
+          <button class="button" type="submit">生成预览</button>
+        </form>
+        <div class="tool-results" data-results="${item.key}">
+          <div class="local-image-result-shell">
+            <div class="button-row">
+              <button class="button button-muted" type="button" data-local-image-undo>撤销一步</button>
+              <button class="button button-muted" type="button" data-local-image-clear>清空打码</button>
+            </div>
+            <p class="field-tip" data-local-image-status>选择图片后点击画布即可添加模糊或马赛克区域。</p>
+            <div class="local-image-preview-shell">
+              <canvas class="local-image-preview-canvas local-image-preview-canvas-annotate" data-local-image-preview width="1200" height="900"></canvas>
+            </div>
+            <a class="button button-muted hidden" data-local-image-download download>导出图片</a>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  if (item.key === 'image_rotate_adjust') {
+    return `
+      <article class="tool-detail-card">
+        ${showHeader ? `
+          <div class="tool-detail-head">
+            <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+            <h3>${item.label}</h3>
+            <p>${item.helperText || ''}</p>
+          </div>
+        ` : ''}
+        <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+          <label class="field field-wide">
+            <span>选择图片</span>
+            <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+          </label>
+          <label class="field">
+            <span>旋转角度</span>
+            <input type="number" min="-270" max="270" step="1" data-image-rotate-angle value="90" />
+          </label>
+          <div class="button-row">
+            <button class="button button-muted" type="button" data-image-rotate-preset="90">90°</button>
+            <button class="button button-muted" type="button" data-image-rotate-preset="180">180°</button>
+            <button class="button button-muted" type="button" data-image-rotate-preset="270">270°</button>
+          </div>
+          <label class="field">
+            <span>导出格式</span>
+            <select data-image-output-format>
+              <option value="png">PNG</option>
+              <option value="jpg">JPG</option>
+            </select>
+          </label>
+          <button class="button" type="submit">生成预览</button>
+        </form>
+        ${createLocalImageResultShell(item.key, 1200, 900)}
+      </article>
+    `;
+  }
+
+  if (item.key === 'image_object_erase_light') {
+    return `
+      <article class="tool-detail-card">
+        ${showHeader ? `
+          <div class="tool-detail-head">
+            <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+            <h3>${item.label}</h3>
+            <p>${item.helperText || ''}</p>
+          </div>
+        ` : ''}
+        <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+          <label class="field field-wide">
+            <span>选择图片</span>
+            <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+          </label>
+          <label class="field">
+            <span>笔刷大小</span>
+            <input type="number" min="12" max="480" step="2" data-image-erase-brush-size value="64" />
+          </label>
+          <label class="field">
+            <span>取样偏移</span>
+            <input type="number" min="4" max="160" step="1" data-image-erase-sample-offset value="20" />
+          </label>
+          <p class="field-tip">轻量版：点击局部区域后，会按附近颜色做涂抹覆盖。</p>
+          <button class="button" type="submit">加载画布</button>
+        </form>
+        <div class="tool-results" data-results="${item.key}">
+          <div class="local-image-result-shell">
+            <div class="button-row">
+              <button class="button button-muted" type="button" data-local-image-undo>撤销一步</button>
+              <button class="button button-muted" type="button" data-local-image-clear>清空消除</button>
+            </div>
+            <p class="field-tip" data-local-image-status>轻量版局部涂抹消除已就绪，点击画布可快速覆盖小杂物。</p>
+            <div class="local-image-preview-shell">
+              <canvas class="local-image-preview-canvas local-image-preview-canvas-annotate" data-local-image-preview width="1200" height="900"></canvas>
+            </div>
+            <a class="button button-muted hidden" data-local-image-download download>导出图片</a>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  if (item.key === 'image_flip_mirror') {
+    return `
+      <article class="tool-detail-card">
+        ${showHeader ? `
+          <div class="tool-detail-head">
+            <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+            <h3>${item.label}</h3>
+            <p>${item.helperText || ''}</p>
+          </div>
+        ` : ''}
+        <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+          <label class="field field-wide">
+            <span>选择图片</span>
+            <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+          </label>
+          <label class="field">
+            <span>翻转方向</span>
+            <select data-image-flip-direction>
+              <option value="horizontal">水平镜像</option>
+              <option value="vertical">垂直翻转</option>
+              <option value="both">双向翻转</option>
+            </select>
+          </label>
+          <button class="button" type="submit">生成预览</button>
+        </form>
+        ${createLocalImageResultShell(item.key, 1200, 900)}
+      </article>
+    `;
+  }
+
+  if (item.key === 'image_metadata_view_clear') {
+    return `
+      <article class="tool-detail-card">
+        ${showHeader ? `
+          <div class="tool-detail-head">
+            <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+            <h3>${item.label}</h3>
+            <p>${item.helperText || ''}</p>
+          </div>
+        ` : ''}
+        <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+          <label class="field field-wide">
+            <span>选择图片</span>
+            <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+          </label>
+          <label class="field">
+            <span>处理模式</span>
+            <select data-image-metadata-mode>
+              <option value="view">查看元数据</option>
+              <option value="clear">清除元数据</option>
+            </select>
+          </label>
+          <button class="button" type="submit">生成预览</button>
+        </form>
+        ${createLocalImageResultShell(item.key, 1200, 900)}
+      </article>
+    `;
+  }
+
+  if (item.key === 'image_blur_redact') {
+    return `
+      <article class="tool-detail-card">
+        ${showHeader ? `
+          <div class="tool-detail-head">
+            <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+            <h3>${item.label}</h3>
+            <p>${item.helperText || ''}</p>
+          </div>
+        ` : ''}
+        <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+          <label class="field field-wide">
+            <span>选择图片</span>
+            <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+          </label>
+          <label class="field">
+            <span>模糊方式</span>
+            <select data-image-blur-redact-mode>
+              <option value="blur">局部模糊</option>
+              <option value="mosaic">局部马赛克</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>模糊半径</span>
+            <input type="number" min="4" max="48" step="1" data-image-blur-radius value="18" />
+          </label>
+          <button class="button" type="submit">生成预览</button>
+        </form>
+        ${createLocalImageResultShell(item.key, 1200, 900)}
+      </article>
+    `;
+  }
+
+  if (item.key === 'image_rotate_adjust') {
+    return `
+      <article class="tool-detail-card">
+        ${showHeader ? `
+          <div class="tool-detail-head">
+            <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+            <h3>${item.label}</h3>
+            <p>${item.helperText || ''}</p>
+          </div>
+        ` : ''}
+        <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+          <label class="field field-wide">
+            <span>选择图片</span>
+            <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+          </label>
+          <label class="field">
+            <span>旋转角度</span>
+            <input type="number" min="-180" max="180" step="1" data-image-rotate-angle value="90" />
+          </label>
+          <button class="button" type="submit">生成预览</button>
+        </form>
+        ${createLocalImageResultShell(item.key, 1200, 900)}
+      </article>
+    `;
+  }
+
+  if (item.key === 'image_object_erase_light') {
+    return `
+      <article class="tool-detail-card">
+        ${showHeader ? `
+          <div class="tool-detail-head">
+            <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+            <h3>${item.label}</h3>
+            <p>${item.helperText || ''}</p>
+          </div>
+        ` : ''}
+        <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+          <label class="field field-wide">
+            <span>选择图片</span>
+            <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+          </label>
+          <label class="field">
+            <span>笔刷大小</span>
+            <input type="number" min="8" max="128" step="1" data-image-erase-brush-size value="32" />
+          </label>
+          <button class="button" type="submit">生成预览</button>
+        </form>
+        ${createLocalImageResultShell(item.key, 1200, 900)}
+      </article>
+    `;
+  }
+
+  if (item.key === 'image_platform_cover_template') {
+    return `
+      <article class="tool-detail-card">
+        ${showHeader ? `
+          <div class="tool-detail-head">
+            <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+            <h3>${item.label}</h3>
+            <p>${item.helperText || ''}</p>
+          </div>
+        ` : ''}
+        <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+          <label class="field field-wide">
+            <span>选择图片</span>
+            <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+          </label>
+          <label class="field">
+            <span>目标模板</span>
+            <select data-image-platform-preset>
+              <option value="xianyu_main">闲鱼主图</option>
+              <option value="xiaohongshu_cover">小红书封面</option>
+              <option value="pengyouquan_single">朋友圈单图</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>铺图模式</span>
+            <select data-image-platform-fit-mode>
+              <option value="contain">完整显示</option>
+              <option value="cover">铺满裁切</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>背景模式</span>
+            <select data-image-platform-background-mode>
+              <option value="solid">纯色铺底</option>
+              <option value="blur">模糊铺底</option>
+            </select>
+          </label>
+          <button class="button" type="submit">生成预览</button>
+        </form>
+        ${createLocalImageResultShell(item.key, 1242, 1660)}
+      </article>
+    `;
+  }
+
+  if (item.key === 'image_annotate_canvas') {
+    return `
+      <article class="tool-detail-card">
+        ${showHeader ? `
+          <div class="tool-detail-head">
+            <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+            <h3>${item.label}</h3>
+            <p>${item.helperText || ''}</p>
+          </div>
+        ` : ''}
+        <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+          <label class="field field-wide">
+            <span>选择图片</span>
+            <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+          </label>
+          <label class="field">
+            <span>标注类型</span>
+            <select data-image-annotation-mode>
+              <option value="arrow">箭头</option>
+              <option value="rect">矩形框</option>
+              <option value="number">序号点</option>
+              <option value="mosaic">局部马赛克</option>
+            </select>
+          </label>
+          <button class="button" type="submit">生成预览</button>
+        </form>
+        <div class="tool-results" data-results="${item.key}">
+          <div class="local-image-result-shell">
+            <div class="button-row">
+              <button class="button button-muted" type="button" data-local-image-undo>撤销一步</button>
+              <button class="button button-muted" type="button" data-local-image-clear>清空标注</button>
+            </div>
+            <p class="field-tip" data-local-image-status>选择图片后可直接生成预览并导出。</p>
+            <div class="local-image-preview-shell">
+              <canvas class="local-image-preview-canvas" data-local-image-preview width="1200" height="900"></canvas>
+            </div>
+            <a class="button button-muted hidden" data-local-image-download download>导出图片</a>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  if (item.key === 'image_social_cover_pad') {
+    return `
+      <article class="tool-detail-card">
+        ${showHeader ? `
+          <div class="tool-detail-head">
+            <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+            <h3>${item.label}</h3>
+            <p>${item.helperText || ''}</p>
+          </div>
+        ` : ''}
+        <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+          <label class="field field-wide">
+            <span>选择图片</span>
+            <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+          </label>
+          <label class="field">
+            <span>目标比例</span>
+            <select data-social-cover-ratio>
+              <option value="1:1">1:1</option>
+              <option value="4:3">4:3</option>
+              <option value="16:9">16:9</option>
+              <option value="3:4">3:4</option>
+              <option value="9:16">9:16</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>背景模式</span>
+            <select data-social-cover-background-mode>
+              <option value="solid">纯色背景</option>
+              <option value="blur">模糊原图背景</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>背景颜色</span>
+            <input type="color" data-background-color value="#ffffff" />
+          </label>
+          <label class="field">
+            <span>导出格式</span>
+            <select data-image-output-format>
+              <option value="png">PNG</option>
+              <option value="jpg">JPG</option>
+            </select>
+          </label>
+          <button class="button" type="submit">生成预览</button>
+        </form>
+        <div class="tool-results" data-results="${item.key}">
+          ${createLocalImageResultShell(item.key, 1200, 1200)}
+        </div>
+      </article>
+    `;
+  }
+
+  return `
+    <article class="tool-detail-card">
+      ${showHeader ? `
+        <div class="tool-detail-head">
+          <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+          <h3>${item.label}</h3>
+          <p>${item.helperText || ''}</p>
+        </div>
+      ` : ''}
+      <form class="tool-form tool-form-image" data-conversion-key="${item.key}" data-tool-kind="local_image_tool">
+        <label class="field field-wide">
+          <span>选择图片</span>
+          <input type="file" data-local-image-file-input accept="${item.accepts}" required />
+        </label>
+        <label class="field field-wide">
+          <span>主标题</span>
+          <input type="text" data-image-text-title value="主标题示例" placeholder="输入大标题" />
+        </label>
+        <label class="field field-wide">
+          <span>副标题</span>
+          <input type="text" data-image-text-subtitle value="这里可以放副标题或说明文案" placeholder="输入副标题" />
+        </label>
+        <label class="field">
+          <span>角标</span>
+          <input type="text" data-image-text-badge value="限时" placeholder="例如：限时 / 教程 / 干货" />
+        </label>
+        <label class="field">
+          <span>版式</span>
+          <select data-image-layout-preset>
+            <option value="top_banner">顶部横幅</option>
+            <option value="center_focus">中间聚焦</option>
+            <option value="bottom_caption">底部说明</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>标题字号</span>
+          <input type="number" min="20" max="240" step="1" data-image-title-size value="88" />
+        </label>
+        <label class="field">
+          <span>副标题字号</span>
+          <input type="number" min="14" max="140" step="1" data-image-subtitle-size value="40" />
+        </label>
+        <label class="field">
+          <span>角标字号</span>
+          <input type="number" min="12" max="96" step="1" data-image-badge-size value="28" />
+        </label>
+        <label class="field">
+          <span>主文字颜色</span>
+          <input type="color" data-image-text-color value="#ffffff" />
+        </label>
+        <label class="field">
+          <span>角标文字色</span>
+          <input type="color" data-image-badge-text-color value="#ffffff" />
+        </label>
+        <label class="field">
+          <span>描边颜色</span>
+          <input type="color" data-image-stroke-color value="#111827" />
+        </label>
+        <label class="field">
+          <span>描边宽度</span>
+          <input type="number" min="0" max="32" step="1" data-image-stroke-width value="4" />
+        </label>
+        <label class="field">
+          <span>文字底板色</span>
+          <input type="color" data-image-overlay-color value="#111827" />
+        </label>
+        <label class="field">
+          <span>角标底色</span>
+          <input type="color" data-image-badge-bg-color value="#ef4444" />
+        </label>
+        <label class="field">
+          <span>导出格式</span>
+          <select data-image-output-format>
+            <option value="png">PNG</option>
+            <option value="jpg">JPG</option>
+          </select>
+        </label>
+        <button class="button" type="submit">生成预览</button>
+      </form>
+      ${createLocalImageResultShell(item.key, 1200, 900)}
+    </article>
+  `;
+}
+
+function createLocalImageResultShell(toolKey, canvasWidth, canvasHeight) {
+  return `
+    <div class="tool-results" data-results="${toolKey}">
+      <div class="local-image-result-shell">
+        <p class="field-tip" data-local-image-status>选择图片后可直接生成预览并导出。</p>
+        <div class="local-image-preview-shell">
+          <canvas class="local-image-preview-canvas" data-local-image-preview width="${canvasWidth}" height="${canvasHeight}"></canvas>
+        </div>
+        <a class="button button-muted hidden" data-local-image-download download>导出图片</a>
+      </div>
+    </div>
   `;
 }
 
@@ -783,6 +1859,50 @@ function createConversionOptionsMarkup(item) {
     `;
   }
 
+  if (item.key === 'qr_generate') {
+    return `
+      <label class="field field-wide">
+        <span>二维码内容</span>
+        <textarea data-qr-text rows="8" placeholder="输入网址、文本或收款说明"></textarea>
+      </label>
+      <label class="field">
+        <span>输出尺寸</span>
+        <input type="number" min="128" max="1024" step="32" data-qr-size value="320" />
+      </label>
+    `;
+  }
+
+  if (item.key === 'qr_generate_batch') {
+    return `
+      <label class="field field-wide">
+        <span>批量内容</span>
+        <textarea data-qr-lines-text rows="10" placeholder="每行一条内容，例如：&#10;订单001&#10;订单002"></textarea>
+      </label>
+      <label class="field">
+        <span>输出尺寸</span>
+        <input type="number" min="128" max="1024" step="32" data-qr-size value="256" />
+      </label>
+      <p class="field-tip">每一行会生成一个二维码，最后统一打包成 ZIP 下载。</p>
+    `;
+  }
+
+  if (item.key === 'payment_code_merge') {
+    return `
+      <label class="field">
+        <span>合并方式</span>
+        <select data-payment-code-layout>
+          <option value="vertical">上下合并</option>
+          <option value="horizontal">左右合并</option>
+        </select>
+      </label>
+      <label class="field field-wide">
+        <span>主标题</span>
+        <input type="text" data-payment-code-title value="收款码" placeholder="例如：扫码付款" />
+      </label>
+      <p class="field-tip">按上传顺序合并，建议先传微信码，再传支付宝码。</p>
+    `;
+  }
+
   if (item.key === 'media_audio_clip') {
     return `
       <label class="field">
@@ -800,6 +1920,26 @@ function createConversionOptionsMarkup(item) {
           <option value="wav">WAV</option>
         </select>
       </label>
+    `;
+  }
+
+  if (item.key === 'media_audio_to_text') {
+    return `
+      <label class="field">
+        <span>识别语言</span>
+        <select data-media-language>
+          <option value="auto">自动识别</option>
+          <option value="zh">中文</option>
+          <option value="en">英文</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>输出格式</span>
+        <select data-media-output-format>
+          <option value="txt">TXT 文本</option>
+        </select>
+      </label>
+      <p class="field-tip">适合会议录音、课程音频和口播内容的快速转文字整理。</p>
     `;
   }
 
@@ -834,6 +1974,38 @@ function createConversionOptionsMarkup(item) {
         </select>
       </label>
       <p class="field-tip">文本型 PDF 优先保留排版并导出可编辑 Word；扫描件会先做 OCR 再导出。</p>
+    `;
+  }
+
+  if (item.key === 'ocr_text_extract') {
+    return `
+      <label class="field">
+        <span>识别语言</span>
+        <select data-ocr-language>
+          <option value="chi_sim+eng">中文 + 英文</option>
+          <option value="chi_sim">仅中文</option>
+          <option value="eng">仅英文</option>
+        </select>
+      </label>
+      <p class="field-tip">支持截图、扫描图和常见图片文字识别，结果会生成 TXT 文件。</p>
+    `;
+  }
+
+  if (item.key === 'batch_file_rename') {
+    return `
+      <label class="field field-wide">
+        <span>命名模板</span>
+        <input type="text" data-rename-template value="资料-{n}-{name}" placeholder="例如：资料-{n}-{name}" />
+      </label>
+      <label class="field">
+        <span>起始序号</span>
+        <input type="number" min="1" step="1" data-rename-start-number value="1" />
+      </label>
+      <label class="field">
+        <span>序号位数</span>
+        <input type="number" min="1" max="8" step="1" data-rename-number-width value="2" />
+      </label>
+      <p class="field-tip">支持模板变量 {n} 和 {name}，结果会按新文件名统一打包下载。</p>
     `;
   }
 
@@ -974,7 +2146,7 @@ function createConversionOptionsMarkup(item) {
     `;
   }
 
-  if (item.key === 'sign_stamp_pdf') {
+  if (item.key === 'sign_stamp_pdf' || item.key === 'batch_sign_stamp_pdf') {
     return `
       <label class="field">
         <span>签名方式</span>
@@ -1047,6 +2219,50 @@ function createStructuredRangeMarkup(summaryText) {
 }
 
 function createImageToolOptionsMarkup(item) {
+  if (item.key === 'qr_generate') {
+    return `
+      <label class="field field-wide">
+        <span>二维码内容</span>
+        <textarea data-qr-text rows="8" placeholder="输入网址、文本或收款说明"></textarea>
+      </label>
+      <label class="field">
+        <span>输出尺寸</span>
+        <input type="number" min="128" max="1024" step="32" data-qr-size value="320" />
+      </label>
+    `;
+  }
+
+  if (item.key === 'qr_generate_batch') {
+    return `
+      <label class="field field-wide">
+        <span>批量内容</span>
+        <textarea data-qr-lines-text rows="10" placeholder="每行一条内容，例如：&#10;订单001&#10;订单002"></textarea>
+      </label>
+      <label class="field">
+        <span>输出尺寸</span>
+        <input type="number" min="128" max="1024" step="32" data-qr-size value="256" />
+      </label>
+      <p class="field-tip">每一行会生成一个二维码，最后统一打包成 ZIP 下载。</p>
+    `;
+  }
+
+  if (item.key === 'payment_code_merge') {
+    return `
+      <label class="field">
+        <span>合并方式</span>
+        <select data-payment-code-layout>
+          <option value="vertical">上下合并</option>
+          <option value="horizontal">左右合并</option>
+        </select>
+      </label>
+      <label class="field field-wide">
+        <span>主标题</span>
+        <input type="text" data-payment-code-title value="收款码" placeholder="例如：扫码付款" />
+      </label>
+      <p class="field-tip">建议按上传顺序放入微信码、支付宝码等需要合并的收款图片。</p>
+    `;
+  }
+
   if (item.key === 'image_compress_batch') {
     return `
       <label class="field">
@@ -1119,6 +2335,13 @@ function createImageToolOptionsMarkup(item) {
         <span>列数</span>
         <input type="number" min="1" max="20" step="1" data-grid-columns value="2" />
       </label>
+      ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  if (item.key === 'image_nine_grid') {
+    return `
+      <p class="field-tip">固定输出 3 x 3 九宫格图片，适合朋友圈和社媒切图。</p>
       ${createImageOutputFormatSelect('png')}
     `;
   }
@@ -1208,7 +2431,7 @@ function createImageToolOptionsMarkup(item) {
     `;
   }
 
-  if (['image_remove_solid_bg', 'id_photo_bg_swap'].includes(item.key)) {
+  if (['image_remove_solid_bg', 'image_smart_bg_remove', 'id_photo_bg_swap'].includes(item.key)) {
     return `
       ${item.key === 'id_photo_bg_swap' ? `
         <label class="field">
@@ -1218,7 +2441,7 @@ function createImageToolOptionsMarkup(item) {
       ` : ''}
       <label class="field">
         <span>容差</span>
-        <input type="number" min="0" max="255" step="1" data-color-tolerance value="36" />
+        <input type="number" min="0" max="255" step="1" data-color-tolerance value="${item.key === 'image_smart_bg_remove' ? '40' : '36'}" />
       </label>
       ${createImageOutputFormatSelect(item.key === 'id_photo_bg_swap' ? 'jpg' : 'png')}
     `;
@@ -1267,6 +2490,19 @@ function createImageToolOptionsMarkup(item) {
         <input type="number" min="1" max="10240" step="1" data-target-size-kb value="100" />
       </label>
       ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  if (item.key === 'image_heic_convert') {
+    return `
+      <label class="field">
+        <span>导出格式</span>
+        <select data-image-output-format>
+          <option value="jpg">JPG</option>
+          <option value="png">PNG</option>
+        </select>
+      </label>
+      <p class="field-tip">适合把 iPhone 常见 HEIC / HEIF 图片快速转成更通用的 JPG 或 PNG。</p>
     `;
   }
 
@@ -1518,6 +2754,29 @@ function createLocalTextToolDetailMarkup(item, options = {}) {
 }
 
 function createLocalTextToolOptionsMarkup(item) {
+  if (item.key === 'text_srt_to_text') {
+    return `
+      <label class="field field-wide">
+        <span>字幕文件</span>
+        <input type="file" data-local-text-file-input accept=".srt" />
+      </label>
+      <p class="field-tip">支持直接上传 .srt 文件，也可以把字幕内容粘贴到上面的文本框。</p>
+    `;
+  }
+
+  if (item.key === 'text_text_to_srt') {
+    return `
+      <label class="field">
+        <span>每条字幕时长（秒）</span>
+        <input type="number" min="0.2" max="30" step="0.1" data-subtitle-duration-seconds value="2.5" />
+      </label>
+      <label class="field">
+        <span>起始时间</span>
+        <input type="text" data-subtitle-start-time value="00:00:00,000" placeholder="例如：00:00:05,000" />
+      </label>
+    `;
+  }
+
   if (item.key === 'text_replace_batch') {
     return `
       <label class="field">
@@ -1652,6 +2911,9 @@ function createLocalTextToolResultMarkup(item) {
       <button class="button button-muted text-tool-copy-button" type="button" data-copy-output="${item.key}">
         复制结果
       </button>
+      <a class="button button-muted hidden" data-local-text-download download="${item.key === 'text_text_to_srt' ? 'generated-subtitles.srt' : 'subtitle-text.txt'}">
+        导出文件
+      </a>
     </div>
   `;
 }

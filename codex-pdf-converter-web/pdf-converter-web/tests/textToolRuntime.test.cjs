@@ -376,3 +376,42 @@ test('runTextTool generates uuids by count', async () => {
   assert.equal(lines.length, 3);
   assert.match(lines[0], /^[0-9a-f-]{36}$/i);
 });
+
+test('runTextTool extracts plain text from srt subtitles and prepares txt download content', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'textToolRuntime.mjs')
+  ).href;
+  const { runTextTool } = await import(moduleUrl);
+
+  const result = runTextTool('text_srt_to_text', {
+    sourceText: '1\r\n00:00:01,000 --> 00:00:03,000\r\n第一句\r\n\r\n2\r\n00:00:04,000 --> 00:00:05,500\r\nSecond line\r\n'
+  });
+
+  assert.equal(result.outputText, '第一句\nSecond line');
+  assert.deepEqual(result.downloadFile, {
+    fileName: 'subtitle-text.txt',
+    mimeType: 'text/plain;charset=utf-8',
+    content: '第一句\nSecond line'
+  });
+});
+
+test('runTextTool generates srt subtitles from plain text lines', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'textToolRuntime.mjs')
+  ).href;
+  const { runTextTool } = await import(moduleUrl);
+
+  const result = runTextTool('text_text_to_srt', {
+    sourceText: '第一句\n第二句',
+    subtitleDurationSeconds: '2.5',
+    subtitleStartTime: '00:00:05,000'
+  });
+
+  const expected = '1\n00:00:05,000 --> 00:00:07,500\n第一句\n\n2\n00:00:07,500 --> 00:00:10,000\n第二句';
+  assert.equal(result.outputText, expected);
+  assert.deepEqual(result.downloadFile, {
+    fileName: 'generated-subtitles.srt',
+    mimeType: 'application/x-subrip;charset=utf-8',
+    content: expected
+  });
+});

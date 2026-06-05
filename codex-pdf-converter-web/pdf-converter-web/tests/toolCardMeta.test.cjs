@@ -76,3 +76,57 @@ test('shared tool card meta exposes uu-style icon and palette mapping for media 
   assert.equal(playerMeta.badge, '试听');
   assert.equal(playerMeta.styleClass, 'style13');
 });
+
+test('shared tool card meta exposes image-add-text and heic-convert mappings', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCardMeta.mjs')
+  ).href;
+  const { getToolCardMeta } = await import(moduleUrl);
+
+  const addTextMeta = getToolCardMeta('image_add_text');
+  const heicMeta = getToolCardMeta('image_heic_convert');
+
+  assert.equal(addTextMeta.badge, '文字');
+  assert.equal(addTextMeta.iconClass, 'fa fa-font');
+  assert.match(addTextMeta.styleClass, /^style\d+$/);
+
+  assert.equal(heicMeta.badge, 'HEIC');
+  assert.equal(heicMeta.iconClass, 'fa fa-file-image-o');
+  assert.match(heicMeta.styleClass, /^style\d+$/);
+});
+
+test('shared tool card meta exposes mappings for border template and annotation local image tools', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCardMeta.mjs')
+  ).href;
+  const { getToolCardMeta } = await import(moduleUrl);
+
+  const borderMeta = getToolCardMeta('image_add_border_frame');
+  const templateMeta = getToolCardMeta('image_platform_cover_template');
+  const annotateMeta = getToolCardMeta('image_annotate_canvas');
+
+  assert.equal(borderMeta.badge, '边框');
+  assert.equal(borderMeta.iconClass, 'fa fa-square-o');
+  assert.match(borderMeta.styleClass, /^style\d+$/);
+
+  assert.equal(templateMeta.badge, '模板');
+  assert.equal(templateMeta.iconClass, 'fa fa-object-group');
+  assert.match(templateMeta.styleClass, /^style\d+$/);
+
+  assert.equal(annotateMeta.badge, '标注');
+  assert.equal(annotateMeta.iconClass, 'fa fa-pencil');
+  assert.match(annotateMeta.styleClass, /^style\d+$/);
+});
+
+test('shared tool card meta exposes mappings for flip metadata blur rotate and erase image tools', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCardMeta.mjs')
+  ).href;
+  const { getToolCardMeta } = await import(moduleUrl);
+
+  assert.equal(getToolCardMeta('image_flip_mirror').badge, '翻转');
+  assert.equal(getToolCardMeta('image_metadata_view_clear').badge, '元数据');
+  assert.equal(getToolCardMeta('image_blur_redact').badge, '打码');
+  assert.equal(getToolCardMeta('image_rotate_adjust').badge, '旋转');
+  assert.equal(getToolCardMeta('image_object_erase_light').badge, '消除');
+});

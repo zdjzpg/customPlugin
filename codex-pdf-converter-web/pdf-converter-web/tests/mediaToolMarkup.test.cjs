@@ -46,6 +46,25 @@ test('createToolDetailMarkup renders audio clip upload and time-range controls',
   assert.match(html, /开始处理/);
 });
 
+test('createToolDetailMarkup renders audio-to-text upload and language controls', async () => {
+  const { createToolDetailMarkup } = await import(getMarkupModuleUrl());
+
+  const html = createToolDetailMarkup({
+    key: 'media_audio_to_text',
+    kind: 'file_media_tool',
+    label: '音频转文字',
+    helperText: '上传音频后识别为可复制文本。',
+    accepts: '.mp3,.wav,.m4a,.aac,.flac,.ogg,.opus'
+  });
+
+  assert.match(html, /type="file"/);
+  assert.match(html, /识别语言/);
+  assert.match(html, /自动识别/);
+  assert.match(html, /中文/);
+  assert.match(html, /英文/);
+  assert.match(html, /TXT 文本/);
+});
+
 test('createToolDetailMarkup renders local audio-player preview shell', async () => {
   const { createToolDetailMarkup } = await import(getMarkupModuleUrl());
 

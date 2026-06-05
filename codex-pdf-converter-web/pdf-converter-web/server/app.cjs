@@ -345,9 +345,18 @@ function createApp(dependencies) {
         files: input.files
       });
 
+      const resultResponse = {
+        id: result.conversionId,
+        status: result.status,
+        files: result.files
+      };
+      if (result.summary) {
+        resultResponse.summary = result.summary;
+      }
+
       response.json({
         ok: true,
-        result
+        result: resultResponse
       });
     } catch (error) {
       response.status(error.statusCode || 500).json({
@@ -360,6 +369,10 @@ function createApp(dependencies) {
 
   app.get('/admin', (_request, response) => {
     response.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
+  });
+
+  app.get('/preview', (_request, response) => {
+    response.sendFile(path.join(__dirname, '..', 'public', 'preview.html'));
   });
 
   app.get('/api/admin/conversions', (request, response) => {
@@ -594,8 +607,12 @@ function isValidConversionRequest(input) {
     return false;
   }
 
-  if (!input.conversionKey || input.files.length === 0) {
+  if (!input.conversionKey) {
     return false;
+  }
+
+  if (input.files.length === 0) {
+    return FILELESS_CONVERSION_KEYS.has(input.conversionKey);
   }
 
   return input.files.every((file) => file.fileName && (file.contentBase64 || file.tempPath));
@@ -714,3 +731,8 @@ function normalizeUsageStatsQuery(query) {
 module.exports = {
   createApp
 };
+
+const FILELESS_CONVERSION_KEYS = new Set([
+  'qr_generate',
+  'qr_generate_batch'
+]);

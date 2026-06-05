@@ -16,6 +16,7 @@ sudo apt install -y \
   python3-pil \
   python3-reportlab \
   python3-docx \
+  python3-opencv \
   tesseract-ocr \
   tesseract-ocr-chi-sim \
   tesseract-ocr-eng \
@@ -24,7 +25,7 @@ sudo apt install -y \
   fonts-wqy-microhei \
   python3-pdf2image
 
-sudo python3 -m pip install pypdf pdf2docx ocrmypdf
+sudo python3 -m pip install pypdf pdf2docx ocrmypdf pillow-heif "rembg[cpu]" "qrcode[pil]" openai-whisper
 
 curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt install -y nodejs

@@ -36,11 +36,12 @@ This installs:
 - Chinese fonts required by LibreOffice PDF export
 - Python runtime packages required by the conversion script
 - `nginx`
+- `python3-opencv`
 
 The install script also runs:
 
 ```bash
-sudo python3 -m pip install pypdf pdf2docx ocrmypdf pymupdf python-pptx
+sudo python3 -m pip install pypdf pdf2docx ocrmypdf pymupdf python-pptx pillow-heif "rembg[cpu]" "qrcode[pil]" openai-whisper
 ```
 
 This is required by:
@@ -50,6 +51,11 @@ This is required by:
 - `PDF 提取页面`
 - `拆分 PDF`
 - `PDF 压缩`
+- `HEIC 转 JPG / PNG`
+- `智能抠图 / 去背景`
+- `二维码生成 / 批量二维码`
+- `音频转文字`
+- `二维码解码` additionally requires system `python3-opencv`
 
 ## 3. Prepare environment variables
 
@@ -73,6 +79,9 @@ LIBREOFFICE_BIN=/usr/bin/libreoffice
 POPPLER_BIN_DIR=/usr/bin
 GHOSTSCRIPT_BIN=/usr/bin/gs
 OCRMYPDF_BIN=/usr/local/bin/ocrmypdf
+TESSERACT_BIN=/usr/bin/tesseract
+FFMPEG_BIN=/usr/bin/ffmpeg
+WHISPER_MODEL=tiny
 ```
 
 ## 4. Install app dependencies and start with PM2
@@ -139,6 +148,12 @@ Then verify in browser:
 - `PDF 提取页面` works
 - `拆分 PDF` works
 - `Word -> PDF` works
+- `图片隐私打码` works
+- `图片模糊背景填充` works
+- `收款码合并` works
+- `二维码生成` works
+- `批量二维码` works
+- `二维码解码` works
 - admin can see conversion records
 
 ## 6.1 Word -> PDF Chinese text troubleshooting

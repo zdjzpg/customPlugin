@@ -60,6 +60,14 @@ const imageConversionCatalog = [
     helperText: '按行列平均切成多张小图并打包下载。'
   },
   {
+    key: 'image_nine_grid',
+    label: '九宫格切图',
+    categoryKey: 'image_tools',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 15,
+    helperText: '把一张图片快速切成 3x3 九宫格小图并打包下载。'
+  },
+  {
     key: 'image_concat_long',
     label: '图片拼长图',
     categoryKey: 'image_tools',
@@ -144,6 +152,14 @@ const imageConversionCatalog = [
     helperText: '按角落底色和容差快速去掉单色背景。'
   },
   {
+    key: 'image_smart_bg_remove',
+    label: '智能抠图 / 去背景',
+    categoryKey: 'image_tools',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 15,
+    helperText: '自动识别边缘背景并输出透明 PNG，适合常见主体去背景。'
+  },
+  {
     key: 'favicon_generate',
     label: 'favicon 制作',
     categoryKey: 'image_tools',
@@ -198,6 +214,14 @@ const imageConversionCatalog = [
     accepts: '.png,.jpg,.jpeg,.webp',
     maxFileSizeMb: 15,
     helperText: '清空图像内容，输出同尺寸纯色或透明图。'
+  },
+  {
+    key: 'image_heic_convert',
+    label: 'HEIC 转 JPG / PNG',
+    categoryKey: 'image_tools',
+    accepts: '.heic,.heif',
+    maxFileSizeMb: 20,
+    helperText: '上传 iPhone 常见 HEIC / HEIF 图片后转成 JPG 或 PNG 下载。'
   },
   {
     key: 'image_format_convert',
@@ -314,6 +338,38 @@ const imageConversionCatalog = [
     accepts: '.png,.jpg,.jpeg,.webp',
     maxFileSizeMb: 15,
     helperText: '给图片增加轻度扰动，降低一键 OCR 提取概率。'
+  },
+  {
+    key: 'payment_code_merge',
+    label: '收款码合并',
+    categoryKey: 'image_tools',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 15,
+    maxTotalFileSizeMb: 30,
+    allowMultipleFiles: true,
+    helperText: '把微信、支付宝等收款码合并成一张图，方便统一发给买家。'
+  },
+  {
+    key: 'qr_generate',
+    label: '二维码生成',
+    categoryKey: 'image_tools',
+    requiresUpload: false,
+    helperText: '输入内容后直接生成二维码图片。'
+  },
+  {
+    key: 'qr_generate_batch',
+    label: '批量二维码',
+    categoryKey: 'image_tools',
+    requiresUpload: false,
+    helperText: '每行一条内容，批量生成二维码并打包下载。'
+  },
+  {
+    key: 'qr_decode',
+    label: '二维码解码',
+    categoryKey: 'image_tools',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 15,
+    helperText: '上传二维码图片后解析出原始文本内容。'
   }
 ];
 

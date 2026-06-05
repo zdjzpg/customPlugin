@@ -701,6 +701,47 @@ body {
   display: none;
 }
 
+.preview-notice-card {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 18px;
+  padding: 18px 20px;
+  border: 1px solid rgba(122, 55, 19, 0.12);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(236, 188, 136, 0.2), transparent 36%),
+    linear-gradient(145deg, rgba(255, 250, 242, 0.98), rgba(252, 239, 220, 0.9));
+  box-shadow: 0 14px 32px rgba(117, 84, 41, 0.08);
+}
+
+.preview-notice-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.preview-notice-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--brand-deep);
+}
+
+.preview-notice-copy {
+  margin: 0;
+  color: var(--text-body);
+}
+
+.preview-tip-message {
+  margin-top: 16px;
+}
+
+.preview-login-link {
+  flex: 0 0 auto;
+  text-decoration: none;
+}
+
 .tool-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1438,6 +1479,61 @@ body {
   margin-top: 14px;
 }
 
+.tool-form-image {
+  align-items: start;
+}
+
+.local-image-result-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.local-image-action-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.local-image-template-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 14px;
+  margin-top: 10px;
+}
+
+.local-image-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.local-image-checkbox input {
+  margin: 0;
+}
+
+.local-image-preview-shell {
+  padding: 14px;
+  border: 1px solid rgba(210, 220, 236, 0.92);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 248, 253, 0.98));
+  overflow: auto;
+}
+
+.local-image-preview-canvas {
+  display: block;
+  width: min(100%, 720px);
+  height: auto;
+  margin: 0 auto;
+  border-radius: 14px;
+  box-shadow: 0 18px 44px rgba(41, 57, 89, 0.18);
+  background: #f8fafc;
+}
+
+.local-image-preview-canvas-annotate {
+  cursor: crosshair;
+}
+
 .upload-progress-host {
   display: grid;
   margin-top: 14px;
@@ -1820,6 +1916,24 @@ body {
 .tool-group .tool-item:hover {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   transform: scale(1.05);
+}
+
+.tool-group .tool-item-preview-locked {
+  position: relative;
+}
+
+.tool-group .tool-item-preview-locked::before {
+  content: '预览';
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(105, 54, 20, 0.85);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 8px 20px rgba(117, 84, 41, 0.08);
 }
 
 .tool-group .tool-item.style1 {

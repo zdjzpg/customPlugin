@@ -125,6 +125,48 @@ test('mediaToolsService synthesizes text to speech with language and format opti
   }
 });
 
+test('mediaToolsService transcribes one uploaded audio file into txt output', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-media-service-'));
+  const inputAudioPath = path.join(tempRoot, 'meeting.wav');
+  fs.writeFileSync(inputAudioPath, Buffer.from('meeting-audio'));
+
+  const service = createMediaToolsService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    transcribeAudio: async ({ inputPath, outputPath, language }) => {
+      assert.equal(path.basename(inputPath), 'meeting.wav');
+      assert.equal(language, 'zh');
+      fs.writeFileSync(outputPath, '第一行会议记录\n第二行待办事项\n', 'utf8');
+    }
+  });
+
+  try {
+    const result = await service.runTool({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      toolKey: 'media_audio_to_text',
+      toolOptions: {
+        language: 'zh',
+        outputFormat: 'txt'
+      },
+      files: [
+        {
+          fileName: 'meeting.wav',
+          tempPath: inputAudioPath
+        }
+      ]
+    });
+
+    assert.equal(result.files.length, 1);
+    assert.equal(result.files[0].fileName, 'meeting-transcript.txt');
+    assert.deepEqual(result.summary, {
+      kind: 'text_preview',
+      previewText: '第一行会议记录\n第二行待办事项'
+    });
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 function createNoopConversionRepository() {
   return {
     create() {

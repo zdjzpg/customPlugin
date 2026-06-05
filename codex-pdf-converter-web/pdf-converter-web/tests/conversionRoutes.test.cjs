@@ -459,6 +459,73 @@ test('POST /api/conversions/run forwards parsed conversionOptions from multipart
   }
 });
 
+test('POST /api/conversions/run accepts fileless qr_generate JSON requests', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-qr-generate',
+    role: 'buyer',
+    codeId: 18,
+    codeValue: 'DEMO-DAYS-7',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() {
+        return [];
+      },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'qr_generate');
+        assert.equal(input.files.length, 0);
+        assert.deepEqual(input.conversionOptions, {
+          qrText: 'hello qr',
+          sizePx: 320
+        });
+        return {
+          conversionId: 88,
+          status: 'completed',
+          files: [
+            {
+              fileName: 'qr-code.png',
+              downloadUrl: '/api/downloads/conversions/88/qr-code.png'
+            }
+          ]
+        };
+      }
+    }
+  });
+
+  const server = http.createServer(app);
+  await listen(server);
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: 'pdf_converter_session=buyer-token-qr-generate'
+      },
+      body: JSON.stringify({
+        conversionKey: 'qr_generate',
+        conversionOptions: {
+          qrText: 'hello qr',
+          sizePx: 320
+        }
+      })
+    });
+
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'qr-code.png');
+  } finally {
+    await close(server);
+  }
+});
+
 test('POST /api/conversions/run returns a validation error when multipart conversionOptions is invalid JSON', async () => {
   const sessionRepository = createInMemorySessionRepository();
   sessionRepository.save({
@@ -916,6 +983,90 @@ test('POST /api/conversions/run forwards sign/stamp options and separate stamp i
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.equal(body.conversion.files[0].fileName, 'storybook-signed.pdf');
+  } finally {
+    await close(server);
+    fs.rmSync(uploadTempDirectory, { recursive: true, force: true });
+  }
+});
+
+test('POST /api/conversions/run forwards multiple pdf files and one stamp image for batch_sign_stamp_pdf', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-form-batch-stamp-1',
+    role: 'buyer',
+    codeId: 24,
+    codeValue: 'DEMO-USES-5',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+
+  const uploadTempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-upload-'));
+
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    conversionRepository: createNoopConversionRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() {
+        return [];
+      },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'batch_sign_stamp_pdf');
+        assert.deepEqual(input.conversionOptions, {
+          stampSourceType: 'image',
+          stampPosition: 'bottom_right',
+          stampScalePercent: 35,
+          opacity: 0.4
+        });
+        assert.deepEqual(
+          input.files.map((file) => ({ fieldName: file.fieldName, fileName: file.fileName })),
+          [
+            { fieldName: 'files', fileName: 'contract-a.pdf' },
+            { fieldName: 'files', fileName: 'contract-b.pdf' },
+            { fieldName: 'stampImage', fileName: 'stamp.png' }
+          ]
+        );
+        return {
+          conversionId: 62,
+          status: 'completed',
+          files: [
+            {
+              fileName: 'batch-stamped-pdfs.zip',
+              downloadUrl: '/api/downloads/conversions/62/batch-stamped-pdfs.zip'
+            }
+          ]
+        };
+      }
+    },
+    uploadTempDirectory
+  });
+
+  const server = http.createServer(app);
+  await listen(server);
+
+  try {
+    const form = new FormData();
+    form.append('conversionKey', 'batch_sign_stamp_pdf');
+    form.append('conversionOptions', JSON.stringify({
+      stampSourceType: 'image',
+      stampPosition: 'bottom_right',
+      stampScalePercent: 35,
+      opacity: 0.4
+    }));
+    form.append('files', new Blob([Buffer.from('fake-pdf-a')], { type: 'application/pdf' }), 'contract-a.pdf');
+    form.append('files', new Blob([Buffer.from('fake-pdf-b')], { type: 'application/pdf' }), 'contract-b.pdf');
+    form.append('stampImage', new Blob([Buffer.from('fake-image')], { type: 'image/png' }), 'stamp.png');
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, {
+      method: 'POST',
+      headers: { cookie: 'pdf_converter_session=buyer-token-form-batch-stamp-1' },
+      body: form
+    });
+
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'batch-stamped-pdfs.zip');
   } finally {
     await close(server);
     fs.rmSync(uploadTempDirectory, { recursive: true, force: true });

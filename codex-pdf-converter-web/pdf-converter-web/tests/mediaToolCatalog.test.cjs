@@ -9,14 +9,15 @@ function getCatalogModuleUrl() {
   ).href;
 }
 
-test('mediaToolCatalog exposes seven media tools under the media_tools category', async () => {
+test('mediaToolCatalog exposes eight media tools under the media_tools category', async () => {
   const { mediaToolCatalog } = await import(getCatalogModuleUrl());
 
-  assert.equal(mediaToolCatalog.length, 7);
+  assert.equal(mediaToolCatalog.length, 8);
   assert.deepEqual(
     mediaToolCatalog.map((item) => item.key),
     [
       'media_text_to_speech',
+      'media_audio_to_text',
       'media_audio_clip',
       'media_audio_merge',
       'media_audio_player',
@@ -38,6 +39,10 @@ test('mediaToolCatalog distinguishes remote and local media tool kinds', async (
   assert.equal(
     mediaToolCatalog.find((item) => item.key === 'media_text_to_speech')?.kind,
     'server_media_tool'
+  );
+  assert.equal(
+    mediaToolCatalog.find((item) => item.key === 'media_audio_to_text')?.kind,
+    'file_media_tool'
   );
   assert.equal(
     mediaToolCatalog.find((item) => item.key === 'media_audio_clip')?.kind,

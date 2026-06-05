@@ -18,6 +18,15 @@ export function createConversionResultMarkup(files, generatedLabel, summary = nu
 }
 
 function createSummaryMarkup(summary) {
+  if (summary?.kind === 'text_preview') {
+    return `
+      <div class="result-summary">
+        <p class="result-summary-line">识别预览</p>
+        <pre class="result-summary-line">${escapeHtml(summary.previewText || '')}</pre>
+      </div>
+    `;
+  }
+
   return `
     <div class="result-summary">
       <p class="result-summary-line">压缩强度：${escapeHtml(summary.compressionLevel === 'strong' ? '强力压缩' : '标准压缩')}</p>

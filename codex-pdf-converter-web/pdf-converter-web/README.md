@@ -151,18 +151,35 @@ See [.env.example](D:/aa-workplace/customPlugin/codex-pdf-converter-web/pdf-conv
 Current implemented image-tool coverage includes:
 
 - image resize / width-height change
+- HEIC to JPG / PNG
 - image format convert
 - image batch compress
 - free crop / ratio crop / batch ratio crop
 - split grid / long-image concat / collage
 - grayscale / invert / printmaking / emboss
 - background fill / dark-mode background / solid-background removal
+- smart background removal
+- image add text
+- image border / frame
+- platform cover templates with single-image multi-template ZIP export
+- image annotate canvas
+- image flip / mirror
+- image metadata view / clear
+- image blur / redact
+- image rotate adjust
+- image object erase (lightweight)
 - favicon / app icon / chrome icon generation
 - padding / pixelate / DPI change / content clear / file-size increase
 - GIF split / GIF merge
 - Excel image extract / PPT image extract
 - round-corner / tile-fill / anti-OCR image
 - id-photo resize / crop / background swap
+- payment-code merge
+- QR generate / batch QR generate / QR decode
+- local image border / template / annotation tools
+- local social-cover padding
+- local image privacy redaction
+- local blurred-background fill
 
 Current buyer homepage now includes:
 
@@ -183,7 +200,7 @@ Deferred image-tool items that are intentionally not exposed in buyer UI yet are
 ### Latest local verification
 
 - full Node test suite passed
-  - `338/338`
+  - `390/390`
 - real browser local regression additionally covered:
   - image-tools category entry
   - image-tools search
@@ -192,10 +209,46 @@ Deferred image-tool items that are intentionally not exposed in buyer UI yet are
   - GIF merge
   - image batch compress ZIP download
   - favicon generate
+  - image border / frame
+  - platform template batch ZIP export
+  - image annotate canvas
+  - image flip / mirror
+  - image metadata view / clear
+  - image blur / redact
+  - image rotate adjust
+  - image object erase (lightweight)
 
 Browser regression artifacts were stored in:
 
 - `D:\temp\codex-image-tools-browser-20260604`
+- `D:\temp\codex-image-tool-batch-20260605`
+- `D:\temp\codex-image-batch-template-20260605`
+- `D:\temp\codex-image-five-20260605`
+
+Additional Python packages required by the latest image-tool additions:
+
+- `pillow-heif` for `HEIC 转 JPG / PNG`
+- `rembg[cpu]` for `智能抠图 / 去背景`
+- `qrcode[pil]` for `二维码生成 / 批量二维码`
+- `opencv-python` or system `python3-opencv` for `二维码解码`
+
+Latest high-click UU-style image-tool additions now also include:
+
+- `图片隐私打码`
+- `图片模糊背景填充`
+- `收款码合并`
+- `二维码生成`
+- `批量二维码`
+- `二维码解码`
+
+Current local-image-tool line now additionally includes:
+
+- `图片加边框 / 描边`
+- `平台封面尺寸模板`
+- `图片标注 / 箭头框选`
+- `图片加边框 / 社媒封面留白`
+- `图片隐私打码`
+- `图片模糊背景填充`
 
 ### 音视频工具
 
@@ -229,6 +282,27 @@ If you want to use all current audio tools locally or on the server, make sure:
 
 - `FFMPEG_BIN` points to a reachable `ffmpeg`
 - `PYTHON_BIN` can import `edge_tts`
+
+### OCR / QR / Image Utility Runtime Notes
+
+- `OCR 文字识别`
+  - requires:
+    - `TESSERACT_BIN`
+    - language packs such as English / Chinese
+- `音频转文字`
+  - requires:
+    - `FFMPEG_BIN`
+    - Python package `openai-whisper`
+  - current recommended default:
+    - `WHISPER_MODEL=tiny`
+- `二维码生成 / 批量二维码`
+  - requires Python package:
+    - `qrcode[pil]`
+- `二维码解码`
+  - requires:
+    - Python `cv2`
+  - current implementation uses:
+    - OpenCV `QRCodeDetector`
 
 ### PDF 提取页面 / 拆分 PDF
 

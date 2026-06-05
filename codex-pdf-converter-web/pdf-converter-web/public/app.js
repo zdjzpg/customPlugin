@@ -14,9 +14,32 @@ import {
 } from './buyerRouteState.mjs';
 import { createBuyerShellMarkup } from './buyerShellMarkup.mjs';
 import { buyerCategoryCatalog } from './buyerCategoryCatalog.mjs';
-import { createCategoryIconMarkup } from './categoryIconMarkup.mjs';
-import { devToolCatalog, getDevToolByKey } from './devToolCatalog.mjs';
+import {
+  getBuyerToolByKey as resolveBuyerToolByKey,
+  getVisibleTools as getVisibleBuyerTools
+} from './buyerToolCatalog.mjs';
 import { runDevTool } from './devToolRuntime.mjs';
+import {
+  createAnnotationFromCanvasPoint,
+  createErasePatchFromCanvasPoint,
+  createPrivacyRedactionFromCanvasPoint,
+  createStoredZipBlob,
+  buildBasicImageMetadataSummary,
+  buildPlatformTemplateBatchPlan,
+  buildRotateAdjustLayout,
+  exportCanvasBlob,
+  getPlatformTemplatePresetMap,
+  loadImageFromFile,
+  renderAnnotatedImagePreview,
+  renderBorderFramePreview,
+  renderFlipMirrorPreview,
+  renderImageTextPreview,
+  renderLightErasePreview,
+  renderPlatformTemplatePreview,
+  renderPrivacyRedactionPreview,
+  renderRotateAdjustPreview,
+  renderSocialCoverPreview
+} from './localImageToolRuntime.mjs';
 import {
   collectWaveformPeaks,
   createObjectUrlFromBytes,
@@ -24,8 +47,6 @@ import {
   createWhiteNoiseWavBytes,
   drawWaveform
 } from './mediaToolRuntime.mjs';
-import { getMediaToolByKey, mediaToolCatalog } from './mediaToolCatalog.mjs';
-import { getTextToolByKey, textToolCatalog } from './textToolCatalog.mjs';
 import {
   createDeleteThumbnailMarkup,
   createReorderThumbnailMarkup,
@@ -47,9 +68,11 @@ const buyerMessage = document.querySelector('#buyer-message');
 
 let conversionCatalog = [];
 const categoryCatalog = buyerCategoryCatalog;
-const quickKeywordCatalog = ['PDF 转 PPT', '文本去重', 'Base64', '音频剪切', '文字转语音', '图片压缩', 'SSL'];
+const quickKeywordCatalog = ['PDF 转 PPT', 'OCR', '批量重命名', '音频转文字', '文字转语音', '图片压缩', 'SSL'];
 const selectedFilesByConversionKey = new Map();
 const conversionSummaries = new Map();
+const localImageStateByConversionKey = new Map();
+const localTextDownloadStateByConversionKey = new Map();
 const signatureCanvasStateByConversionKey = new Map();
 const thumbnailStateByConversionKey = new Map();
 let currentViewState = {
@@ -136,9 +159,24 @@ function getConversionMessageElement() {
   return buyerDashboard.querySelector('#conversion-message');
 }
 
-window.matchMedia('(max-width: 720px)').addEventListener('change', () => {
+listenToMediaQuery(window.matchMedia('(max-width: 720px)'), () => {
   rerenderCurrentView();
 });
+
+function listenToMediaQuery(mediaQueryList, listener) {
+  if (!mediaQueryList || typeof listener !== 'function') {
+    return;
+  }
+
+  if (typeof mediaQueryList.addEventListener === 'function') {
+    mediaQueryList.addEventListener('change', listener);
+    return;
+  }
+
+  if (typeof mediaQueryList.addListener === 'function') {
+    mediaQueryList.addListener(listener);
+  }
+}
 
 async function handleConversionSubmit(event) {
   event.preventDefault();
@@ -153,8 +191,6 @@ async function handleConversionSubmit(event) {
     setMessage(getConversionMessageElement(), error.message || '请检查页码范围后再试。');
     return;
   }
-
-  setMessage(getConversionMessageElement(), '正在上传并转换...');
 
   try {
     const payload = new FormData();
@@ -207,10 +243,18 @@ async function handleConversionSubmit(event) {
 
         payload.append('watermarkImage', watermarkImageFiles[0], watermarkImageFiles[0].name);
       }
-    } else if (conversionKey === 'sign_stamp_pdf') {
+    } else if (conversionKey === 'sign_stamp_pdf' || conversionKey === 'batch_sign_stamp_pdf') {
       const pdfFiles = Array.from(input.files || []);
       if (pdfFiles.length === 0) {
-        setMessage(getConversionMessageElement(), '先选择一个 PDF 文件。');
+        setMessage(
+          getConversionMessageElement(),
+          conversionKey === 'batch_sign_stamp_pdf' ? '请至少选择两个 PDF 文件。' : '先选择一个 PDF 文件。'
+        );
+        return;
+      }
+
+      if (conversionKey === 'batch_sign_stamp_pdf' && pdfFiles.length < 2) {
+        setMessage(getConversionMessageElement(), '请至少选择两个 PDF 文件。');
         return;
       }
 
@@ -226,7 +270,13 @@ async function handleConversionSubmit(event) {
         return;
       }
 
-      payload.append('files', pdfFiles[0], pdfFiles[0].name);
+      if (conversionKey === 'batch_sign_stamp_pdf') {
+        for (const pdfFile of pdfFiles) {
+          payload.append('files', pdfFile, pdfFile.name);
+        }
+      } else {
+        payload.append('files', pdfFiles[0], pdfFiles[0].name);
+      }
 
       if (conversionOptions.stampSourceType === 'image') {
         const stampImageFiles = Array.from(form.querySelector('[data-stamp-image-input]')?.files || []);
@@ -254,29 +304,32 @@ async function handleConversionSubmit(event) {
         payload.append('stampImage', signatureFile, signatureFile.name);
       }
     } else {
-      const files = getSelectedFiles(form, conversionKey);
-      const accepts = (input.dataset.accepts || '')
-        .split(',')
-        .map((item) => item.trim().toLowerCase())
-        .filter(Boolean);
-      const limits = {
-        maxFileSizeMb: toNullableNumber(form.dataset.maxFileSizeMb),
-        maxTotalFileSizeMb: toNullableNumber(form.dataset.maxTotalFileSizeMb)
-      };
+      const requiresUpload = resolveBuyerToolByKey(conversionCatalog, conversionKey)?.requiresUpload !== false;
+      if (requiresUpload) {
+        const files = getSelectedFiles(form, conversionKey);
+        const accepts = ((input?.dataset.accepts) || '')
+          .split(',')
+          .map((item) => item.trim().toLowerCase())
+          .filter(Boolean);
+        const limits = {
+          maxFileSizeMb: toNullableNumber(form.dataset.maxFileSizeMb),
+          maxTotalFileSizeMb: toNullableNumber(form.dataset.maxTotalFileSizeMb)
+        };
 
-      if (files.length === 0) {
-        setMessage(getConversionMessageElement(), '先选择文件。');
-        return;
-      }
+        if (files.length === 0) {
+          setMessage(getConversionMessageElement(), '先选择文件。');
+          return;
+        }
 
-      const validationMessage = validateSelectedFiles(files, accepts, limits);
-      if (validationMessage) {
-        setMessage(getConversionMessageElement(), validationMessage);
-        return;
-      }
+        const validationMessage = validateSelectedFiles(files, accepts, limits);
+        if (validationMessage) {
+          setMessage(getConversionMessageElement(), validationMessage);
+          return;
+        }
 
-      for (const file of files) {
-        payload.append('files', file, file.name);
+        for (const file of files) {
+          payload.append('files', file, file.name);
+        }
       }
     }
 
@@ -436,6 +489,20 @@ function collectConversionOptions(form, conversionKey) {
     };
   }
 
+  if (conversionKey === 'ocr_text_extract') {
+    return {
+      ocrLanguage: form.querySelector('[data-ocr-language]')?.value || 'chi_sim+eng'
+    };
+  }
+
+  if (conversionKey === 'batch_file_rename') {
+    return {
+      template: form.querySelector('[data-rename-template]')?.value?.trim() || '资料-{n}-{name}',
+      startNumber: Number.parseInt(form.querySelector('[data-rename-start-number]')?.value || '1', 10) || 1,
+      numberWidth: Number.parseInt(form.querySelector('[data-rename-number-width]')?.value || '2', 10) || 2
+    };
+  }
+
   if (conversionKey === 'delete_pages_pdf') {
     const selectedPages = thumbnailStateByConversionKey.get(conversionKey)?.selectedPages;
     return {
@@ -493,7 +560,7 @@ function collectConversionOptions(form, conversionKey) {
     };
   }
 
-  if (conversionKey === 'sign_stamp_pdf') {
+  if (conversionKey === 'sign_stamp_pdf' || conversionKey === 'batch_sign_stamp_pdf') {
     return {
       stampSourceType: form.querySelector('[data-stamp-source-type]')?.value === 'draw' ? 'draw' : 'image',
       stampPosition: form.querySelector('[data-stamp-position]')?.value || 'bottom_right',
@@ -552,10 +619,31 @@ function collectConversionOptions(form, conversionKey) {
 }
 
 function isImageConversionKey(conversionKey) {
-  return Boolean(getBuyerToolByKey(conversionKey)?.categoryKey === 'image_tools');
+  return Boolean(resolveBuyerToolByKey(conversionCatalog, conversionKey)?.categoryKey === 'image_tools');
 }
 
 function collectImageConversionOptions(form, conversionKey) {
+  if (conversionKey === 'qr_generate') {
+    return {
+      qrText: form.querySelector('[data-qr-text]')?.value?.trim() || '',
+      sizePx: Number.parseInt(form.querySelector('[data-qr-size]')?.value || '320', 10) || 320
+    };
+  }
+
+  if (conversionKey === 'qr_generate_batch') {
+    return {
+      qrLinesText: form.querySelector('[data-qr-lines-text]')?.value || '',
+      sizePx: Number.parseInt(form.querySelector('[data-qr-size]')?.value || '256', 10) || 256
+    };
+  }
+
+  if (conversionKey === 'payment_code_merge') {
+    return {
+      layout: form.querySelector('[data-payment-code-layout]')?.value || 'vertical',
+      mainTitle: form.querySelector('[data-payment-code-title]')?.value?.trim() || '收款码'
+    };
+  }
+
   const outputFormat = form.querySelector('[data-image-output-format]')?.value || '';
 
   if (conversionKey === 'image_compress_batch') {
@@ -604,6 +692,12 @@ function collectImageConversionOptions(form, conversionKey) {
     };
   }
 
+  if (conversionKey === 'image_nine_grid') {
+    return {
+      outputFormat
+    };
+  }
+
   if (conversionKey === 'image_concat_long') {
     return {
       direction: form.querySelector('[data-image-direction]')?.value || 'vertical',
@@ -647,7 +741,7 @@ function collectImageConversionOptions(form, conversionKey) {
     };
   }
 
-  if (['image_remove_solid_bg', 'id_photo_bg_swap'].includes(conversionKey)) {
+  if (['image_remove_solid_bg', 'image_smart_bg_remove', 'id_photo_bg_swap'].includes(conversionKey)) {
     return {
       backgroundColor: form.querySelector('[data-background-color]')?.value || '#438edb',
       tolerance: Number.parseInt(form.querySelector('[data-color-tolerance]')?.value || '36', 10) || 36,
@@ -751,7 +845,7 @@ function renderToolList() {
 }
 
 function renderDetail(conversionKey) {
-  const toolItem = getBuyerToolByKey(conversionKey);
+  const toolItem = resolveBuyerToolByKey(conversionCatalog, conversionKey);
   if (!toolItem) {
     return;
   }
@@ -773,6 +867,27 @@ function renderDetail(conversionKey) {
   if (toolItem.kind === 'local_text') {
     form.addEventListener('submit', handleLocalTextToolSubmit);
     detailHost.querySelector(`[data-copy-output="${conversionKey}"]`)?.addEventListener('click', handleCopyTextToolOutput);
+    setMessage(getConversionMessageElement(), '');
+    return;
+  }
+
+  if (toolItem.kind === 'local_image_tool') {
+    form.addEventListener('submit', handleLocalImageToolSubmit);
+    form.querySelector('[data-local-image-file-input]')?.addEventListener('change', handleLocalImageToolFileChange);
+    if (conversionKey === 'image_platform_cover_template') {
+      detailHost.querySelector('[data-local-image-batch-export]')?.addEventListener('click', handleLocalImageBatchExport);
+    }
+    if (['image_annotate_canvas', 'image_privacy_redact', 'image_blur_redact', 'image_object_erase_light'].includes(conversionKey)) {
+      detailHost.querySelector('[data-local-image-preview]')?.addEventListener('click', handleLocalImageCanvasClick);
+      detailHost.querySelector('[data-local-image-undo]')?.addEventListener('click', handleLocalImageUndo);
+      detailHost.querySelector('[data-local-image-clear]')?.addEventListener('click', handleLocalImageClear);
+    }
+    if (conversionKey === 'image_rotate_adjust') {
+      detailHost.querySelectorAll('[data-image-rotate-preset]').forEach((button) => {
+        button.addEventListener('click', handleRotatePresetClick);
+      });
+    }
+    detailHost.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setMessage(getConversionMessageElement(), '');
     return;
   }
@@ -833,7 +948,7 @@ function renderBuyerDashboard() {
 
   buyerDashboard.innerHTML = createBuyerShellMarkup({
     title: currentViewState.view === 'detail' && currentViewState.conversionKey
-      ? getBuyerToolByKey(currentViewState.conversionKey)?.label || category.label
+      ? resolveBuyerToolByKey(conversionCatalog, currentViewState.conversionKey)?.label || category.label
       : category.label,
     searchKeyword: currentViewState.searchKeyword,
     mobileNavOpen: currentViewState.mobileNavOpen,
@@ -844,9 +959,25 @@ function renderBuyerDashboard() {
   });
 }
 
+function refreshToolListContent() {
+  const contentSlot = buyerDashboard.querySelector('[data-buyer-content-slot]');
+  const titleElement = buyerDashboard.querySelector('.buyer-current-title h1');
+  if (!contentSlot || !titleElement) {
+    renderToolList();
+    return;
+  }
+
+  titleElement.textContent = getCurrentCategory().label;
+  contentSlot.innerHTML = buildToolListMarkup();
+}
+
 function buildToolListMarkup() {
   const hasSearchKeyword = Boolean(String(currentViewState.searchKeyword || '').trim());
-  const visibleTools = getVisibleTools(currentViewState.categoryKey, currentViewState.searchKeyword);
+  const visibleTools = getVisibleBuyerTools(
+    conversionCatalog,
+    currentViewState.categoryKey,
+    currentViewState.searchKeyword
+  );
   const mobileMode = isMobileUi();
   const listMarkup = visibleTools.length === 0
     ? '<div class="empty-state-card">没有找到匹配的工具，请换一个关键词试试。</div>'
@@ -866,7 +997,7 @@ function buildToolListMarkup() {
 }
 
 function buildDetailMarkup(conversionKey) {
-  const toolItem = getBuyerToolByKey(conversionKey);
+  const toolItem = resolveBuyerToolByKey(conversionCatalog, conversionKey);
   if (!toolItem) {
     return '';
   }
@@ -1029,6 +1160,31 @@ function handleDashboardClick(event) {
     const conversionKey = form.dataset.conversionKey;
     clearSignatureCanvas(form, conversionKey);
   }
+
+  const undoImageAnnotationButton = event.target.closest('[data-local-image-undo]');
+  if (undoImageAnnotationButton) {
+    const resultHost = undoImageAnnotationButton.closest('[data-results]');
+    const conversionKey = resultHost?.dataset.results || '';
+    const state = localImageStateByConversionKey.get(conversionKey);
+    if (!state?.annotations?.length) {
+      return;
+    }
+    state.annotations.pop();
+    redrawAnnotatedImage(conversionKey);
+    return;
+  }
+
+  const clearImageAnnotationButton = event.target.closest('[data-local-image-clear]');
+  if (clearImageAnnotationButton) {
+    const resultHost = clearImageAnnotationButton.closest('[data-results]');
+    const conversionKey = resultHost?.dataset.results || '';
+    const state = localImageStateByConversionKey.get(conversionKey);
+    if (!state) {
+      return;
+    }
+    state.annotations = [];
+    redrawAnnotatedImage(conversionKey);
+  }
 }
 
 function handleDashboardInput(event) {
@@ -1043,6 +1199,11 @@ function handleDashboardInput(event) {
     mobileNavOpen: false
   };
   syncBuyerRouteState();
+  if (currentViewState.view === 'tool_list') {
+    refreshToolListContent();
+    return;
+  }
+
   renderToolList();
 }
 
@@ -1060,12 +1221,12 @@ function handleDashboardKeydown(event) {
   renderDetail(openCard.dataset.openDetail);
 }
 
-function handleLocalTextToolSubmit(event) {
+async function handleLocalTextToolSubmit(event) {
   event.preventDefault();
 
   const form = event.currentTarget;
   const toolKey = form.dataset.conversionKey;
-  const sourceText = form.querySelector('[data-source-text]')?.value || '';
+  let sourceText = form.querySelector('[data-source-text]')?.value || '';
   const findText = form.querySelector('[data-find-text]')?.value || '';
   const replaceText = form.querySelector('[data-replace-text]')?.value || '';
   const caseMode = form.querySelector('[data-case-mode]')?.value || 'upper';
@@ -1079,6 +1240,13 @@ function handleLocalTextToolSubmit(event) {
   const symbolMode = form.querySelector('[data-symbol-mode]')?.value || 'en_to_zh';
   const bannedWords = form.querySelector('[data-banned-words]')?.value || '';
   const uuidCount = form.querySelector('[data-uuid-count]')?.value || '';
+  const subtitleDurationSeconds = form.querySelector('[data-subtitle-duration-seconds]')?.value || '2.5';
+  const subtitleStartTime = form.querySelector('[data-subtitle-start-time]')?.value || '00:00:00,000';
+  const localTextFile = form.querySelector('[data-local-text-file-input]')?.files?.[0] || null;
+
+  if (toolKey === 'text_srt_to_text' && localTextFile && !sourceText.trim()) {
+    sourceText = await localTextFile.text();
+  }
 
   const result = runTextTool(toolKey, {
     sourceText,
@@ -1094,7 +1262,9 @@ function handleLocalTextToolSubmit(event) {
     unicodeMode,
     symbolMode,
     bannedWords,
-    uuidCount
+    uuidCount,
+    subtitleDurationSeconds,
+    subtitleStartTime
   });
 
   const resultHost = buyerDashboard.querySelector(`[data-results="${toolKey}"]`);
@@ -1102,8 +1272,199 @@ function handleLocalTextToolSubmit(event) {
   if (outputElement) {
     outputElement.value = result.outputText || '';
   }
+  syncLocalTextDownload(resultHost, toolKey, result.downloadFile || null);
   renderTextToolSummary(resultHost, result.summary);
   setMessage(getConversionMessageElement(), '');
+}
+
+function handleLocalImageToolFileChange(event) {
+  const input = event.currentTarget;
+  const form = input.closest('.tool-form');
+  const conversionKey = form?.dataset.conversionKey;
+  const resultHost = conversionKey
+    ? buyerDashboard.querySelector(`[data-results="${conversionKey}"]`)
+    : null;
+  const statusElement = resultHost?.querySelector('[data-local-image-status]');
+  const downloadLink = resultHost?.querySelector('[data-local-image-download]');
+  const metadataOutput = resultHost?.querySelector('[data-local-image-metadata-output]');
+  const state = localImageStateByConversionKey.get(conversionKey);
+  if (state?.downloadUrl) {
+    URL.revokeObjectURL(state.downloadUrl);
+  }
+  localImageStateByConversionKey.delete(conversionKey);
+
+  if (downloadLink) {
+    downloadLink.classList.add('hidden');
+    downloadLink.removeAttribute('href');
+  }
+  if (metadataOutput) {
+    metadataOutput.value = '';
+  }
+  if (statusElement) {
+    const file = input.files?.[0];
+    statusElement.textContent = file
+      ? `${['image_annotate_canvas', 'image_privacy_redact', 'image_blur_redact', 'image_object_erase_light'].includes(form?.dataset.conversionKey || '') ? '已选择并等待加载' : '已选择'}：${file.name}`
+      : '选择图片后可直接生成预览并导出。';
+  }
+}
+
+async function handleLocalImageToolSubmit(event) {
+  event.preventDefault();
+
+  const form = event.currentTarget;
+  const toolKey = form.dataset.conversionKey;
+  const file = form.querySelector('[data-local-image-file-input]')?.files?.[0];
+  if (!file) {
+    setMessage(getConversionMessageElement(), '先选择一张图片。');
+    return;
+  }
+
+  const resultHost = buyerDashboard.querySelector(`[data-results="${toolKey}"]`);
+  const canvas = resultHost?.querySelector('[data-local-image-preview]');
+  const statusElement = resultHost?.querySelector('[data-local-image-status]');
+  const downloadLink = resultHost?.querySelector('[data-local-image-download]');
+  const metadataOutput = resultHost?.querySelector('[data-local-image-metadata-output]');
+  if (!canvas || !resultHost) {
+    return;
+  }
+
+  try {
+    let state = localImageStateByConversionKey.get(toolKey);
+    if (!state || state.fileName !== file.name || state.fileSize !== file.size || !state.image) {
+      if (state?.image?.__objectUrl) {
+        URL.revokeObjectURL(state.image.__objectUrl);
+      }
+      if (state?.downloadUrl) {
+        URL.revokeObjectURL(state.downloadUrl);
+      }
+      state = {
+        image: await loadImageFromFile(file),
+        fileName: file.name,
+        fileSize: file.size,
+        downloadUrl: '',
+        annotations: [],
+        redactions: [],
+        erasePatches: []
+      };
+      localImageStateByConversionKey.set(toolKey, state);
+    }
+
+    const renderOptions = collectLocalImageToolOptions(form, toolKey);
+    const layout = renderLocalImagePreview(toolKey, canvas, state, renderOptions);
+    if (toolKey === 'image_metadata_view_clear' && metadataOutput) {
+      metadataOutput.value = buildBasicImageMetadataSummary({
+        fileName: file.name,
+        mimeType: file.type || 'image/*',
+        fileSize: file.size,
+        imageWidth: canvas.width,
+        imageHeight: canvas.height,
+        lastModified: file.lastModified ? new Date(file.lastModified).toISOString() : ''
+      });
+    }
+    const blob = await exportCanvasBlob(canvas, renderOptions.outputFormat);
+    if (state.downloadUrl) {
+      URL.revokeObjectURL(state.downloadUrl);
+    }
+    state.downloadUrl = URL.createObjectURL(blob);
+
+    if (downloadLink) {
+      const outputExtension = renderOptions.outputFormat === 'jpg' ? 'jpg' : 'png';
+      downloadLink.href = state.downloadUrl;
+      downloadLink.download = `${stripFileExtension(file.name)}-${resolveLocalImageToolDownloadSuffix(toolKey)}.${outputExtension}`;
+      downloadLink.classList.remove('hidden');
+    }
+    if (statusElement) {
+      statusElement.textContent = describeLocalImageStatus(toolKey, layout, canvas, state);
+    }
+    setMessage(getConversionMessageElement(), '');
+  } catch (error) {
+    setMessage(getConversionMessageElement(), error.message || '生成预览失败，请稍后重试。');
+  }
+}
+
+async function handleLocalImageBatchExport(event) {
+  const button = event.currentTarget;
+  const form = button.closest('.tool-form');
+  const toolKey = form?.dataset.conversionKey || '';
+  if (toolKey !== 'image_platform_cover_template') {
+    return;
+  }
+
+  const file = form.querySelector('[data-local-image-file-input]')?.files?.[0];
+  if (!file) {
+    setMessage(getConversionMessageElement(), '先选择一张图片。');
+    return;
+  }
+
+  const resultHost = buyerDashboard.querySelector(`[data-results="${toolKey}"]`);
+  const statusElement = resultHost?.querySelector('[data-local-image-status]');
+  const downloadLink = resultHost?.querySelector('[data-local-image-download]');
+  const renderOptions = collectLocalImageToolOptions(form, toolKey);
+  const batchPlan = buildPlatformTemplateBatchPlan({
+    sourceFileName: file.name,
+    selectedPresetKeys: renderOptions.batchPresetKeys,
+    outputFormat: renderOptions.outputFormat
+  });
+  if (batchPlan.length === 0) {
+    setMessage(getConversionMessageElement(), '至少勾选一个平台模板。');
+    return;
+  }
+
+  try {
+    let state = localImageStateByConversionKey.get(toolKey);
+    if (!state || state.fileName !== file.name || state.fileSize !== file.size || !state.image) {
+      if (state?.image?.__objectUrl) {
+        URL.revokeObjectURL(state.image.__objectUrl);
+      }
+      if (state?.downloadUrl) {
+        URL.revokeObjectURL(state.downloadUrl);
+      }
+      state = {
+        image: await loadImageFromFile(file),
+        fileName: file.name,
+        fileSize: file.size,
+        downloadUrl: '',
+        annotations: []
+      };
+      localImageStateByConversionKey.set(toolKey, state);
+    }
+
+    if (statusElement) {
+      statusElement.textContent = `正在批量导出 ZIP：${batchPlan.length} 个平台模板...`;
+    }
+
+    const zipEntries = [];
+    for (const entry of batchPlan) {
+      const previewCanvas = document.createElement('canvas');
+      renderPlatformTemplatePreview(previewCanvas, state.image, {
+        ...renderOptions,
+        presetKey: entry.presetKey
+      });
+      const blob = await exportCanvasBlob(previewCanvas, renderOptions.outputFormat);
+      zipEntries.push({
+        fileName: entry.fileName,
+        blob
+      });
+    }
+
+    const zipBlob = await createStoredZipBlob(zipEntries);
+    if (state.downloadUrl) {
+      URL.revokeObjectURL(state.downloadUrl);
+    }
+    state.downloadUrl = URL.createObjectURL(zipBlob);
+    if (downloadLink) {
+      downloadLink.href = state.downloadUrl;
+      downloadLink.download = `${stripFileExtension(file.name)}-platform-batch.zip`;
+      downloadLink.classList.remove('hidden');
+      downloadLink.click();
+    }
+    if (statusElement) {
+      statusElement.textContent = `ZIP 已生成：${batchPlan.length} 个平台模板`;
+    }
+    setMessage(getConversionMessageElement(), '');
+  } catch (error) {
+    setMessage(getConversionMessageElement(), error.message || '批量导出失败，请稍后重试。');
+  }
 }
 
 async function handleLocalDevToolSubmit(event) {
@@ -1157,7 +1518,7 @@ async function handleRemoteMediaToolSubmit(event) {
 
   const form = event.currentTarget;
   const toolKey = form.dataset.conversionKey;
-  const toolItem = getBuyerToolByKey(toolKey);
+  const toolItem = resolveBuyerToolByKey(conversionCatalog, toolKey);
 
   try {
     const payload = new FormData();
@@ -1219,6 +1580,7 @@ async function handleRemoteMediaToolSubmit(event) {
 
     const body = await readApiResponse(response);
     if (!response.ok) {
+      conversionSummaries.delete(toolKey);
       renderUploadProgress(toolKey, {
         stage: 'error',
         percent: 100,
@@ -1228,6 +1590,7 @@ async function handleRemoteMediaToolSubmit(event) {
       return;
     }
 
+    conversionSummaries.set(toolKey, body.result?.summary || null);
     clearUploadProgress(toolKey);
     renderResults(toolKey, body.result?.files || []);
     setMessage(getConversionMessageElement(), '');
@@ -1494,7 +1857,477 @@ function collectMediaToolOptions(form, toolKey) {
     };
   }
 
+  if (toolKey === 'media_audio_to_text') {
+    return {
+      language: form.querySelector('[data-media-language]')?.value || 'auto',
+      outputFormat: 'txt'
+    };
+  }
+
   return {};
+}
+
+function collectLocalImageToolOptions(form, toolKey) {
+  if (toolKey === 'image_social_cover_pad') {
+    return {
+      targetRatio: form.querySelector('[data-social-cover-ratio]')?.value || '1:1',
+      backgroundMode: form.querySelector('[data-social-cover-background-mode]')?.value || 'solid',
+      backgroundColor: form.querySelector('[data-background-color]')?.value || '#ffffff',
+      paddingPercent: 8,
+      blurRadius: 28,
+      outputFormat: form.querySelector('[data-image-output-format]')?.value || 'png'
+    };
+  }
+
+  if (toolKey === 'image_blur_background_fill') {
+    return {
+      targetRatio: form.querySelector('[data-social-cover-ratio]')?.value || '1:1',
+      backgroundMode: 'blur',
+      backgroundColor: '#ffffff',
+      paddingPercent: 8,
+      blurRadius: Number.parseInt(form.querySelector('[data-image-blur-radius]')?.value || '28', 10) || 28,
+      outputFormat: form.querySelector('[data-image-output-format]')?.value || 'png'
+    };
+  }
+
+  if (toolKey === 'image_add_border_frame') {
+    return {
+      borderStyle: form.querySelector('[data-image-border-style]')?.value || 'solid',
+      borderWidth: Number.parseInt(form.querySelector('[data-image-border-width]')?.value || '18', 10) || 18,
+      shadowStrength: Number.parseInt(form.querySelector('[data-image-shadow-strength]')?.value || '18', 10) || 18,
+      cornerRadius: Number.parseInt(form.querySelector('[data-image-corner-radius]')?.value || '36', 10) || 36,
+      borderColor: form.querySelector('[data-image-border-color]')?.value || '#2563eb',
+      gradientStartColor: form.querySelector('[data-image-gradient-start]')?.value || '#2563eb',
+      gradientEndColor: form.querySelector('[data-image-gradient-end]')?.value || '#7c3aed',
+      padding: Number.parseInt(form.querySelector('[data-image-padding]')?.value || '60', 10) || 60,
+      outputFormat: form.querySelector('[data-image-output-format]')?.value || 'png'
+    };
+  }
+
+  if (toolKey === 'image_platform_cover_template') {
+    return {
+      presetKey: form.querySelector('[data-image-template-preset]')?.value || 'xiaohongshu_cover',
+      fitMode: form.querySelector('[data-image-fit-mode]')?.value || 'contain',
+      backgroundMode: form.querySelector('[data-image-template-bg-mode]')?.value || 'solid',
+      backgroundColor: form.querySelector('[data-image-template-bg-color]')?.value || '#f3f4f6',
+      batchPresetKeys: Array.from(form.querySelectorAll('[data-image-batch-template-option]:checked'))
+        .map((input) => input.value)
+        .filter(Boolean),
+      outputFormat: form.querySelector('[data-image-output-format]')?.value || 'png'
+    };
+  }
+
+  if (toolKey === 'image_flip_mirror') {
+    return {
+      flipMode: form.querySelector('[data-image-flip-mode]')?.value || 'horizontal',
+      outputFormat: form.querySelector('[data-image-output-format]')?.value || 'png'
+    };
+  }
+
+  if (toolKey === 'image_metadata_view_clear') {
+    return {
+      metadataMode: form.querySelector('[data-image-metadata-mode]')?.value || 'view',
+      outputFormat: form.querySelector('[data-image-output-format]')?.value || 'png'
+    };
+  }
+
+  if (toolKey === 'image_blur_redact') {
+    return {
+      redactMode: form.querySelector('[data-image-redact-mode]')?.value || 'blur',
+      redactSize: Number.parseInt(form.querySelector('[data-image-redact-size]')?.value || '160', 10) || 160,
+      redactBlurRadius: 18,
+      redactMosaicBlockSize: 14,
+      redactFillColor: '#111111',
+      outputFormat: form.querySelector('[data-image-output-format]')?.value || 'png'
+    };
+  }
+
+  if (toolKey === 'image_rotate_adjust') {
+    return {
+      angle: Number.parseFloat(form.querySelector('[data-image-rotate-angle]')?.value || '90') || 90,
+      outputFormat: form.querySelector('[data-image-output-format]')?.value || 'png'
+    };
+  }
+
+  if (toolKey === 'image_object_erase_light') {
+    return {
+      eraseBrushSize: Number.parseInt(form.querySelector('[data-image-erase-brush-size]')?.value || '64', 10) || 64,
+      eraseSampleOffset: Number.parseInt(form.querySelector('[data-image-erase-sample-offset]')?.value || '20', 10) || 20,
+      outputFormat: form.querySelector('[data-image-output-format]')?.value || 'png'
+    };
+  }
+
+  if (toolKey === 'image_annotate_canvas') {
+    return {
+      annotationMode: form.querySelector('[data-image-annotation-mode]')?.value || 'arrow',
+      annotationColor: form.querySelector('[data-image-annotation-color]')?.value || '#ff3355',
+      annotationLineWidth: Number.parseInt(form.querySelector('[data-image-annotation-line-width]')?.value || '6', 10) || 6,
+      annotationShapeSize: Number.parseInt(form.querySelector('[data-image-annotation-size]')?.value || '96', 10) || 96,
+      annotationArrowDirection: form.querySelector('[data-image-arrow-direction]')?.value || 'right_up',
+      annotationMosaicBlockSize: Number.parseInt(form.querySelector('[data-image-annotation-mosaic]')?.value || '14', 10) || 14,
+      annotationLabel: form.querySelector('[data-image-annotation-label]')?.value || '',
+      outputFormat: form.querySelector('[data-image-output-format]')?.value || 'png'
+    };
+  }
+
+  if (toolKey === 'image_privacy_redact') {
+    return {
+      redactMode: form.querySelector('[data-image-redact-mode]')?.value || 'mosaic',
+      redactSize: Number.parseInt(form.querySelector('[data-image-redact-size]')?.value || '160', 10) || 160,
+      redactBlurRadius: 18,
+      redactMosaicBlockSize: 14,
+      redactFillColor: '#111111',
+      outputFormat: form.querySelector('[data-image-output-format]')?.value || 'png'
+    };
+  }
+
+  return {
+    titleText: form.querySelector('[data-image-text-title]')?.value || '',
+    subtitleText: form.querySelector('[data-image-text-subtitle]')?.value || '',
+    badgeText: form.querySelector('[data-image-text-badge]')?.value || '',
+    layoutPreset: form.querySelector('[data-image-layout-preset]')?.value || 'top_banner',
+    titleSize: Number.parseInt(form.querySelector('[data-image-title-size]')?.value || '88', 10) || 88,
+    subtitleSize: Number.parseInt(form.querySelector('[data-image-subtitle-size]')?.value || '40', 10) || 40,
+    badgeSize: Number.parseInt(form.querySelector('[data-image-badge-size]')?.value || '28', 10) || 28,
+    textColor: form.querySelector('[data-image-text-color]')?.value || '#ffffff',
+    badgeTextColor: form.querySelector('[data-image-badge-text-color]')?.value || '#ffffff',
+    strokeColor: form.querySelector('[data-image-stroke-color]')?.value || '#111827',
+    strokeWidth: Number.parseInt(form.querySelector('[data-image-stroke-width]')?.value || '4', 10) || 4,
+    overlayColor: form.querySelector('[data-image-overlay-color]')?.value || '#111827',
+    overlayOpacity: 0.38,
+    badgeBackgroundColor: form.querySelector('[data-image-badge-bg-color]')?.value || '#ef4444',
+    outputFormat: form.querySelector('[data-image-output-format]')?.value || 'png'
+  };
+}
+
+function syncLocalTextDownload(resultHost, toolKey, downloadFile) {
+  const downloadLink = resultHost?.querySelector('[data-local-text-download], [data-text-download-link]');
+  const previousUrl = localTextDownloadStateByConversionKey.get(toolKey);
+  if (previousUrl) {
+    URL.revokeObjectURL(previousUrl);
+    localTextDownloadStateByConversionKey.delete(toolKey);
+  }
+
+  if (!downloadLink) {
+    return;
+  }
+
+  if (!downloadFile?.content) {
+    downloadLink.classList.add('hidden');
+    downloadLink.removeAttribute('href');
+    return;
+  }
+
+  const blob = new Blob([downloadFile.content], {
+    type: downloadFile.mimeType || 'text/plain;charset=utf-8'
+  });
+  const objectUrl = URL.createObjectURL(blob);
+  localTextDownloadStateByConversionKey.set(toolKey, objectUrl);
+  downloadLink.href = objectUrl;
+  downloadLink.download = downloadFile.fileName || 'result.txt';
+  downloadLink.classList.remove('hidden');
+}
+
+function renderLocalImagePreview(toolKey, canvas, state, renderOptions) {
+  if (toolKey === 'image_social_cover_pad') {
+    return renderSocialCoverPreview(canvas, state.image, renderOptions);
+  }
+  if (toolKey === 'image_blur_background_fill') {
+    return renderSocialCoverPreview(canvas, state.image, renderOptions);
+  }
+  if (toolKey === 'image_flip_mirror') {
+    return renderFlipMirrorPreview(canvas, state.image, renderOptions);
+  }
+  if (toolKey === 'image_metadata_view_clear') {
+    canvas.width = state.image.naturalWidth || state.image.width;
+    canvas.height = state.image.naturalHeight || state.image.height;
+    const context = canvas.getContext('2d');
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(state.image, 0, 0, canvas.width, canvas.height);
+    return {
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+      metadataMode: renderOptions.metadataMode
+    };
+  }
+  if (toolKey === 'image_add_border_frame') {
+    return renderBorderFramePreview(canvas, state.image, renderOptions);
+  }
+  if (toolKey === 'image_platform_cover_template') {
+    const presetMap = getPlatformTemplatePresetMap();
+    const normalizedOptions = {
+      ...renderOptions,
+      presetKey: Object.hasOwn(presetMap, renderOptions.presetKey) ? renderOptions.presetKey : 'xiaohongshu_cover'
+    };
+    return renderPlatformTemplatePreview(canvas, state.image, normalizedOptions);
+  }
+  if (toolKey === 'image_annotate_canvas') {
+    return renderAnnotatedImagePreview(canvas, state.image, state.annotations || [], renderOptions);
+  }
+  if (toolKey === 'image_privacy_redact') {
+    return renderPrivacyRedactionPreview(canvas, state.image, state.redactions || []);
+  }
+  if (toolKey === 'image_blur_redact') {
+    return renderPrivacyRedactionPreview(canvas, state.image, state.redactions || []);
+  }
+  if (toolKey === 'image_rotate_adjust') {
+    return renderRotateAdjustPreview(canvas, state.image, renderOptions);
+  }
+  if (toolKey === 'image_object_erase_light') {
+    return renderLightErasePreview(canvas, state.image, state.erasePatches || []);
+  }
+  return renderImageTextPreview(canvas, state.image, renderOptions);
+}
+
+function handleLocalImageCanvasClick(event) {
+  const canvas = event.currentTarget;
+  const resultHost = canvas.closest('[data-results]');
+  const conversionKey = resultHost?.dataset.results || '';
+  const form = buyerDashboard.querySelector(`form[data-conversion-key="${conversionKey}"]`);
+  const state = localImageStateByConversionKey.get(conversionKey);
+  if (!form || !state?.image) {
+    return;
+  }
+
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const options = collectLocalImageToolOptions(form, conversionKey);
+  if (conversionKey === 'image_privacy_redact' || conversionKey === 'image_blur_redact') {
+    state.redactions = state.redactions || [];
+    state.redactions.push(createPrivacyRedactionFromCanvasPoint({
+      mode: options.redactMode,
+      pointX: Math.round((event.clientX - rect.left) * scaleX),
+      pointY: Math.round((event.clientY - rect.top) * scaleY),
+      shapeSize: options.redactSize,
+      blurRadius: options.redactBlurRadius,
+      mosaicBlockSize: options.redactMosaicBlockSize,
+      fillColor: options.redactFillColor
+    }));
+    void redrawPrivacyRedactionImage(conversionKey);
+    return;
+  }
+  if (conversionKey === 'image_object_erase_light') {
+    state.erasePatches = state.erasePatches || [];
+    state.erasePatches.push(createErasePatchFromCanvasPoint({
+      pointX: Math.round((event.clientX - rect.left) * scaleX),
+      pointY: Math.round((event.clientY - rect.top) * scaleY),
+      brushSize: options.eraseBrushSize,
+      sampleOffset: options.eraseSampleOffset
+    }));
+    void redrawEraseImage(conversionKey);
+    return;
+  }
+  state.annotations = state.annotations || [];
+  state.annotations.push(createAnnotationFromCanvasPoint({
+    mode: options.annotationMode,
+    pointX: Math.round((event.clientX - rect.left) * scaleX),
+    pointY: Math.round((event.clientY - rect.top) * scaleY),
+    color: options.annotationColor,
+    lineWidth: options.annotationLineWidth,
+    labelText: options.annotationMode === 'number'
+      ? (options.annotationLabel || String(state.annotations.length + 1))
+      : options.annotationLabel,
+    shapeSize: options.annotationShapeSize,
+    arrowDirection: options.annotationArrowDirection,
+    mosaicBlockSize: options.annotationMosaicBlockSize
+  }));
+  void redrawAnnotatedImage(conversionKey);
+}
+
+async function redrawAnnotatedImage(conversionKey) {
+  const state = localImageStateByConversionKey.get(conversionKey);
+  const canvas = buyerDashboard.querySelector(`[data-results="${conversionKey}"] [data-local-image-preview]`);
+  const form = buyerDashboard.querySelector(`form[data-conversion-key="${conversionKey}"]`);
+  const resultHost = buyerDashboard.querySelector(`[data-results="${conversionKey}"]`);
+  const statusElement = resultHost?.querySelector('[data-local-image-status]');
+  const downloadLink = resultHost?.querySelector('[data-local-image-download]');
+  if (!state?.image || !canvas || !form) {
+    return;
+  }
+  const options = collectLocalImageToolOptions(form, conversionKey);
+  const layout = renderAnnotatedImagePreview(canvas, state.image, state.annotations || [], options);
+  const blob = await exportCanvasBlob(canvas, options.outputFormat);
+  if (state.downloadUrl) {
+    URL.revokeObjectURL(state.downloadUrl);
+  }
+  state.downloadUrl = URL.createObjectURL(blob);
+  if (downloadLink) {
+    const outputExtension = options.outputFormat === 'jpg' ? 'jpg' : 'png';
+    downloadLink.href = state.downloadUrl;
+    downloadLink.download = `${stripFileExtension(state.fileName)}-${resolveLocalImageToolDownloadSuffix(conversionKey)}.${outputExtension}`;
+    downloadLink.classList.remove('hidden');
+  }
+  if (statusElement) {
+    statusElement.textContent = describeLocalImageStatus(conversionKey, layout, canvas, state);
+  }
+}
+
+function handleLocalImageUndo(event) {
+  const resultHost = event.currentTarget.closest('[data-results]');
+  const conversionKey = resultHost?.dataset.results || '';
+  const state = localImageStateByConversionKey.get(conversionKey);
+  if (conversionKey === 'image_privacy_redact' || conversionKey === 'image_blur_redact') {
+    if (!state?.redactions?.length) {
+      return;
+    }
+    state.redactions.pop();
+    void redrawPrivacyRedactionImage(conversionKey);
+    return;
+  }
+  if (conversionKey === 'image_object_erase_light') {
+    if (!state?.erasePatches?.length) {
+      return;
+    }
+    state.erasePatches.pop();
+    void redrawEraseImage(conversionKey);
+    return;
+  }
+  if (!state?.annotations?.length) {
+    return;
+  }
+  state.annotations.pop();
+  void redrawAnnotatedImage(conversionKey);
+}
+
+function handleLocalImageClear(event) {
+  const resultHost = event.currentTarget.closest('[data-results]');
+  const conversionKey = resultHost?.dataset.results || '';
+  const state = localImageStateByConversionKey.get(conversionKey);
+  if (!state) {
+    return;
+  }
+  if (conversionKey === 'image_privacy_redact' || conversionKey === 'image_blur_redact') {
+    state.redactions = [];
+    void redrawPrivacyRedactionImage(conversionKey);
+    return;
+  }
+  if (conversionKey === 'image_object_erase_light') {
+    state.erasePatches = [];
+    void redrawEraseImage(conversionKey);
+    return;
+  }
+  state.annotations = [];
+  void redrawAnnotatedImage(conversionKey);
+}
+
+async function redrawPrivacyRedactionImage(conversionKey) {
+  const state = localImageStateByConversionKey.get(conversionKey);
+  const canvas = buyerDashboard.querySelector(`[data-results="${conversionKey}"] [data-local-image-preview]`);
+  const form = buyerDashboard.querySelector(`form[data-conversion-key="${conversionKey}"]`);
+  const resultHost = buyerDashboard.querySelector(`[data-results="${conversionKey}"]`);
+  const statusElement = resultHost?.querySelector('[data-local-image-status]');
+  const downloadLink = resultHost?.querySelector('[data-local-image-download]');
+  if (!state?.image || !canvas || !form) {
+    return;
+  }
+  const options = collectLocalImageToolOptions(form, conversionKey);
+  const layout = renderPrivacyRedactionPreview(canvas, state.image, state.redactions || []);
+  const blob = await exportCanvasBlob(canvas, options.outputFormat);
+  if (state.downloadUrl) {
+    URL.revokeObjectURL(state.downloadUrl);
+  }
+  state.downloadUrl = URL.createObjectURL(blob);
+  if (downloadLink) {
+    const outputExtension = options.outputFormat === 'jpg' ? 'jpg' : 'png';
+    downloadLink.href = state.downloadUrl;
+    downloadLink.download = `${stripFileExtension(state.fileName)}-${resolveLocalImageToolDownloadSuffix(conversionKey)}.${outputExtension}`;
+    downloadLink.classList.remove('hidden');
+  }
+  if (statusElement) {
+    statusElement.textContent = `已添加 ${layout.redactionCount} 个区域，点击画布可继续处理。`;
+  }
+}
+
+async function redrawEraseImage(conversionKey) {
+  const state = localImageStateByConversionKey.get(conversionKey);
+  const canvas = buyerDashboard.querySelector(`[data-results="${conversionKey}"] [data-local-image-preview]`);
+  const form = buyerDashboard.querySelector(`form[data-conversion-key="${conversionKey}"]`);
+  const resultHost = buyerDashboard.querySelector(`[data-results="${conversionKey}"]`);
+  const statusElement = resultHost?.querySelector('[data-local-image-status]');
+  const downloadLink = resultHost?.querySelector('[data-local-image-download]');
+  if (!state?.image || !canvas || !form) {
+    return;
+  }
+  const options = collectLocalImageToolOptions(form, conversionKey);
+  const layout = renderLightErasePreview(canvas, state.image, state.erasePatches || []);
+  const blob = await exportCanvasBlob(canvas, options.outputFormat);
+  if (state.downloadUrl) {
+    URL.revokeObjectURL(state.downloadUrl);
+  }
+  state.downloadUrl = URL.createObjectURL(blob);
+  if (downloadLink) {
+    const outputExtension = options.outputFormat === 'jpg' ? 'jpg' : 'png';
+    downloadLink.href = state.downloadUrl;
+    downloadLink.download = `${stripFileExtension(state.fileName)}-${resolveLocalImageToolDownloadSuffix(conversionKey)}.${outputExtension}`;
+    downloadLink.classList.remove('hidden');
+  }
+  if (statusElement) {
+    statusElement.textContent = `已添加 ${layout.eraseCount} 处涂抹消除，点击画布可继续覆盖。`;
+  }
+}
+
+function resolveLocalImageToolDownloadSuffix(toolKey) {
+  const suffixMap = {
+    image_add_text: 'text',
+    image_add_border_frame: 'bordered',
+    image_platform_cover_template: 'template',
+    image_annotate_canvas: 'annotated',
+    image_flip_mirror: 'flipped',
+    image_metadata_view_clear: 'metadata',
+    image_blur_redact: 'blur-redact',
+    image_rotate_adjust: 'rotated',
+    image_object_erase_light: 'erased',
+    image_social_cover_pad: 'social-cover',
+    image_privacy_redact: 'redacted',
+    image_blur_background_fill: 'blur-fill'
+  };
+  return suffixMap[toolKey] || 'image';
+}
+
+function describeLocalImageStatus(toolKey, layout, canvas, state) {
+  if (toolKey === 'image_add_text') {
+    return `预览已生成：${layout.blocks.length} 个文字块，画布 ${canvas.width} x ${canvas.height}`;
+  }
+  if (toolKey === 'image_add_border_frame') {
+    return `预览已生成：边框画布 ${layout.canvasSize.width} x ${layout.canvasSize.height}`;
+  }
+  if (toolKey === 'image_platform_cover_template') {
+    return `预览已生成：模板画布 ${layout.canvasSize.width} x ${layout.canvasSize.height}`;
+  }
+  if (toolKey === 'image_annotate_canvas') {
+    return `已加载画布：当前 ${layout.annotationCount} 个标注，点击预览区域可继续添加。`;
+  }
+  if (toolKey === 'image_flip_mirror') {
+    return `预览已生成：已按 ${layout.flipMode} 模式翻转。`;
+  }
+  if (toolKey === 'image_metadata_view_clear') {
+    return layout.metadataMode === 'clear'
+      ? '已读取元数据并生成清理后导出图。'
+      : '已读取元数据，可查看图片基本信息。';
+  }
+  if (toolKey === 'image_rotate_adjust') {
+    return `预览已生成：旋转角度 ${layout.angle}°，画布 ${layout.canvasSize.width} x ${layout.canvasSize.height}`;
+  }
+  if (toolKey === 'image_social_cover_pad') {
+    return `预览已生成：主体区域 ${layout.imageRect.width} x ${layout.imageRect.height}，画布 ${canvas.width} x ${canvas.height}`;
+  }
+  if (toolKey === 'image_blur_background_fill') {
+    return `预览已生成：主体区域 ${layout.imageRect.width} x ${layout.imageRect.height}，画布 ${canvas.width} x ${canvas.height}`;
+  }
+  if (toolKey === 'image_privacy_redact') {
+    return `已添加 ${layout.redactionCount} 个打码区域，点击画布可继续打码。`;
+  }
+  return `预览已生成：画布 ${canvas.width} x ${canvas.height}`;
+}
+
+function handleRotatePresetClick(event) {
+  const angle = event.currentTarget.dataset.imageRotatePreset || '';
+  const form = event.currentTarget.closest('.tool-form');
+  const input = form?.querySelector('[data-image-rotate-angle]');
+  if (input) {
+    input.value = angle;
+  }
 }
 
 function renderDevToolResult(toolKey, result) {
@@ -1615,7 +2448,7 @@ function renderSelectedFileList(form, conversionKey) {
 }
 
 function getSelectedFiles(form, conversionKey) {
-  const toolItem = getBuyerToolByKey(conversionKey);
+  const toolItem = resolveBuyerToolByKey(conversionCatalog, conversionKey);
   if (conversionKey === 'merge_pdf' || toolItem?.allowMultipleFiles) {
     return selectedFilesByConversionKey.get(conversionKey) || [];
   }
@@ -1756,61 +2589,14 @@ function rerenderCurrentView() {
   renderToolList();
 }
 
-function getToolsForCategory(categoryKey) {
-  if (categoryKey === 'ppt_tools') {
-    return conversionCatalog.filter((item) => (item.categoryKey || 'ppt_tools') === 'ppt_tools');
-  }
-
-  if (categoryKey === 'text_tools') {
-    return textToolCatalog;
-  }
-
-  if (categoryKey === 'dev_tools') {
-    return devToolCatalog;
-  }
-
-  if (categoryKey === 'media_tools') {
-    return mediaToolCatalog;
-  }
-
-  if (categoryKey === 'image_tools') {
-    return conversionCatalog.filter((item) => item.categoryKey === 'image_tools');
-  }
-
-  return [];
-}
-
-function getVisibleTools(categoryKey, searchKeyword = '') {
-  const keyword = String(searchKeyword || '').trim().toLowerCase();
-  const tools = keyword ? getAllBuyerTools() : getToolsForCategory(categoryKey);
-  if (!keyword) {
-    return tools;
-  }
-
-  return tools.filter((item) =>
-    item.label.toLowerCase().includes(keyword) ||
-    (item.helperText || '').toLowerCase().includes(keyword)
-  );
-}
-
 function getCurrentCategory() {
   return categoryCatalog.find((entry) => entry.key === currentViewState.categoryKey) || categoryCatalog[0];
 }
 
-function getAllBuyerTools() {
-  return [
-    ...conversionCatalog.map((item) => ({ ...item, categoryKey: item.categoryKey || 'ppt_tools' })),
-    ...textToolCatalog,
-    ...devToolCatalog,
-    ...mediaToolCatalog
-  ];
-}
-
-function getBuyerToolByKey(toolKey) {
-  return conversionCatalog.find((entry) => entry.key === toolKey) ||
-    getTextToolByKey(toolKey) ||
-    getDevToolByKey(toolKey) ||
-    getMediaToolByKey(toolKey);
+function stripFileExtension(fileName) {
+  return String(fileName || 'image')
+    .replace(/\.[^.]+$/, '')
+    .trim() || 'image';
 }
 
 function syncBuyerRouteState() {

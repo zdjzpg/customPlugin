@@ -8,6 +8,16 @@ export const mediaToolCatalog = [
     badgeTone: 'orange'
   },
   {
+    key: 'media_audio_to_text',
+    kind: 'file_media_tool',
+    categoryKey: 'media_tools',
+    label: '音频转文字',
+    accepts: '.mp3,.wav,.m4a,.aac,.flac,.ogg,.opus',
+    maxFileSizeMb: 80,
+    helperText: '上传常见音频后识别为可复制文本，结果可下载为 TXT。',
+    badgeTone: 'red'
+  },
+  {
     key: 'media_audio_clip',
     kind: 'file_media_tool',
     categoryKey: 'media_tools',

@@ -10,7 +10,8 @@ function createMediaToolsService(options = {}) {
     pythonBin = process.env.PYTHON_BIN || '',
     clipAudio = (input) => defaultClipAudio({ ...input, ffmpegBin }),
     mergeAudio = (input) => defaultMergeAudio({ ...input, ffmpegBin }),
-    synthesizeSpeech = (input) => defaultSynthesizeSpeech({ ...input, ffmpegBin, pythonBin })
+    synthesizeSpeech = (input) => defaultSynthesizeSpeech({ ...input, ffmpegBin, pythonBin }),
+    transcribeAudio = (input) => defaultTranscribeAudio({ ...input, ffmpegBin, pythonBin })
   } = options;
 
   return {
@@ -39,7 +40,8 @@ function createMediaToolsService(options = {}) {
           outputDirectory,
           clipAudio,
           mergeAudio,
-          synthesizeSpeech
+          synthesizeSpeech,
+          transcribeAudio
         });
 
         const mappedFiles = outputFiles.map((filePath) => ({
@@ -55,7 +57,8 @@ function createMediaToolsService(options = {}) {
           files: mappedFiles.map((file) => ({
             fileName: file.fileName,
             downloadUrl: `/api/downloads/conversions/${conversionId}/${encodeURIComponent(file.fileName)}`
-          }))
+          })),
+          summary: outputFiles.summary || null
         };
       } catch (error) {
         conversionRepository.markFailed(conversionId, error.message);
@@ -73,7 +76,8 @@ async function executeMediaTool(input) {
     outputDirectory,
     clipAudio,
     mergeAudio,
-    synthesizeSpeech
+    synthesizeSpeech,
+    transcribeAudio
   } = input;
 
   if (toolKey === 'media_audio_clip') {
@@ -133,6 +137,29 @@ async function executeMediaTool(input) {
     return [outputPath];
   }
 
+  if (toolKey === 'media_audio_to_text') {
+    if (writtenFiles.length !== 1) {
+      throw createMediaToolError('INVALID_MEDIA_FILE_COUNT', '请先选择一个音频文件。', 400);
+    }
+
+    const inputPath = writtenFiles[0];
+    const language = ['auto', 'zh', 'en'].includes(toolOptions.language) ? toolOptions.language : 'auto';
+    const outputPath = path.join(outputDirectory, `${path.parse(inputPath).name}-transcript.txt`);
+    await transcribeAudio({
+      inputPath,
+      outputPath,
+      language,
+      outputFormat: 'txt'
+    });
+
+    const outputFiles = [outputPath];
+    outputFiles.summary = {
+      kind: 'text_preview',
+      previewText: buildTextPreview(outputPath)
+    };
+    return outputFiles;
+  }
+
   throw createMediaToolError('UNSUPPORTED_MEDIA_TOOL', '当前音视频工具暂未接入。', 400);
 }
 
@@ -188,6 +215,22 @@ async function defaultSynthesizeSpeech(input) {
     input.sourceText,
     input.language,
     input.outputFormat,
+    input.ffmpegBin || ''
+  ]);
+}
+
+async function defaultTranscribeAudio(input) {
+  if (!input.pythonBin) {
+    throw createMediaToolError('PYTHON_NOT_CONFIGURED', '当前环境还不能处理音频转文字，请先配置 Python。', 400);
+  }
+
+  const scriptPath = path.join(__dirname, '..', '..', 'scripts', 'run_conversion.py');
+  await runCommand(input.pythonBin, [
+    scriptPath,
+    'audio_to_text',
+    input.outputPath,
+    input.inputPath,
+    input.language,
     input.ffmpegBin || ''
   ]);
 }
@@ -273,6 +316,15 @@ function parseClockTime(value) {
 
 function normalizeAudioFormat(value) {
   return String(value || '').toLowerCase() === 'wav' ? 'wav' : 'mp3';
+}
+
+function buildTextPreview(outputPath) {
+  return fs.readFileSync(outputPath, 'utf8')
+    .trim()
+    .split(/\r?\n/)
+    .slice(0, 12)
+    .join('\n')
+    .slice(0, 1200);
 }
 
 function sanitizeFileName(fileName) {

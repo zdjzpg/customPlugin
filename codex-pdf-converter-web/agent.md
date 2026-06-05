@@ -68,6 +68,17 @@ Current buyer-facing features:
 - 编程工具
 - 图像工具
 
+Catalog freshness rule:
+
+- historical notes in this file may lag behind later implementation rounds
+- when tool availability matters, use the current code catalogs as source of truth first:
+  - `server/services/conversionService.cjs`
+  - `server/services/imageConversionCatalog.cjs`
+  - `public/textToolCatalog.mjs`
+  - `public/devToolCatalog.mjs`
+  - `public/mediaToolCatalog.mjs`
+  - `public/localImageToolCatalog.mjs`
+
 Current behavior:
 
 - buyer logs in with redemption code
@@ -129,8 +140,9 @@ Detailed rules for the current PDF toolset:
 
 ### 文本工具
 
-- current text tools are local browser tools
-- they do not require file upload or backend conversion
+- current `文本工具` is now a mixed line:
+  - local browser text tools
+  - backend text-extraction / file-processing tools
 - current buyer list page no longer shows subgroup section headers
 - current presentation is flat tool cards directly inside `文本工具`
 
@@ -162,6 +174,10 @@ Current completed text-tool items include:
 - 中英文符号转换
 - 通用违禁词检测
 - UUID 生成
+- 字幕文件转文本
+- 文本转字幕
+- OCR 文字识别
+- 批量文件重命名
 
 ### 编程工具
 
@@ -172,8 +188,10 @@ Current completed text-tool items include:
 - buyer-facing presentation rule:
   - do not subgroup inside `编程工具`
   - show flat tool cards directly
+- source of truth:
+  - `public/devToolCatalog.mjs`
 
-Current completed local dev-tool items include:
+Current completed local dev-tool items include representative high-frequency items such as:
 
 - Base64 加解密
 - 中文转 Unicode
@@ -211,6 +229,34 @@ Current completed local dev-tool items include:
 - Robots 生成
 - HTML 预览
 
+Current additional completed data / code helper items also include:
+
+- JSON 转 CSV
+- JSON 转 PHP
+- JS 对象转 JSON
+- JSON 转 JS 对象
+- JSON 合并
+- JSON 键值对提取
+- excel转json
+- excel转数组
+- excel转html
+- json转数组
+- JSON数组转Excel
+- JSON对象转Excel
+- excel转键值对对象json
+- 键值对对象json转excel
+- json多级转一级
+- 在线json一级转多级还原工具
+- json缺失项查找
+- json键值清空
+- json切割
+- RSA 密钥对生成
+- PHP password_hash
+- JS 美化压缩
+- CSS 美化压缩
+- HTML 美化压缩
+- CSS/JS 清除
+
 Current completed backend parse dev-tool items include:
 
 - sitemap 链接提取
@@ -230,6 +276,16 @@ Current completed network-check dev-tool items include:
 - URL 重定向分析
 - 域名 whois 查询
 - 网站 CDN 检测
+- 浏览器指纹检测
+- 多节点 IP 检测
+- Nslookup 查询
+- IP 地址获取主机名
+- SSL 证书链下载
+- 死链检测
+- 批量请求
+- API 批量请求
+- ICP备案查询
+- ICP备案批量查询
 
 ### 音视频工具
 
@@ -244,6 +300,7 @@ Current completed network-check dev-tool items include:
 Current completed media-tool items include:
 
 - 文字转语音
+- 音频转文字
 - 音频剪切
 - 音频合并
 - 音频试听播放
@@ -261,6 +318,18 @@ Current media-tool behavior:
   - output formats:
     - `mp3`
     - `wav`
+- `音频转文字`
+  - server-side tool
+  - accepts one uploaded audio file
+  - current first version supports:
+    - `mp3`
+    - `wav`
+    - `m4a`
+    - `aac`
+    - `flac`
+    - `ogg`
+    - `opus`
+  - outputs one `.txt`
 - `音频剪切`
   - accepts one uploaded audio file
   - current first version supports:
@@ -514,16 +583,16 @@ Current preferred headline direction:
 
 Current latest Xianyu-facing title candidate:
 
-- `PDF / Office 文件处理工具丨转 Word / 合并 / 压缩 / 加水印 / 页码 / 签章`
+- `PDF / 图像 / 文本 / 编程 / 音视频处理工具丨转 Word / 转 PPT / 图片处理 / 文本处理 / 配音剪音频`
 
 Current latest Xianyu-facing subtitle candidate:
 
-- `常用文件处理一站完成，网页打开即用`
+- `常用办公与素材处理一站完成，网页打开即用`
 
 Current latest Xianyu-facing first-screen copy direction:
 
-- `这是一个专门做 PDF / Word / Excel / PPT 文件处理的在线工具。`
-- `不需要安装复杂软件，打开网页即可使用，适合日常办公、资料整理、教学文件处理。`
+- `这是一个专门做 PDF、Office、图片、文本、编程辅助、音视频处理的在线工具。`
+- `不需要安装复杂软件，打开网页即可使用，适合日常办公、资料整理、教学文件处理、自媒体素材处理。`
 
 Current latest Xianyu-facing supported-feature list should mention:
 
@@ -545,39 +614,72 @@ Current latest Xianyu-facing supported-feature list should mention:
 - `PDF 转图片`
 - `图片转 PDF`
 - `PDF 保护 / 解锁`
+- `图片压缩`
+- `图片裁剪`
+- `图片格式转换`
+- `GIF 合成`
+- `GIF 拆分`
+- `证件照处理`
+- `图片翻转 / 镜像`
+- `图片元数据查看 / 清除`
+- `图片局部模糊 / 打码`
+- `图片旋转校正`
+- `对象移除 / 涂抹消除`
+- `文本去重`
+- `链接提取`
+- `列表排序`
+- `正则提取`
+- `Base64 加解密`
+- `JSON 格式化`
+- `SSL 检测`
+- `whois 查询`
+- `文字转语音`
+- `音频剪切`
+- `音频合并`
 
 ### Latest Xianyu Copy Update
 
 Current latest recommended Xianyu-facing title is:
 
-- `PDF / Office 文件处理工具丨转 Word / 转 PPT / 合并 / 压缩 / 加水印 / 页码 / 签章`
+- `PDF / 图像 / 文本 / 编程 / 音视频处理工具丨转 Word / 转 PPT / 图片处理 / 文本处理 / 配音剪音频`
 
 Current latest recommended Xianyu-facing subtitle is:
 
-- `常用文件处理一站完成，网页打开即用`
+- `常用办公与素材处理一站完成，网页打开即用`
 
 Current latest recommended Xianyu-facing first-screen copy is:
 
-- `这是一个专门做 PDF / Word / Excel / PPT 文件处理的在线工具。`
-- `不需要安装复杂软件，打开网页即可使用，适合日常办公、资料整理、教学文件处理。`
+- `这是一个专门做 PDF、Office、图片、文本、编程辅助、音视频处理的在线工具。`
+- `不需要安装复杂软件，打开网页即可使用，适合日常办公、资料整理、教学文件处理、自媒体素材处理。`
 
 Current latest recommended Xianyu-facing selling-point copy is:
 
-- `支持 PDF 转 Word、PDF 转 PPT、Word 转 PDF、Excel 转 PDF、PPT 转 PDF。`
+- `支持 PDF 转 Word、PDF 转 PPT、Word/Excel/PPT 转 PDF。`
 - `也支持 PDF 合并、拆分、提取页面、删除页面、调整顺序、压缩、加水印、加页码、签名盖章、旋转页面、保护/解锁。`
-- `常见文件处理集中在一个网页里完成，省去安装和找软件的麻烦。`
+- `图片工具支持压缩、改尺寸、裁剪、拼长图、拼图、格式转换、GIF 合成拆分、证件照处理、图标生成，以及翻转镜像、旋转校正、局部打码、元数据清理、轻量涂抹消除等常用操作。`
+- `文本工具支持文本去重、删除空行、批量替换、字符统计、链接提取、正则提取、列表排序等高频处理。`
+- `编程工具支持 Base64、Unicode、URL 编解码、md5、JSON 格式化、字段提取、sitemap/robots、SSL 检测、whois 查询等常用开发辅助。`
+- `音视频工具支持文字转语音、音频剪切、音频合并，以及常用本地试听预览。`
 
 Current latest recommended Xianyu-facing short detail copy is:
 
-- `适合日常办公和资料整理。`
-- `文本类 PDF 可转成可继续修改的 Word / PPT；复杂排版文件会有少量偏差，扫描件可继续配合 OCR 处理。`
+- `适合日常办公、资料整理、教学文件处理、自媒体素材处理。`
+- `文本类 PDF 可转成可继续修改的 Word / PPT；复杂排版文件会有少量偏差。`
+- `图片和音频工具适合做日常快速处理，不用额外装软件。`
 
 Current latest recommended short Xianyu listing body is:
 
-- `在线 PDF / Office 文件处理工具，网页打开即用。`
+- `在线 PDF / 图像 / 文本 / 编程 / 音视频处理工具，网页打开即用。`
 - `支持 PDF 转 Word、PDF 转 PPT、Word/Excel/PPT 转 PDF。`
-- `支持 PDF 合并、拆分、提取页面、删除页面、调整顺序、压缩、加水印、加页码、签名/盖章、旋转页面、保护/解锁。`
-- `适合办公文档、教学资料、日常文件整理。`
+- `支持 PDF 合并、拆分、提取页面、删除页面、压缩、加水印、加页码、签名/盖章、旋转页面、保护/解锁。`
+- `支持图片压缩、裁剪、改尺寸、拼图、拼长图、格式转换、GIF 合成拆分、证件照处理。`
+- `支持文本去重、链接提取、列表排序、正则提取等文本处理。`
+- `支持 Base64、JSON、URL、SSL、whois、sitemap 等编程辅助。`
+- `支持文字转语音、音频剪切、音频合并。`
+
+Current latest recommended Xianyu short title is:
+
+- `在线文件处理工具 PDF图片文本编程音视频都能用`
 
 Current actual homepage short-copy direction in the product UI is now:
 
@@ -1137,7 +1239,7 @@ Latest image-tool verification nuance:
 
 - current latest full Node test suite passed
   - completion-time count:
-    - `338/338`
+    - `390/390`
 - real browser self-test additionally covered:
   - image-tools top-level category
   - image-tools search
@@ -1146,8 +1248,42 @@ Latest image-tool verification nuance:
   - GIF merge
   - image-compress batch ZIP download
   - favicon generate
+  - image border / frame
+  - platform template batch ZIP export
+  - image annotate canvas
+  - image flip / mirror
+  - image metadata view / clear
+  - image blur / redact
+  - image rotate adjust
+  - image object erase light
 - local browser regression artifact directory:
   - `D:\temp\codex-image-tools-browser-20260604`
+  - `D:\temp\codex-image-tool-batch-20260605`
+  - `D:\temp\codex-image-batch-template-20260605`
+  - `D:\temp\codex-image-five-20260605`
+
+Latest high-click image / QR additions now also include:
+
+- `收款码合并`
+- `二维码生成`
+- `批量二维码`
+- `二维码解码`
+- `图片隐私打码`
+- `图片模糊背景填充`
+
+Current local-image-tool line now also includes:
+
+- `图片加边框 / 描边`
+- `平台封面尺寸模板`
+- `图片标注 / 箭头框选`
+- `图片加边框 / 社媒封面留白`
+- `图片隐私打码`
+- `图片模糊背景填充`
+- `图片翻转 / 镜像`
+- `图片元数据查看 / 清除`
+- `图片局部模糊 / 打码`
+- `图片旋转校正`
+- `对象移除 / 涂抹消除`
 
 Current intentionally-not-exposed image-tool scope includes at least:
 
@@ -1182,32 +1318,35 @@ Bundled dependency note:
 - image tools: no new dependency in this round, assume server already has `Pillow`
 - media tools: requires `edge-tts` and `ffmpeg`
 
+Newer OCR / QR / audio-to-text runtime note:
+
+- `OCR 文字识别`
+  - requires `TESSERACT_BIN`
+- `音频转文字`
+  - requires `ffmpeg`
+  - requires Python package `openai-whisper`
+- `二维码生成 / 批量二维码`
+  - requires Python package `qrcode[pil]`
+- `二维码解码`
+  - requires Python `cv2`
+
 Bundled rollout minimum checks:
 
 - `网站 SSL 证书检测`
 - `图片格式转换`
 - `GIF 合成`
 - `文字转语音`
+- `音频转文字`
 - `音频剪切`
 - `音频合并`
 
-Current still-not-finished dev-tool scope includes at least:
+Current deferred-scope note:
 
-- ICP 备案查询
-- ICP 批量查询
-- ICP 备案反查
-- Nslookup 查询
-- SSL 证书链下载
-- 批量请求 / API 批量请求
-- 死链检测
-- 多节点 IP 检测
-- IP 地址获取主机名
-- 浏览器指纹检测
-- PHP password_hash
-- JSON/CSV/PHP/JS 对象互转的更多长尾工具
-- RSA 密钥对生成
-- JS/CSS/HTML 美化压缩
-- CSS/JS 清除
+- older notes that treated `ICP 备案查询`、`Nslookup 查询`、`批量请求 / API 批量请求`、`死链检测`、`多节点 IP 检测`、`浏览器指纹检测`、`PHP password_hash`、`RSA 密钥对生成`、`JS/CSS/HTML 美化压缩`、`CSS/JS 清除` as unfinished are now stale
+- these items are already present in the current buyer catalog
+- one earlier-discussed dev-tool item that is still not confirmed in the current buyer catalog is:
+  - `ICP 备案反查`
+- for any future “what tools do we already have?” question, check the catalog source files listed near the top of this document before trusting older prose summaries
 
 ## Usage Stats Rule
 

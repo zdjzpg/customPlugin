@@ -31,6 +31,28 @@ test('createToolOverviewMarkup renders compact method cards without upload contr
   assert.doesNotMatch(html, /查看详情/);
 });
 
+test('createPreviewToolOverviewMarkup renders locked preview cards without detail entry hooks', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createPreviewToolOverviewMarkup } = await import(moduleUrl);
+
+  const html = createPreviewToolOverviewMarkup([
+    {
+      key: 'pdf_extract_pages',
+      label: 'PDF 提取页面',
+      helperText: '输入页码范围后提取为一个新的 PDF。'
+    }
+  ]);
+
+  assert.match(html, /PDF 提取页面/);
+  assert.match(html, /输入页码范围后提取为一个新的 PDF。/);
+  assert.match(html, /data-preview-tool="pdf_extract_pages"/);
+  assert.match(html, /data-preview-locked/);
+  assert.match(html, /aria-disabled="true"/);
+  assert.doesNotMatch(html, /data-open-detail=/);
+});
+
 test('createToolDetailMarkup renders the selected method form with upload controls', async () => {
   const moduleUrl = pathToFileURL(
     path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
@@ -67,6 +89,317 @@ test('createToolDetailMarkup renders a local text tool with textareas instead of
   assert.match(html, /原始文本/);
   assert.match(html, /处理结果/);
   assert.match(html, /开始处理/);
+  assert.doesNotMatch(html, /type="file"/);
+});
+
+test('createToolDetailMarkup renders subtitle text tools with srt-specific inputs and download control', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const srtToTextHtml = createToolDetailMarkup({
+    key: 'text_srt_to_text',
+    kind: 'local_text',
+    label: '字幕文件转文本',
+    helperText: '上传 SRT 字幕文件后提取纯文本。'
+  });
+  const textToSrtHtml = createToolDetailMarkup({
+    key: 'text_text_to_srt',
+    kind: 'local_text',
+    label: '文本转字幕',
+    helperText: '按每行一句生成 SRT 字幕文件。'
+  });
+
+  assert.match(srtToTextHtml, /字幕文件/);
+  assert.match(srtToTextHtml, /\.srt/);
+  assert.match(srtToTextHtml, /导出文件/);
+  assert.match(textToSrtHtml, /每条字幕时长/);
+  assert.match(textToSrtHtml, /起始时间/);
+  assert.match(textToSrtHtml, /generated-subtitles/);
+});
+
+test('createToolDetailMarkup renders a local image tool with canvas preview and export controls', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'image_add_text',
+    kind: 'local_image_tool',
+    label: '图片加文字',
+    helperText: '本地加载图片后添加主标题、副标题和角标。',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 20
+  });
+
+  assert.match(html, /tool-form-image/);
+  assert.match(html, /选择图片/);
+  assert.match(html, /主标题/);
+  assert.match(html, /副标题/);
+  assert.match(html, /角标/);
+  assert.match(html, /版式/);
+  assert.match(html, /data-local-image-preview/);
+  assert.match(html, /导出图片/);
+});
+
+test('createToolDetailMarkup renders image_add_border_frame controls for border style and shadow', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'image_add_border_frame',
+    kind: 'local_image_tool',
+    label: '图片加边框 / 描边',
+    helperText: '给图片加边框、内边距、阴影和圆角。',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 20
+  });
+
+  assert.match(html, /边框样式/);
+  assert.match(html, /渐变边框/);
+  assert.match(html, /阴影强度/);
+  assert.match(html, /边框宽度/);
+});
+
+test('createToolDetailMarkup renders image_platform_cover_template controls for preset and fit mode', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'image_platform_cover_template',
+    kind: 'local_image_tool',
+    label: '平台封面尺寸模板',
+    helperText: '按平台预设尺寸导出封面图。',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 20
+  });
+
+  assert.match(html, /目标模板/);
+  assert.match(html, /闲鱼主图/);
+  assert.match(html, /小红书封面/);
+  assert.match(html, /铺满裁切/);
+  assert.match(html, /模糊铺底/);
+  assert.match(html, /批量导出 ZIP/);
+  assert.match(html, /data-image-batch-template-option/);
+});
+
+test('createToolDetailMarkup renders image_annotate_canvas controls and action buttons', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'image_annotate_canvas',
+    kind: 'local_image_tool',
+    label: '图片标注 / 箭头框选',
+    helperText: '点击图片快速添加箭头、框选和序号。',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 20
+  });
+
+  assert.match(html, /标注类型/);
+  assert.match(html, /箭头/);
+  assert.match(html, /矩形框/);
+  assert.match(html, /序号点/);
+  assert.match(html, /局部马赛克/);
+  assert.match(html, /data-local-image-undo/);
+  assert.match(html, /data-local-image-clear/);
+});
+
+test('createToolDetailMarkup renders image_flip_mirror controls', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'image_flip_mirror',
+    kind: 'local_image_tool',
+    label: '图片翻转 / 镜像',
+    helperText: '快速做水平镜像、垂直翻转或双向翻转图片。',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 20
+  });
+
+  assert.match(html, /翻转方向/);
+  assert.match(html, /水平镜像/);
+  assert.match(html, /垂直翻转/);
+});
+
+test('createToolDetailMarkup renders image_metadata_view_clear controls', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'image_metadata_view_clear',
+    kind: 'local_image_tool',
+    label: '图片元数据查看 / 清除',
+    helperText: '查看图片基本信息，并可重新导出清理元数据后的图片。',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 20
+  });
+
+  assert.match(html, /处理模式/);
+  assert.match(html, /仅查看/);
+  assert.match(html, /清除元数据并导出/);
+  assert.match(html, /data-local-image-metadata-output/);
+});
+
+test('createToolDetailMarkup renders image_blur_redact controls', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'image_blur_redact',
+    kind: 'local_image_tool',
+    label: '图片局部模糊 / 打码',
+    helperText: '点击图片快速添加模糊或马赛克区域。',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 20
+  });
+
+  assert.match(html, /处理方式/);
+  assert.match(html, /模糊/);
+  assert.match(html, /马赛克/);
+  assert.match(html, /区域宽度/);
+  assert.match(html, /data-local-image-undo/);
+});
+
+test('createToolDetailMarkup renders image_rotate_adjust controls', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'image_rotate_adjust',
+    kind: 'local_image_tool',
+    label: '图片旋转校正',
+    helperText: '按角度快速旋转图片，适合拍照纠正。',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 20
+  });
+
+  assert.match(html, /旋转角度/);
+  assert.match(html, /90°/);
+  assert.match(html, /180°/);
+  assert.match(html, /270°/);
+});
+
+test('createToolDetailMarkup renders image_object_erase_light controls', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'image_object_erase_light',
+    kind: 'local_image_tool',
+    label: '对象移除 / 涂抹消除',
+    helperText: '轻量版局部涂抹消除，不依赖重模型。',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 20
+  });
+
+  assert.match(html, /笔刷大小/);
+  assert.match(html, /取样偏移/);
+  assert.match(html, /轻量版/);
+  assert.match(html, /data-local-image-clear/);
+});
+
+test('createToolDetailMarkup renders social cover local image tool with ratio and background mode controls', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'image_social_cover_pad',
+    kind: 'local_image_tool',
+    label: '图片加边框 / 社媒封面留白',
+    helperText: '自动补留白并导出社媒封面图。',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 20
+  });
+
+  assert.match(html, /目标比例/);
+  assert.match(html, /背景模式/);
+  assert.match(html, /纯色背景/);
+  assert.match(html, /模糊原图背景/);
+  assert.match(html, /背景颜色/);
+});
+
+test('createToolDetailMarkup renders image_privacy_redact controls for redaction mode and size', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'image_privacy_redact',
+    kind: 'local_image_tool',
+    label: '图片隐私打码',
+    helperText: '点击图片快速给敏感区域打码。',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 20
+  });
+
+  assert.match(html, /打码方式/);
+  assert.match(html, /局部马赛克/);
+  assert.match(html, /模糊打码/);
+  assert.match(html, /纯色遮挡/);
+  assert.match(html, /打码区域大小/);
+  assert.match(html, /data-local-image-undo/);
+  assert.match(html, /data-local-image-clear/);
+});
+
+test('createToolDetailMarkup renders image_blur_background_fill controls for ratio and output mode', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'image_blur_background_fill',
+    kind: 'local_image_tool',
+    label: '图片模糊背景填充',
+    helperText: '按目标比例自动生成模糊背景画布。',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 20
+  });
+
+  assert.match(html, /目标比例/);
+  assert.match(html, /模糊强度/);
+  assert.match(html, /导出格式/);
+});
+
+test('createToolDetailMarkup renders qr_generate without file upload and with content input', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'qr_generate',
+    label: '二维码生成',
+    helperText: '输入文本后生成二维码图片。',
+    categoryKey: 'image_tools',
+    requiresUpload: false
+  });
+
+  assert.match(html, /二维码内容/);
+  assert.match(html, /输出尺寸/);
   assert.doesNotMatch(html, /type="file"/);
 });
 
@@ -1111,6 +1444,29 @@ test('createToolDetailMarkup renders sign_stamp_pdf options', async () => {
   assert.match(html, /签名图片/);
 });
 
+test('createToolDetailMarkup renders batch_sign_stamp_pdf as a multi-file stamp form', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'batch_sign_stamp_pdf',
+    label: '批量 PDF 盖章',
+    helperText: '可一次上传多个 PDF，按同一套盖章配置逐个处理后打包下载。',
+    accepts: '.pdf',
+    maxFileSizeMb: 50,
+    maxTotalFileSizeMb: 300,
+    allowMultipleFiles: true
+  });
+
+  assert.match(html, /上传签名\/印章图片/);
+  assert.match(html, /手写签名/);
+  assert.match(html, /签名图片/);
+  assert.match(html, /multiple/);
+  assert.match(html, /已选择的文件会在这里列出|按当前顺序/);
+});
+
 test('createToolDetailMarkup renders rotate_pdf options', async () => {
   const moduleUrl = pathToFileURL(
     path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
@@ -1185,6 +1541,26 @@ test('createToolDetailMarkup renders pdf_to_pptx as a simple single-file upload 
   assert.match(html, /\.pdf/);
   assert.match(html, /复杂排版可能会有偏差/);
   assert.match(html, /开始转换/);
+});
+
+test('createToolDetailMarkup renders image_heic_convert as a HEIC upload form with JPG and PNG choices', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'image_heic_convert',
+    label: 'HEIC 转 JPG / PNG',
+    helperText: '上传 iPhone 常见 HEIC 图片后转成 JPG 或 PNG 下载。',
+    accepts: '.heic,.heif',
+    maxFileSizeMb: 20
+  });
+
+  assert.match(html, /\.heic/);
+  assert.match(html, /\.heif/);
+  assert.match(html, /JPG/);
+  assert.match(html, /PNG/);
 });
 
 test('createToolDetailMarkup renders delete_pages_pdf options', async () => {

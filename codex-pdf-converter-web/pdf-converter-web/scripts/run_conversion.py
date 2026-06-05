@@ -9,11 +9,14 @@ import tempfile
 import zipfile
 import math
 import random
+import wave
+from collections import deque
 from io import BytesIO
 from pathlib import Path
 from xml.etree import ElementTree
 
 import fitz
+import cv2
 from docx import Document
 from pdf2docx import Converter as PdfToDocxConverter
 from pdf2image.exceptions import PDFInfoNotInstalledError, PDFPageCountError
@@ -45,6 +48,12 @@ def main() -> int:
       return pdf_to_word(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6])
     if command == "pdf_to_pptx":
       return pdf_to_pptx(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else "")
+    if command == "ocr_text_extract":
+      return ocr_text_extract(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "batch_file_rename":
+      return batch_file_rename(sys.argv[2], sys.argv[3], sys.argv[4:])
+    if command == "payment_code_merge":
+      return payment_code_merge(sys.argv[2], sys.argv[3], sys.argv[4:])
     if command == "delete_pages_pdf":
       return delete_pages_pdf(sys.argv[2], sys.argv[3], sys.argv[4])
     if command == "reorder_pages_pdf":
@@ -57,6 +66,8 @@ def main() -> int:
       return add_page_numbers_pdf(sys.argv[2], sys.argv[3], sys.argv[4])
     if command == "sign_stamp_pdf":
       return sign_stamp_pdf(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "batch_sign_stamp_pdf":
+      return batch_sign_stamp_pdf(sys.argv[2], sys.argv[3], sys.argv[4:])
     if command == "rotate_pdf":
       return rotate_pdf(sys.argv[2], sys.argv[3], sys.argv[4])
     if command == "merge_pdf":
@@ -105,6 +116,14 @@ def main() -> int:
       return image_emboss(sys.argv[2], sys.argv[3], sys.argv[4])
     if command == "image_remove_solid_bg":
       return image_remove_solid_bg(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_smart_bg_remove":
+      return image_smart_bg_remove(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "qr_generate":
+      return qr_generate(sys.argv[2], sys.argv[3])
+    if command == "qr_generate_batch":
+      return qr_generate_batch(sys.argv[2], sys.argv[3])
+    if command == "qr_decode":
+      return qr_decode(sys.argv[2], sys.argv[3])
     if command == "favicon_generate":
       return favicon_generate(sys.argv[2], sys.argv[3], sys.argv[4])
     if command == "app_icon_generate":
@@ -119,6 +138,8 @@ def main() -> int:
       return image_increase_size(sys.argv[2], sys.argv[3], sys.argv[4])
     if command == "image_clear_content":
       return image_clear_content(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_heic_convert":
+      return image_heic_convert(sys.argv[2], sys.argv[3], sys.argv[4])
     if command == "image_format_convert":
       return image_format_convert_dispatch(sys.argv[2], sys.argv[3:])
     if command == "excel_extract_images":
@@ -154,6 +175,13 @@ def main() -> int:
           sys.argv[4],
           sys.argv[5],
           sys.argv[6] if len(sys.argv) > 6 else "",
+      )
+    if command == "audio_to_text":
+      return audio_to_text(
+          sys.argv[2],
+          sys.argv[3],
+          sys.argv[4] if len(sys.argv) > 4 else "auto",
+          sys.argv[5] if len(sys.argv) > 5 else "",
       )
 
     raise SystemExit(f"unsupported conversion command: {command}")
@@ -278,6 +306,127 @@ def pdf_to_pptx(output_path: str, input_path: str, ocrmypdf_bin: str) -> int:
             source_pdf_path = ocr_output_path
 
         build_presentation_from_pdf(source_pdf_path, output)
+
+    return 0
+
+
+def ocr_text_extract(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    tesseract_bin = str(options.get("tesseractBin") or "").strip()
+    tesseract_script_path = str(options.get("tesseractScriptPath") or "").strip()
+    ocr_language = str(options.get("ocrLanguage") or "chi_sim+eng").strip() or "chi_sim+eng"
+    if not tesseract_bin:
+        raise SystemExit("ocr_text_extract requires tesseractBin")
+
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory(dir=str(output.parent)) as temp_directory:
+        temp_root = Path(temp_directory)
+        text_base = temp_root / "ocr-output"
+        try:
+            command = [
+                tesseract_bin,
+                input_path,
+                str(text_base),
+                "-l",
+                ocr_language,
+            ]
+            if tesseract_script_path:
+                command = [
+                    tesseract_bin,
+                    tesseract_script_path,
+                    input_path,
+                    str(text_base),
+                    "-l",
+                    ocr_language,
+                ]
+            subprocess.run(
+                command,
+                check=True,
+            )
+        except FileNotFoundError as exc:
+            raise SystemExit("Tesseract is not installed or not reachable") from exc
+        except subprocess.CalledProcessError as exc:
+            raise SystemExit(f"Tesseract failed with exit code {exc.returncode}") from exc
+
+        recognized_path = text_base.with_suffix(".txt")
+        if not recognized_path.exists():
+            raise SystemExit("Tesseract did not produce a txt output")
+
+        output.write_text(recognized_path.read_text(encoding="utf8", errors="ignore"), encoding="utf8")
+
+    return 0
+
+
+def batch_file_rename(zip_path: str, options_json: str, input_paths: list[str]) -> int:
+    if not input_paths:
+        raise SystemExit("batch_file_rename requires at least one file")
+
+    options = json.loads(options_json or "{}")
+    template = str(options.get("template") or "资料-{n}-{name}")
+    start_number = max(1, int(options.get("startNumber") or 1))
+    number_width = max(1, min(8, int(options.get("numberWidth") or 2)))
+
+    output = Path(zip_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    used_names: set[str] = set()
+
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for index, input_path in enumerate(input_paths):
+            source = Path(input_path)
+            rendered_number = str(start_number + index).zfill(number_width)
+            target_stem = template.replace("{n}", rendered_number).replace("{name}", source.stem).strip()
+            safe_stem = sanitize_archive_stem(target_stem or f"file-{rendered_number}")
+            arcname = ensure_unique_archive_name(f"{safe_stem}{source.suffix.lower()}", used_names)
+            archive.write(source, arcname=arcname)
+
+    return 0
+
+
+def payment_code_merge(output_path: str, options_json: str, input_paths: list[str]) -> int:
+    if len(input_paths) < 2:
+        raise SystemExit("payment_code_merge requires at least two images")
+
+    options = json.loads(options_json or "{}")
+    layout = "horizontal" if options.get("layout") == "horizontal" else "vertical"
+    title = str(options.get("mainTitle") or "收款码").strip()
+    gap = 28
+    card_padding = 32
+    title_height = 84 if title else 32
+
+    images = [Image.open(path).convert("RGBA") for path in input_paths[:4]]
+    try:
+        target_width = max(image.width for image in images)
+        target_height = max(image.height for image in images)
+        prepared = [ImageOps.contain(image, (target_width, target_height), Image.Resampling.LANCZOS) for image in images]
+
+        if layout == "horizontal":
+            canvas_width = (target_width * len(prepared)) + (gap * (len(prepared) - 1)) + (card_padding * 2)
+            canvas_height = target_height + title_height + (card_padding * 2)
+        else:
+            canvas_width = target_width + (card_padding * 2)
+            canvas_height = title_height + (target_height * len(prepared)) + (gap * (len(prepared) - 1)) + (card_padding * 2)
+
+        canvas = Image.new("RGBA", (canvas_width, canvas_height), (255, 255, 255, 255))
+        draw = ImageDraw.Draw(canvas)
+        if title:
+            draw.text((card_padding, 24), title, fill=(17, 24, 39, 255))
+
+        cursor_x = card_padding
+        cursor_y = card_padding + title_height
+        for image in prepared:
+            if layout == "horizontal":
+                canvas.alpha_composite(image, (cursor_x, cursor_y + ((target_height - image.height) // 2)))
+                cursor_x += target_width + gap
+            else:
+                canvas.alpha_composite(image, (cursor_x + ((target_width - image.width) // 2), cursor_y))
+                cursor_y += target_height + gap
+
+        save_image_file(canvas, Path(output_path), force_format="PNG")
+    finally:
+        for image in images:
+            image.close()
 
     return 0
 
@@ -671,6 +820,29 @@ def sign_stamp_pdf(output_path: str, input_path: str, options_json: str) -> int:
 
     with output.open("wb") as output_file:
         writer.write(output_file)
+
+    return 0
+
+
+def batch_sign_stamp_pdf(zip_path: str, options_json: str, input_paths: list[str]) -> int:
+    if len(input_paths) < 2:
+        raise SystemExit("batch_sign_stamp_pdf requires at least two PDF files")
+
+    zip_output = Path(zip_path)
+    zip_output.parent.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory(dir=str(zip_output.parent)) as temp_directory:
+        temp_root = Path(temp_directory)
+        generated_paths: list[Path] = []
+        for input_path in input_paths:
+            source = Path(input_path)
+            output_path = temp_root / f"{source.stem}-stamped.pdf"
+            sign_stamp_pdf(str(output_path), str(source), options_json)
+            generated_paths.append(output_path)
+
+        with zipfile.ZipFile(zip_output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for generated_path in generated_paths:
+                archive.write(generated_path, arcname=generated_path.name)
 
     return 0
 
@@ -1175,6 +1347,121 @@ def image_remove_solid_bg(output_path: str, input_path: str, options_json: str) 
     return 0
 
 
+def image_smart_bg_remove(output_path: str, input_path: str, options_json: str) -> int:
+    try:
+        from rembg import new_session, remove
+    except ImportError as exc:
+        raise SystemExit("image_smart_bg_remove requires python package rembg[cpu]") from exc
+
+    options = json.loads(options_json or "{}")
+    model_name = str(
+        options.get("modelName")
+        or os.environ.get("REMBG_MODEL")
+        or "isnet-general-use"
+    ).strip() or "isnet-general-use"
+
+    with open(input_path, "rb") as source_file:
+        source_bytes = source_file.read()
+
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    result_bytes = remove(source_bytes, session=new_session(model_name))
+    with Image.open(BytesIO(result_bytes)) as image:
+        normalized = image.convert("RGBA")
+        pixels = []
+        for red, green, blue, alpha in normalized.getdata():
+            next_alpha = 255 if alpha >= 250 else alpha
+            pixels.append((red, green, blue, next_alpha))
+        normalized.putdata(pixels)
+        save_image_file(normalized, output, force_format="PNG")
+    return 0
+
+
+def qr_generate(output_path: str, options_json: str) -> int:
+    import qrcode
+
+    options = json.loads(options_json or "{}")
+    qr_text = str(options.get("qrText") or "").strip()
+    if not qr_text:
+        raise SystemExit("qr_generate requires qrText")
+    size_px = max(128, min(1024, int(options.get("sizePx") or 320)))
+
+    qr = qrcode.QRCode(border=2, box_size=10)
+    qr.add_data(qr_text)
+    qr.make(fit=True)
+    image = qr.make_image(fill_color="black", back_color="white").convert("RGBA")
+    image = image.resize((size_px, size_px), Image.Resampling.NEAREST)
+    save_image_file(image, Path(output_path), force_format="PNG")
+    return 0
+
+
+def qr_generate_batch(zip_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    lines = [line.strip() for line in str(options.get("qrLinesText") or "").splitlines() if line.strip()]
+    if not lines:
+        raise SystemExit("qr_generate_batch requires at least one line")
+
+    zip_output = Path(zip_path)
+    zip_output.parent.mkdir(parents=True, exist_ok=True)
+    size_px = max(128, min(1024, int(options.get("sizePx") or 256)))
+
+    with tempfile.TemporaryDirectory(dir=str(zip_output.parent)) as temp_directory:
+        temp_root = Path(temp_directory)
+        generated_paths: list[Path] = []
+        for index, line in enumerate(lines, start=1):
+            output_path = temp_root / f"qr-{index:03d}.png"
+            qr_generate(str(output_path), json.dumps({"qrText": line, "sizePx": size_px}))
+            generated_paths.append(output_path)
+
+        write_files_to_zip(zip_output, generated_paths)
+
+    return 0
+
+
+def qr_decode(output_path: str, input_path: str) -> int:
+    detector = cv2.QRCodeDetector()
+    image = cv2.imread(input_path)
+    if image is None:
+        raise SystemExit("qr_decode could not read the input image")
+
+    decoded_text = ""
+    try:
+        decoded_text, points, _ = detector.detectAndDecode(image)
+        if not decoded_text:
+            success, decoded_info, _, _ = detector.detectAndDecodeMulti(image)
+            if success:
+                decoded_text = "\n".join([item for item in decoded_info if item])
+    except Exception as exc:
+        raise SystemExit(f"qr_decode failed: {exc}") from exc
+
+    if not decoded_text.strip():
+        raise SystemExit("未识别到二维码内容")
+
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(decoded_text.strip(), encoding="utf8")
+    return 0
+
+
+def image_heic_convert(output_path: str, input_path: str, options_json: str) -> int:
+    try:
+        from pillow_heif import register_heif_opener
+    except ImportError as exc:
+        raise SystemExit("image_heic_convert requires python package pillow-heif") from exc
+
+    options = json.loads(options_json or "{}")
+    output_format = normalize_format_name(options.get("outputFormat") or "jpg")
+    if output_format not in {"JPEG", "PNG"}:
+        output_format = "JPEG"
+
+    register_heif_opener()
+    with Image.open(input_path) as image:
+        source = ImageOps.exif_transpose(image)
+        save_image_file(source, Path(output_path), force_format=output_format)
+
+    return 0
+
+
 def favicon_generate(output_path: str, input_path: str, _options_json: str) -> int:
     with Image.open(input_path) as image:
         icon = image.convert("RGBA")
@@ -1618,6 +1905,67 @@ def clamp_color(value: int) -> int:
     return max(0, min(255, int(value)))
 
 
+def estimate_edge_background_color(image: Image.Image) -> tuple[int, int, int]:
+    edge_pixels: list[tuple[int, int, int]] = []
+    width, height = image.size
+    pixels = image.load()
+    for x in range(width):
+        edge_pixels.append(pixels[x, 0][:3])
+        edge_pixels.append(pixels[x, height - 1][:3])
+    for y in range(height):
+        edge_pixels.append(pixels[0, y][:3])
+        edge_pixels.append(pixels[width - 1, y][:3])
+
+    red = round(sum(pixel[0] for pixel in edge_pixels) / max(1, len(edge_pixels)))
+    green = round(sum(pixel[1] for pixel in edge_pixels) / max(1, len(edge_pixels)))
+    blue = round(sum(pixel[2] for pixel in edge_pixels) / max(1, len(edge_pixels)))
+    return red, green, blue
+
+
+def pixel_matches_background(
+    pixel: tuple[int, int, int, int],
+    background_color: tuple[int, int, int],
+    tolerance: int,
+) -> bool:
+    if pixel[3] <= 16:
+        return True
+
+    return (
+        abs(pixel[0] - background_color[0]) <= tolerance
+        and abs(pixel[1] - background_color[1]) <= tolerance
+        and abs(pixel[2] - background_color[2]) <= tolerance
+    )
+
+
+def sanitize_archive_stem(value: str) -> str:
+    return (
+        str(value or "file")
+        .replace("/", "_")
+        .replace("\\", "_")
+        .replace(":", "_")
+        .replace("*", "_")
+        .replace("?", "_")
+        .replace('"', "_")
+        .replace("<", "_")
+        .replace(">", "_")
+        .replace("|", "_")
+        .strip()
+        or "file"
+    )
+
+
+def ensure_unique_archive_name(file_name: str, used_names: set[str]) -> str:
+    candidate = file_name
+    stem = Path(file_name).stem
+    suffix = Path(file_name).suffix
+    serial = 2
+    while candidate in used_names:
+        candidate = f"{stem}-{serial}{suffix}"
+        serial += 1
+    used_names.add(candidate)
+    return candidate
+
+
 def text_to_speech(
     output_path: str,
     source_text: str,
@@ -1672,6 +2020,65 @@ def text_to_speech(
         return 0
 
     raise SystemExit("text_to_speech only supports mp3 or wav output")
+
+
+def audio_to_text(
+    output_path: str,
+    input_path: str,
+    language: str,
+    ffmpeg_bin: str,
+) -> int:
+    try:
+        import numpy as np
+        import whisper
+    except ImportError as exc:
+        raise SystemExit("audio_to_text requires python package openai-whisper") from exc
+
+    if not ffmpeg_bin:
+        raise SystemExit("audio_to_text requires ffmpeg")
+
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory(dir=str(output.parent)) as temp_directory:
+        temp_wav = Path(temp_directory) / "audio-input.wav"
+        try:
+            subprocess.run(
+                [
+                    ffmpeg_bin,
+                    "-y",
+                    "-i",
+                    input_path,
+                    "-ac",
+                    "1",
+                    "-ar",
+                    "16000",
+                    str(temp_wav),
+                ],
+                check=True,
+            )
+        except FileNotFoundError as exc:
+            raise SystemExit("ffmpeg is not installed or not reachable") from exc
+        except subprocess.CalledProcessError as exc:
+            raise SystemExit(f"ffmpeg failed with exit code {exc.returncode}") from exc
+
+        with wave.open(str(temp_wav), "rb") as wave_file:
+            frames = wave_file.readframes(wave_file.getnframes())
+            audio_array = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+
+        model = whisper.load_model(os.environ.get("WHISPER_MODEL", "base"))
+        result = model.transcribe(
+            audio_array,
+            language=None if language == "auto" else language,
+            fp16=False,
+        )
+        text = str(result.get("text") or "").strip()
+        if not text:
+            raise SystemExit("audio_to_text did not produce any text")
+
+        output.write_text(text, encoding="utf8")
+
+    return 0
 
 
 def save_image_file(

@@ -1,7 +1,7 @@
 import { createUuToolCardMarkup } from './toolCardMeta.mjs';
 
 export function createMobileOverviewMarkup(conversions, options = {}) {
-  const { showHeader = true } = options;
+  const { showHeader = true, interactionMode = 'detail' } = options;
   return `
     ${showHeader ? `
       <section class="mobile-overview-head">
@@ -12,7 +12,7 @@ export function createMobileOverviewMarkup(conversions, options = {}) {
     ` : ''}
     <div class="buyer-mobile-list-shell tool-group grid-row grid-col-space30">
       ${conversions
-        .map((item) => createUuToolCardMarkup(item, createMobileToolSummary(item)))
+        .map((item) => createUuToolCardMarkup(item, createMobileToolSummary(item), { interactionMode }))
         .join('')}
     </div>
   `;

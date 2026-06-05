@@ -45,6 +45,24 @@ export const textToolCatalog = [
     badgeTone: 'cyan'
   },
   {
+    key: 'text_srt_to_text',
+    kind: 'local_text',
+    categoryKey: 'text_tools',
+    groupKey: 'high_frequency',
+    label: '字幕文件转文本',
+    helperText: '上传 SRT 字幕文件后提取纯文本，适合整理字幕稿。',
+    badgeTone: 'purple'
+  },
+  {
+    key: 'text_text_to_srt',
+    kind: 'local_text',
+    categoryKey: 'text_tools',
+    groupKey: 'high_frequency',
+    label: '文本转字幕',
+    helperText: '按每行一句生成连续 SRT 字幕，适合快速做初版字幕稿。',
+    badgeTone: 'blue'
+  },
+  {
     key: 'text_case_convert',
     kind: 'local_text',
     categoryKey: 'text_tools',

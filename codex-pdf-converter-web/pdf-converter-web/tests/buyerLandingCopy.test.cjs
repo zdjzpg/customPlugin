@@ -78,3 +78,31 @@ test('tool list markup should not render a duplicated inner list title block', (
   assert.doesNotMatch(buildToolListMarkupSource, /buyer-section-head/);
   assert.doesNotMatch(buildToolListMarkupSource, /<h2>\$\{title\}<\/h2>/);
 });
+
+test('search input handler should not rebuild the entire dashboard on every keystroke', () => {
+  const script = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'app.js'),
+    'utf8'
+  );
+
+  const handleDashboardInputSource = script.slice(
+    script.indexOf('function handleDashboardInput(event) {'),
+    script.indexOf('function handleDashboardKeydown(event) {')
+  );
+
+  assert.match(handleDashboardInputSource, /refreshToolListContent\(/);
+  assert.match(
+    handleDashboardInputSource,
+    /if \(currentViewState\.view === 'tool_list'\) \{\s*refreshToolListContent\(\);\s*return;\s*\}\s*renderToolList\(\);/s
+  );
+});
+
+test('preview app includes a direct login entry for users who already have a code', () => {
+  const script = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'previewApp.js'),
+    'utf8'
+  );
+
+  assert.match(script, /已有卡密，去登录/);
+  assert.match(script, /href="\/"/);
+});

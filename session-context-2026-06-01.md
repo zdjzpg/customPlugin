@@ -485,30 +485,41 @@ At the current stage, public copy should mention:
 Current latest recommended Xianyu-facing copy is now:
 
 - title:
-  - `PDF / Office 文件处理工具丨转 Word / 转 PPT / 合并 / 压缩 / 加水印 / 页码 / 签章`
+  - `PDF / 图像 / 文本 / 编程 / 音视频处理工具丨转 Word / 转 PPT / 图片处理 / 文本处理 / 配音剪音频`
 - subtitle:
-  - `常用文件处理一站完成，网页打开即用`
+  - `常用办公与素材处理一站完成，网页打开即用`
 - first-screen copy:
-  - `这是一个专门做 PDF / Word / Excel / PPT 文件处理的在线工具。`
-  - `不需要安装复杂软件，打开网页即可使用，适合日常办公、资料整理、教学文件处理。`
+  - `这是一个专门做 PDF、Office、图片、文本、编程辅助、音视频处理的在线工具。`
+  - `不需要安装复杂软件，打开网页即可使用，适合日常办公、资料整理、教学文件处理、自媒体素材处理。`
 
 Current recommended selling-point copy:
 
-- `支持 PDF 转 Word、PDF 转 PPT、Word 转 PDF、Excel 转 PDF、PPT 转 PDF。`
+- `支持 PDF 转 Word、PDF 转 PPT、Word/Excel/PPT 转 PDF。`
 - `也支持 PDF 合并、拆分、提取页面、删除页面、调整顺序、压缩、加水印、加页码、签名盖章、旋转页面、保护/解锁。`
-- `常见文件处理集中在一个网页里完成，省去安装和找软件的麻烦。`
+- `图片工具支持压缩、改尺寸、裁剪、拼长图、拼图、格式转换、GIF 合成拆分、证件照处理、图标生成等常用操作。`
+- `文本工具支持文本去重、删除空行、批量替换、字符统计、链接提取、正则提取、列表排序等高频处理。`
+- `编程工具支持 Base64、Unicode、URL 编解码、md5、JSON 格式化、字段提取、sitemap/robots、SSL 检测、whois 查询等常用开发辅助。`
+- `音视频工具支持文字转语音、音频剪切、音频合并，以及常用本地试听预览。`
 
 Current recommended short detail-page description:
 
-- `适合日常办公和资料整理。`
-- `文本类 PDF 可转成可继续修改的 Word / PPT；复杂排版文件会有少量偏差，扫描件可继续配合 OCR 处理。`
+- `适合日常办公、资料整理、教学文件处理、自媒体素材处理。`
+- `文本类 PDF 可转成可继续修改的 Word / PPT；复杂排版文件会有少量偏差。`
+- `图片和音频工具适合做日常快速处理，不用额外装软件。`
 
 Current recommended short Xianyu listing body:
 
-- `在线 PDF / Office 文件处理工具，网页打开即用。`
+- `在线 PDF / 图像 / 文本 / 编程 / 音视频处理工具，网页打开即用。`
 - `支持 PDF 转 Word、PDF 转 PPT、Word/Excel/PPT 转 PDF。`
-- `支持 PDF 合并、拆分、提取页面、删除页面、调整顺序、压缩、加水印、加页码、签名/盖章、旋转页面、保护/解锁。`
-- `适合办公文档、教学资料、日常文件整理。`
+- `支持 PDF 合并、拆分、提取页面、删除页面、压缩、加水印、加页码、签名/盖章、旋转页面、保护/解锁。`
+- `支持图片压缩、裁剪、改尺寸、拼图、拼长图、格式转换、GIF 合成拆分、证件照处理。`
+- `支持文本去重、链接提取、列表排序、正则提取等文本处理。`
+- `支持 Base64、JSON、URL、SSL、whois、sitemap 等编程辅助。`
+- `支持文字转语音、音频剪切、音频合并。`
+
+Current recommended Xianyu short title is:
+
+- `在线文件处理工具 PDF图片文本编程音视频都能用`
 
 ### Additional runtime notes
 
@@ -1054,6 +1065,18 @@ Post-update verification should additionally confirm:
 - 证件照剪切
 - 证件照换底色
 - 防识别图像转换
+- 图片加文字
+- 图片加边框 / 描边
+- 平台封面尺寸模板
+- 图片标注 / 箭头框选
+- 图片加边框 / 社媒封面留白
+- 图片隐私打码
+- 图片模糊背景填充
+- 图片翻转 / 镜像
+- 图片元数据查看 / 清除
+- 图片局部模糊 / 打码
+- 图片旋转校正
+- 对象移除 / 涂抹消除
 
 ### 当前 buyer 端图像工具接入规则
 
@@ -1102,7 +1125,7 @@ Post-update verification should additionally confirm:
 
 - Node 全量测试通过
 - latest count at completion time:
-  - `338/338`
+  - `390/390`
 
 当前真实页面自测已覆盖：
 
@@ -1127,12 +1150,39 @@ Post-update verification should additionally confirm:
 - `favicon 制作`
   - 透明 PNG 转 ICO
   - 下载结果校验
+- `图片加边框 / 描边`
+  - 本地生成预览
+  - 下载结果校验
+- `平台封面尺寸模板`
+  - 单模板预览
+  - 多模板 ZIP 导出校验
+- `图片标注 / 箭头框选`
+  - 点击画布添加箭头与序号
+  - 下载结果校验
+- `图片翻转 / 镜像`
+  - 双向翻转预览
+  - 下载结果校验
+- `图片元数据查看 / 清除`
+  - 基本信息展示
+  - 清理后导出校验
+- `图片局部模糊 / 打码`
+  - 点击画布添加模糊区域
+  - 下载结果校验
+- `图片旋转校正`
+  - 180° 旋转预览
+  - 下载结果校验
+- `对象移除 / 涂抹消除`
+  - 轻量版局部覆盖预览
+  - 下载结果校验
 
 ### 当前本地浏览器测试证据目录
 
 当前浏览器回归临时目录在：
 
 - `D:\temp\codex-image-tools-browser-20260604`
+- `D:\temp\codex-image-tool-batch-20260605`
+- `D:\temp\codex-image-batch-template-20260605`
+- `D:\temp\codex-image-five-20260605`
 
 其中包含：
 
@@ -1452,3 +1502,101 @@ Minimum online checks:
   - `文字转语音`
   - `音频剪切`
   - `音频合并`
+
+## 2026-06-05 Catalog Sync Correction
+
+### Why this correction was added
+
+The historical notes above were written in multiple rounds and some “未完成范围 / 下一步建议” bullets are now stale.
+
+Later sessions should treat the live code catalogs as the source of truth first, not the older recommendation prose in this file.
+
+Source-of-truth files:
+
+- `D:\aa-workplace\customPlugin\codex-pdf-converter-web\pdf-converter-web\server\services\conversionService.cjs`
+- `D:\aa-workplace\customPlugin\codex-pdf-converter-web\pdf-converter-web\server\services\imageConversionCatalog.cjs`
+- `D:\aa-workplace\customPlugin\codex-pdf-converter-web\pdf-converter-web\public\textToolCatalog.mjs`
+- `D:\aa-workplace\customPlugin\codex-pdf-converter-web\pdf-converter-web\public\devToolCatalog.mjs`
+- `D:\aa-workplace\customPlugin\codex-pdf-converter-web\pdf-converter-web\public\mediaToolCatalog.mjs`
+- `D:\aa-workplace\customPlugin\codex-pdf-converter-web\pdf-converter-web\public\localImageToolCatalog.mjs`
+
+### Actual buyer-catalog snapshot on 2026-06-05
+
+Current registered catalog counts from code:
+
+- `conversionService.getCatalog()`: `65`
+- `textToolCatalog`: `28`
+- `devToolCatalog`: `133`
+- `mediaToolCatalog`: `8`
+- `localImageToolCatalog`: `12`
+
+Notable tools that are already implemented in code and should no longer be treated as future work:
+
+- `OCR 文字识别`
+- `批量文件重命名`
+- `音频转文字`
+- `收款码合并`
+- `二维码生成`
+- `批量二维码`
+- `二维码解码`
+- `JSON 转 CSV`
+- `RSA 密钥对生成`
+- `浏览器指纹检测`
+- `多节点 IP 检测`
+- `Nslookup 查询`
+- `SSL 证书链下载`
+- `死链检测`
+- `批量请求`
+- `API 批量请求`
+- `ICP备案查询`
+- `ICP备案批量查询`
+- `PHP password_hash`
+- `JS / CSS / HTML 美化压缩`
+- `CSS/JS 清除`
+
+### Correction for the older 2026-06-04 dev-tool notes
+
+The older `当前未完成范围` and `当前推荐下一步` under the 2026-06-04 dev-tools update are no longer accurate as written.
+
+Do not keep recommending these as the next natural batch without checking the current catalog first:
+
+- `ICP备案查询`
+- `Nslookup 查询`
+- `批量请求`
+- `API 批量请求`
+- `RSA 密钥对生成`
+- `JS/CSS/HTML 美化压缩`
+
+Those items are already present in the current buyer catalog.
+
+### Current genuinely deferred direction
+
+The cleaner remaining gap is now mostly in deferred image-tool items that were documented but intentionally not exposed in buyer UI yet, for example:
+
+- `二维码提取`
+- `WiFi 二维码生成`
+- `二维码去 Logo`
+- `二维码修复`
+- `条形码生成`
+- `svg 路径预览`
+- `svg 图片预览`
+- `svg 转 jpg`
+- `svg 转 png`
+- `svg 转 webp`
+- `svg 转 base64`
+- `heic 图片预览`
+- `网站图标读取下载`
+- `图片下载`
+- `图像链接批量下载`
+- `图片列表显示`
+- `公众号二维码获取`
+- `网页截屏 pdf 转换`
+- `微信公众号文章 pdf 制作`
+
+### Session handoff note
+
+If a later session needs to answer “what tools can we still integrate next?”, first compare the code catalogs above against:
+
+- `D:\aa-workplace\customPlugin\codex-pdf-converter-web\pdf-converter-web\docs\superpowers\specs\2026-06-04-image-tools-program-design.md`
+
+Do not rely only on the older narrative sections in this file.

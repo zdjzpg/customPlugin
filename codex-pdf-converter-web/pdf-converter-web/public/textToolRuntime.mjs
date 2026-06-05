@@ -1,6 +1,34 @@
 export function runTextTool(toolKey, input) {
   const sourceText = String(input?.sourceText || '');
 
+  if (toolKey === 'text_srt_to_text') {
+    const outputText = extractPlainTextFromSrt(sourceText);
+    return {
+      outputText,
+      downloadFile: {
+        fileName: 'subtitle-text.txt',
+        mimeType: 'text/plain;charset=utf-8',
+        content: outputText
+      }
+    };
+  }
+
+  if (toolKey === 'text_text_to_srt') {
+    const outputText = buildSrtFromPlainText(
+      sourceText,
+      String(input?.subtitleStartTime || '00:00:00,000'),
+      Number.parseFloat(String(input?.subtitleDurationSeconds || '2')) || 2
+    );
+    return {
+      outputText,
+      downloadFile: {
+        fileName: 'generated-subtitles.srt',
+        mimeType: 'application/x-subrip;charset=utf-8',
+        content: outputText
+      }
+    };
+  }
+
   if (toolKey === 'text_unique') {
     const seen = new Set();
     const outputLines = [];
@@ -375,4 +403,83 @@ function convertMoneyToUpper(value) {
   }
 
   return `${integerText}元${decimalText || '整'}`;
+}
+
+function extractPlainTextFromSrt(sourceText) {
+  return parseSrtBlocks(sourceText)
+    .map((block) => block.text)
+    .filter(Boolean)
+    .join('\n');
+}
+
+function buildSrtFromPlainText(sourceText, startTimeText, durationSeconds) {
+  const lines = splitLines(sourceText)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (lines.length === 0) {
+    return '';
+  }
+
+  const durationMs = Math.max(200, Math.round(durationSeconds * 1000));
+  let cursorMs = parseSrtTimestampToMs(startTimeText);
+  if (!Number.isFinite(cursorMs) || cursorMs < 0) {
+    cursorMs = 0;
+  }
+
+  return lines.map((line, index) => {
+    const startMs = cursorMs + (index * durationMs);
+    const endMs = startMs + durationMs;
+    return [
+      String(index + 1),
+      `${formatSrtTimestamp(startMs)} --> ${formatSrtTimestamp(endMs)}`,
+      line
+    ].join('\n');
+  }).join('\n\n');
+}
+
+function parseSrtBlocks(sourceText) {
+  return String(sourceText || '')
+    .replace(/\r\n/g, '\n')
+    .split(/\n{2,}/)
+    .map((rawBlock) => rawBlock.trim())
+    .filter(Boolean)
+    .map((rawBlock) => {
+      const lines = rawBlock.split('\n').map((line) => line.trim());
+      const textLines = lines.filter((line, index) =>
+        line &&
+        !/^\d+$/.test(line) &&
+        !(index <= 1 && line.includes('-->'))
+      );
+      return {
+        text: textLines.join('\n').trim()
+      };
+    });
+}
+
+function parseSrtTimestampToMs(value) {
+  const text = String(value || '').trim();
+  const matched = text.match(/^(\d{2}):(\d{2}):(\d{2})(?:,(\d{3}))?$/);
+  if (!matched) {
+    return Number.NaN;
+  }
+
+  const [, hoursText, minutesText, secondsText, millisecondsText = '000'] = matched;
+  const hours = Number.parseInt(hoursText, 10);
+  const minutes = Number.parseInt(minutesText, 10);
+  const seconds = Number.parseInt(secondsText, 10);
+  const milliseconds = Number.parseInt(millisecondsText, 10);
+  return (((hours * 60) + minutes) * 60 * 1000) + (seconds * 1000) + milliseconds;
+}
+
+function formatSrtTimestamp(value) {
+  const totalMs = Math.max(0, Number.parseInt(String(value || 0), 10) || 0);
+  const hours = Math.floor(totalMs / 3600000);
+  const minutes = Math.floor((totalMs % 3600000) / 60000);
+  const seconds = Math.floor((totalMs % 60000) / 1000);
+  const milliseconds = totalMs % 1000;
+  return [
+    String(hours).padStart(2, '0'),
+    String(minutes).padStart(2, '0'),
+    String(seconds).padStart(2, '0')
+  ].join(':') + `,${String(milliseconds).padStart(3, '0')}`;
 }

@@ -29,6 +29,31 @@ test('createMobileOverviewMarkup renders single-column mobile tool cards without
   assert.doesNotMatch(html, /进入功能/);
 });
 
+test('createMobileOverviewMarkup can render preview-only mobile cards without detail entry hooks', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'mobileBuyerMarkup.mjs')
+  ).href;
+  const { createMobileOverviewMarkup } = await import(moduleUrl);
+
+  const html = createMobileOverviewMarkup(
+    [
+      {
+        key: 'compress_pdf',
+        label: 'PDF 压缩',
+        helperText: '可选标准压缩或强力压缩，并显示压缩前后体积对比。'
+      }
+    ],
+    {
+      interactionMode: 'preview'
+    }
+  );
+
+  assert.match(html, /PDF 压缩/);
+  assert.match(html, /data-preview-tool="compress_pdf"/);
+  assert.match(html, /data-preview-locked/);
+  assert.doesNotMatch(html, /data-open-detail=/);
+});
+
 test('createMobileCategoryOverviewMarkup renders a single-column PPT tool category card', async () => {
   const moduleUrl = pathToFileURL(
     path.join(__dirname, '..', 'public', 'mobileBuyerMarkup.mjs')

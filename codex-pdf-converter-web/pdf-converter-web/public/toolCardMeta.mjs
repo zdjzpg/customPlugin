@@ -10,6 +10,7 @@ const toolCardMeta = {
   watermark_pdf: { badge: '水印', iconClass: 'fa fa-tint', styleClass: 'style10' },
   add_page_numbers_pdf: { badge: '页码', iconClass: 'fa fa-list-ol', styleClass: 'style12' },
   sign_stamp_pdf: { badge: '签章', iconClass: 'fa fa-pencil-square-o', styleClass: 'style5' },
+  batch_sign_stamp_pdf: { badge: '批量签章', iconClass: 'fa fa-clone', styleClass: 'style5' },
   rotate_pdf: { badge: '旋转', iconClass: 'fa fa-repeat', styleClass: 'style2' },
   pdf_to_images: { badge: '图片', iconClass: 'fa fa-file-image-o', styleClass: 'style7' },
   images_to_pdf: { badge: 'PDF', iconClass: 'fa fa-picture-o', styleClass: 'style3' },
@@ -19,6 +20,7 @@ const toolCardMeta = {
   split_pdf: { badge: '拆分', iconClass: 'fa fa-scissors', styleClass: 'style4' },
 
   media_text_to_speech: { badge: '语音', iconClass: 'fa fa-volume-up', styleClass: 'style9' },
+  media_audio_to_text: { badge: '转文字', iconClass: 'fa fa-microphone', styleClass: 'style14' },
   media_audio_clip: { badge: '音频', iconClass: 'fa fa-scissors', styleClass: 'style10' },
   media_audio_merge: { badge: '音频', iconClass: 'fa fa-random', styleClass: 'style5' },
   media_audio_player: { badge: '试听', iconClass: 'fa fa-headphones', styleClass: 'style13' },
@@ -33,6 +35,7 @@ const toolCardMeta = {
   image_crop_ratio: { badge: '比例', iconClass: 'fa fa-crop', styleClass: 'style5' },
   image_crop_ratio_batch: { badge: '批量', iconClass: 'fa fa-clone', styleClass: 'style10' },
   image_split_grid: { badge: '切割', iconClass: 'fa fa-th-large', styleClass: 'style14' },
+  image_nine_grid: { badge: '九宫格', iconClass: 'fa fa-th', styleClass: 'style6' },
   image_concat_long: { badge: '长图', iconClass: 'fa fa-columns', styleClass: 'style12' },
   image_collage: { badge: '拼图', iconClass: 'fa fa-th', styleClass: 'style15' },
   image_fill_background: { badge: '背景', iconClass: 'fa fa-square', styleClass: 'style7' },
@@ -43,6 +46,7 @@ const toolCardMeta = {
   image_printmaking: { badge: '版画', iconClass: 'fa fa-paint-brush', styleClass: 'style9' },
   image_emboss: { badge: '浮雕', iconClass: 'fa fa-object-group', styleClass: 'style13' },
   image_remove_solid_bg: { badge: '抠图', iconClass: 'fa fa-magic', styleClass: 'style8' },
+  image_smart_bg_remove: { badge: '去背景', iconClass: 'fa fa-scissors', styleClass: 'style10' },
   favicon_generate: { badge: 'ICO', iconClass: 'fa fa-bookmark-o', styleClass: 'style14' },
   app_icon_generate: { badge: '图标', iconClass: 'fa fa-apple', styleClass: 'style3' },
   chrome_icon_generate: { badge: 'Chrome', iconClass: 'fa fa-chrome', styleClass: 'style6' },
@@ -50,6 +54,16 @@ const toolCardMeta = {
   image_pixelate: { badge: '马赛克', iconClass: 'fa fa-th', styleClass: 'style11' },
   image_increase_size: { badge: '体积', iconClass: 'fa fa-database', styleClass: 'style9' },
   image_clear_content: { badge: '清空', iconClass: 'fa fa-eraser', styleClass: 'style3' },
+  image_heic_convert: { badge: 'HEIC', iconClass: 'fa fa-file-image-o', styleClass: 'style7' },
+  image_add_text: { badge: '文字', iconClass: 'fa fa-font', styleClass: 'style12' },
+  image_add_border_frame: { badge: '边框', iconClass: 'fa fa-square-o', styleClass: 'style5' },
+  image_platform_cover_template: { badge: '模板', iconClass: 'fa fa-object-group', styleClass: 'style15' },
+  image_annotate_canvas: { badge: '标注', iconClass: 'fa fa-pencil', styleClass: 'style11' },
+  image_flip_mirror: { badge: '翻转', iconClass: 'fa fa-exchange', styleClass: 'style4' },
+  image_metadata_view_clear: { badge: '元数据', iconClass: 'fa fa-info-circle', styleClass: 'style6' },
+  image_blur_redact: { badge: '打码', iconClass: 'fa fa-shield', styleClass: 'style10' },
+  image_rotate_adjust: { badge: '旋转', iconClass: 'fa fa-repeat', styleClass: 'style2' },
+  image_object_erase_light: { badge: '消除', iconClass: 'fa fa-eraser', styleClass: 'style13' },
   image_format_convert: { badge: '格式', iconClass: 'fa fa-exchange', styleClass: 'style2' },
   excel_extract_images: { badge: 'Excel', iconClass: 'fa fa-file-excel-o', styleClass: 'style6' },
   ppt_extract_images: { badge: 'PPT', iconClass: 'fa fa-file-powerpoint-o', styleClass: 'style5' },
@@ -64,8 +78,13 @@ const toolCardMeta = {
   id_photo_crop: { badge: '证件照', iconClass: 'fa fa-crop', styleClass: 'style13' },
   id_photo_bg_swap: { badge: '换底', iconClass: 'fa fa-tint', styleClass: 'style6' },
   anti_ocr_image: { badge: '防识别', iconClass: 'fa fa-eye-slash', styleClass: 'style14' },
+  image_social_cover_pad: { badge: '留白', iconClass: 'fa fa-clone', styleClass: 'style12' },
+  ocr_text_extract: { badge: 'OCR', iconClass: 'fa fa-file-text-o', styleClass: 'style12' },
+  batch_file_rename: { badge: '重命名', iconClass: 'fa fa-files-o', styleClass: 'style5' },
 
   text_unique: { badge: '文本', iconClass: 'fa fa-filter', styleClass: 'style14' },
+  text_srt_to_text: { badge: '字幕', iconClass: 'fa fa-file-text-o', styleClass: 'style5' },
+  text_text_to_srt: { badge: 'SRT', iconClass: 'fa fa-closed-captioning', styleClass: 'style10' },
   text_remove_blank_lines: { badge: '去除空行', iconClass: 'fa fa-align-justify', styleClass: 'style4' },
   text_remove_spaces: { badge: '空格', iconClass: 'fa fa-eraser', styleClass: 'style12' },
   text_replace_batch: { badge: '批量替换', iconClass: 'fa fa-refresh', styleClass: 'style13' },
@@ -232,14 +251,19 @@ export function getToolCardMeta(toolKey) {
   return toolCardMeta[toolKey] || { badge: '工具', iconClass: 'fa fa-wrench', styleClass: 'style6' };
 }
 
-export function createUuToolCardMarkup(item, summaryText) {
+export function createUuToolCardMarkup(item, summaryText, options = {}) {
   const meta = getToolCardMeta(item.key);
+  const { interactionMode = 'detail' } = options;
+  const interactionAttributes = interactionMode === 'preview'
+    ? `data-preview-tool="${escapeHtml(item.key)}" data-preview-locked aria-disabled="true"`
+    : `data-open-detail="${escapeHtml(item.key)}"`;
+  const previewClass = interactionMode === 'preview' ? ' tool-item-preview-locked' : '';
 
   return `
     <div class="grid-col-sm6 grid-col-md4 grid-col-lg3">
       <article
-        class="tool-item ${meta.styleClass}"
-        data-open-detail="${item.key}"
+        class="tool-item ${meta.styleClass}${previewClass}"
+        ${interactionAttributes}
         role="button"
         tabindex="0"
       >

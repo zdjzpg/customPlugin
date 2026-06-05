@@ -262,6 +262,30 @@ test('GET /api/buyer/session returns unauthenticated state instead of a 401 for 
   }
 });
 
+test('GET /preview returns the public preview page without the buyer login form', async () => {
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    sessionRepository: createInMemorySessionRepository()
+  });
+
+  const server = http.createServer(app);
+  await listen(server);
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/preview`);
+    const html = await response.text();
+
+    assert.equal(response.status, 200);
+    assert.match(html, /tool-preview-app/);
+    assert.match(html, /src="\/previewApp\.js"/);
+    assert.doesNotMatch(html, /buyer-login-form/);
+  } finally {
+    await close(server);
+  }
+});
+
 function createInMemorySessionRepository() {
   const sessions = [];
 
