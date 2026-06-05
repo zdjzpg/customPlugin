@@ -748,6 +748,72 @@ test('POST /api/conversions/run forwards pdf_to_word mode and OCR language optio
   }
 });
 
+test('POST /api/conversions/run forwards scan_to_searchable_pdf OCR options', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-form-searchable-1',
+    role: 'buyer',
+    codeId: 211,
+    codeValue: 'DEMO-USES-5',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+
+  const uploadTempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-upload-'));
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    conversionRepository: createNoopConversionRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() {
+        return [];
+      },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'scan_to_searchable_pdf');
+        assert.deepEqual(input.conversionOptions, {
+          ocrLanguage: 'eng'
+        });
+        assert.equal(input.files[0].fileName, 'scan.pdf');
+        return {
+          conversionId: 571,
+          status: 'completed',
+          files: [
+            {
+              fileName: 'scan-searchable.pdf',
+              downloadUrl: '/api/downloads/conversions/571/scan-searchable.pdf'
+            }
+          ]
+        };
+      }
+    },
+    uploadTempDirectory
+  });
+
+  const server = http.createServer(app);
+  await listen(server);
+
+  try {
+    const form = new FormData();
+    form.append('conversionKey', 'scan_to_searchable_pdf');
+    form.append('conversionOptions', JSON.stringify({ ocrLanguage: 'eng' }));
+    form.append('files', new Blob([Buffer.from('fake-pdf')], { type: 'application/pdf' }), 'scan.pdf');
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, {
+      method: 'POST',
+      headers: { cookie: 'pdf_converter_session=buyer-token-form-searchable-1' },
+      body: form
+    });
+
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'scan-searchable.pdf');
+  } finally {
+    await close(server);
+    fs.rmSync(uploadTempDirectory, { recursive: true, force: true });
+  }
+});
+
 test('POST /api/conversions/run forwards watermark options and separate watermark image uploads', async () => {
   const sessionRepository = createInMemorySessionRepository();
   sessionRepository.save({
@@ -1316,6 +1382,334 @@ test('POST /api/conversions/run forwards PDF-to-PPT conversion requests', async 
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.equal(body.conversion.files[0].fileName, 'deck.pptx');
+  } finally {
+    await close(server);
+    fs.rmSync(uploadTempDirectory, { recursive: true, force: true });
+  }
+});
+
+test('POST /api/conversions/run forwards batch Word conversion requests in upload order', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-form-batch-word-1',
+    role: 'buyer',
+    codeId: 272,
+    codeValue: 'DEMO-USES-5',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+
+  const uploadTempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-upload-'));
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    conversionRepository: createNoopConversionRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() {
+        return [];
+      },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'batch_word_to_pdf');
+        assert.deepEqual(
+          input.files.map((file) => file.fileName),
+          ['chapter-2.docx', 'chapter-1.docx']
+        );
+        return {
+          conversionId: 632,
+          status: 'completed',
+          files: [
+            {
+              fileName: 'batch-word-to-pdf.zip',
+              downloadUrl: '/api/downloads/conversions/632/batch-word-to-pdf.zip'
+            }
+          ]
+        };
+      }
+    },
+    uploadTempDirectory
+  });
+
+  const server = http.createServer(app);
+  await listen(server);
+  try {
+    const form = new FormData();
+    form.append('conversionKey', 'batch_word_to_pdf');
+    form.append('files', new Blob([Buffer.from('fake-docx-2')], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), 'chapter-2.docx');
+    form.append('files', new Blob([Buffer.from('fake-docx-1')], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), 'chapter-1.docx');
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, {
+      method: 'POST',
+      headers: { cookie: 'pdf_converter_session=buyer-token-form-batch-word-1' },
+      body: form
+    });
+
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'batch-word-to-pdf.zip');
+  } finally {
+    await close(server);
+    fs.rmSync(uploadTempDirectory, { recursive: true, force: true });
+  }
+});
+
+test('POST /api/conversions/run forwards exam cleanup options', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-form-exam-1',
+    role: 'buyer',
+    codeId: 273,
+    codeValue: 'DEMO-USES-5',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+
+  const uploadTempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-upload-'));
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    conversionRepository: createNoopConversionRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() {
+        return [];
+      },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'exam_paper_cleanup');
+        assert.deepEqual(input.conversionOptions, {
+          outputMode: 'pdf',
+          cleanupMode: 'binary',
+          splitDoublePage: true,
+          enhanceContrast: true
+        });
+        return {
+          conversionId: 633,
+          status: 'completed',
+          files: [
+            {
+              fileName: 'paper-cleaned.pdf',
+              downloadUrl: '/api/downloads/conversions/633/paper-cleaned.pdf'
+            }
+          ]
+        };
+      }
+    },
+    uploadTempDirectory
+  });
+
+  const server = http.createServer(app);
+  await listen(server);
+  try {
+    const form = new FormData();
+    form.append('conversionKey', 'exam_paper_cleanup');
+    form.append('conversionOptions', JSON.stringify({
+      outputMode: 'pdf',
+      cleanupMode: 'binary',
+      splitDoublePage: true,
+      enhanceContrast: true
+    }));
+    form.append('files', new Blob([Buffer.from('fake-image')], { type: 'image/png' }), 'paper.png');
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, {
+      method: 'POST',
+      headers: { cookie: 'pdf_converter_session=buyer-token-form-exam-1' },
+      body: form
+    });
+
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'paper-cleaned.pdf');
+  } finally {
+    await close(server);
+    fs.rmSync(uploadTempDirectory, { recursive: true, force: true });
+  }
+});
+
+test('POST /api/conversions/run forwards image-to-Word OCR options', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-form-image-word-1',
+    role: 'buyer',
+    codeId: 274,
+    codeValue: 'DEMO-USES-5',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+
+  const uploadTempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-upload-'));
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    conversionRepository: createNoopConversionRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() {
+        return [];
+      },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'images_to_word');
+        assert.deepEqual(input.conversionOptions, {
+          ocrLanguage: 'chi_sim+eng'
+        });
+        assert.equal(input.files[0].fileName, 'lesson.png');
+        return {
+          conversionId: 634,
+          status: 'completed',
+          files: [
+            {
+              fileName: 'lesson-images.docx',
+              downloadUrl: '/api/downloads/conversions/634/lesson-images.docx'
+            }
+          ]
+        };
+      }
+    },
+    uploadTempDirectory
+  });
+
+  const server = http.createServer(app);
+  await listen(server);
+  try {
+    const form = new FormData();
+    form.append('conversionKey', 'images_to_word');
+    form.append('conversionOptions', JSON.stringify({ ocrLanguage: 'chi_sim+eng' }));
+    form.append('files', new Blob([Buffer.from('fake-image')], { type: 'image/png' }), 'lesson.png');
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, {
+      method: 'POST',
+      headers: { cookie: 'pdf_converter_session=buyer-token-form-image-word-1' },
+      body: form
+    });
+
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'lesson-images.docx');
+  } finally {
+    await close(server);
+    fs.rmSync(uploadTempDirectory, { recursive: true, force: true });
+  }
+});
+
+test('POST /api/conversions/run forwards PDF-to-Excel conversion requests', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-form-pdf-excel-1',
+    role: 'buyer',
+    codeId: 275,
+    codeValue: 'DEMO-USES-5',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+
+  const uploadTempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-upload-'));
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    conversionRepository: createNoopConversionRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() {
+        return [];
+      },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'pdf_to_excel');
+        assert.equal(input.files[0].fileName, 'table.pdf');
+        return {
+          conversionId: 635,
+          status: 'completed',
+          files: [
+            {
+              fileName: 'table.xlsx',
+              downloadUrl: '/api/downloads/conversions/635/table.xlsx'
+            }
+          ]
+        };
+      }
+    },
+    uploadTempDirectory
+  });
+
+  const server = http.createServer(app);
+  await listen(server);
+  try {
+    const form = new FormData();
+    form.append('conversionKey', 'pdf_to_excel');
+    form.append('files', new Blob([Buffer.from('fake-pdf')], { type: 'application/pdf' }), 'table.pdf');
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, {
+      method: 'POST',
+      headers: { cookie: 'pdf_converter_session=buyer-token-form-pdf-excel-1' },
+      body: form
+    });
+
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'table.xlsx');
+  } finally {
+    await close(server);
+    fs.rmSync(uploadTempDirectory, { recursive: true, force: true });
+  }
+});
+
+test('POST /api/conversions/run forwards image-table-to-Excel OCR options', async () => {
+  const sessionRepository = createInMemorySessionRepository();
+  sessionRepository.save({
+    token: 'buyer-token-form-image-excel-1',
+    role: 'buyer',
+    codeId: 276,
+    codeValue: 'DEMO-USES-5',
+    expiresAt: '2099-06-08T10:00:00.000Z'
+  });
+
+  const uploadTempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-upload-'));
+  const app = createApp({
+    authService: createNoopAuthService(),
+    redemptionCodeService: createNoopRedemptionCodeService(),
+    codeRepository: createNoopCodeRepository(),
+    conversionRepository: createNoopConversionRepository(),
+    sessionRepository,
+    conversionService: {
+      getCatalog() {
+        return [];
+      },
+      async runConversion(input) {
+        assert.equal(input.conversionKey, 'image_table_to_excel');
+        assert.deepEqual(input.conversionOptions, {
+          ocrLanguage: 'eng'
+        });
+        assert.equal(input.files[0].fileName, 'table.png');
+        return {
+          conversionId: 636,
+          status: 'completed',
+          files: [
+            {
+              fileName: 'table.xlsx',
+              downloadUrl: '/api/downloads/conversions/636/table.xlsx'
+            }
+          ]
+        };
+      }
+    },
+    uploadTempDirectory
+  });
+
+  const server = http.createServer(app);
+  await listen(server);
+  try {
+    const form = new FormData();
+    form.append('conversionKey', 'image_table_to_excel');
+    form.append('conversionOptions', JSON.stringify({ ocrLanguage: 'eng' }));
+    form.append('files', new Blob([Buffer.from('fake-image')], { type: 'image/png' }), 'table.png');
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/conversions/run`, {
+      method: 'POST',
+      headers: { cookie: 'pdf_converter_session=buyer-token-form-image-excel-1' },
+      body: form
+    });
+
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.conversion.files[0].fileName, 'table.xlsx');
   } finally {
     await close(server);
     fs.rmSync(uploadTempDirectory, { recursive: true, force: true });

@@ -249,6 +249,121 @@ test('catalog exposes OCR and batch-rename tools under the text_tools category',
   });
 });
 
+test('catalog exposes office and teaching document tools for scan, batch, cleanup, Word, and Excel flows', () => {
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: os.tmpdir(),
+    pythonBin: PYTHON_BIN,
+    libreOfficeBin: 'C:\\Program Files\\LibreOffice\\program\\soffice.exe',
+    ocrmypdfBin: 'C:\\Tools\\ocrmypdf.exe',
+    tesseractBin: 'C:\\Tools\\tesseract.exe'
+  });
+
+  const catalog = conversionService.getCatalog();
+  const orderedKeys = [
+    'scan_to_searchable_pdf',
+    'batch_word_to_pdf',
+    'batch_excel_to_pdf',
+    'batch_ppt_to_pdf',
+    'batch_pdf_to_images',
+    'exam_paper_cleanup',
+    'images_to_word',
+    'pdf_to_excel',
+    'image_table_to_excel'
+  ];
+
+  const targetedCatalog = orderedKeys
+    .map((key) => catalog.find((item) => item.key === key))
+    .filter(Boolean);
+
+  assert.deepEqual(targetedCatalog, [
+    {
+      key: 'scan_to_searchable_pdf',
+      label: '扫描件转可搜索 PDF',
+      status: 'available',
+      accepts: '.pdf',
+      maxFileSizeMb: 30,
+      helperText: '适合扫描版资料补充可搜索文字层，方便检索和复制内容。'
+    },
+    {
+      key: 'batch_word_to_pdf',
+      label: '批量 Word 转 PDF',
+      status: 'available',
+      accepts: '.doc,.docx',
+      maxFileSizeMb: 30,
+      maxTotalFileSizeMb: 200,
+      allowMultipleFiles: true,
+      helperText: '一次上传多个 Word 文件，统一转成 PDF 后打包下载。'
+    },
+    {
+      key: 'batch_excel_to_pdf',
+      label: '批量 Excel 转 PDF',
+      status: 'available',
+      accepts: '.xlsx,.xls',
+      maxFileSizeMb: 30,
+      maxTotalFileSizeMb: 200,
+      allowMultipleFiles: true,
+      helperText: '一次上传多个 Excel 文件，统一转成 PDF 后打包下载。'
+    },
+    {
+      key: 'batch_ppt_to_pdf',
+      label: '批量 PPT 转 PDF',
+      status: 'available',
+      accepts: '.ppt,.pptx',
+      maxFileSizeMb: 40,
+      maxTotalFileSizeMb: 250,
+      allowMultipleFiles: true,
+      helperText: '一次上传多个 PPT 文件，统一转成 PDF 后打包下载。'
+    },
+    {
+      key: 'batch_pdf_to_images',
+      label: '批量 PDF 转图片',
+      status: 'available',
+      accepts: '.pdf',
+      maxFileSizeMb: 30,
+      maxTotalFileSizeMb: 180,
+      allowMultipleFiles: true,
+      helperText: '一次上传多个 PDF，分别转成图片后统一打包下载。'
+    },
+    {
+      key: 'exam_paper_cleanup',
+      label: '试卷 / 讲义整理',
+      status: 'available',
+      accepts: '.pdf,.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff',
+      maxFileSizeMb: 25,
+      maxTotalFileSizeMb: 120,
+      allowMultipleFiles: true,
+      helperText: '适合拍照试卷和讲义做纠偏、去黑边、提亮和双页拆分整理。'
+    },
+    {
+      key: 'images_to_word',
+      label: '图片转 Word',
+      status: 'available',
+      accepts: '.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff',
+      maxFileSizeMb: 20,
+      maxTotalFileSizeMb: 120,
+      allowMultipleFiles: true,
+      helperText: '把图片中的文字整理成可继续编辑的 Word 文档。'
+    },
+    {
+      key: 'pdf_to_excel',
+      label: 'PDF 转 Excel',
+      status: 'available',
+      accepts: '.pdf',
+      maxFileSizeMb: 30,
+      helperText: '适合规则表格型 PDF，优先导出课表、名单和清单类表格。'
+    },
+    {
+      key: 'image_table_to_excel',
+      label: '图片表格转 Excel',
+      status: 'available',
+      accepts: '.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff',
+      maxFileSizeMb: 20,
+      helperText: '适合清晰表格截图和拍照表格，优先导出规则网格内容。'
+    }
+  ]);
+});
+
 test('batch_file_rename outputs one renamed zip package', async () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
   const firstFilePath = path.join(tempRoot, '原图-A.png');
@@ -333,6 +448,196 @@ test('ocr_text_extract writes recognized text into a txt file and summary previe
       fs.readFileSync(outputPath, 'utf8').trim().replace(/\r\n/g, '\n'),
       '识别成功\n第二行文本'
     );
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('scan_to_searchable_pdf writes one searchable PDF using OCR output', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputPdfPath = path.join(tempRoot, 'scan-source.pdf');
+  writeImageOnlyPdfFixture(inputPdfPath, 'scan source');
+  const fakeOcrmypdfPath = writeFakeOcrmypdfWithTextOutput(tempRoot, 'scanned text result');
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN,
+    ocrmypdfBin: fakeOcrmypdfPath
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      conversionKey: 'scan_to_searchable_pdf',
+      conversionOptions: {
+        ocrLanguage: 'chi_sim+eng'
+      },
+      files: [
+        {
+          fileName: 'scan-source.pdf',
+          tempPath: inputPdfPath
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'scan-source-searchable.pdf');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'scan-source-searchable.pdf');
+    assert.deepEqual(readPdfPageTexts(outputPath), ['scanned text result']);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('batch_word_to_pdf outputs one zip package with one PDF per Word file', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const firstDocPath = path.join(tempRoot, 'notice.docx');
+  const secondDocPath = path.join(tempRoot, 'summary.docx');
+  fs.writeFileSync(firstDocPath, Buffer.from('fake-doc-1'));
+  fs.writeFileSync(secondDocPath, Buffer.from('fake-doc-2'));
+  const fakeLibreOfficePath = writeFakeLibreOffice(tempRoot);
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN,
+    libreOfficeBin: fakeLibreOfficePath
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      conversionKey: 'batch_word_to_pdf',
+      files: [
+        {
+          fileName: 'notice.docx',
+          tempPath: firstDocPath
+        },
+        {
+          fileName: 'summary.docx',
+          tempPath: secondDocPath
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'batch-word-to-pdf.zip');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'batch-word-to-pdf.zip');
+    assert.deepEqual(readZipEntryNames(outputPath), ['notice.pdf', 'summary.pdf']);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('exam_paper_cleanup outputs a cleaned PDF from one photo input', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputImagePath = path.join(tempRoot, 'paper-photo.png');
+  writeExamPaperImageFixture(inputImagePath);
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-DAYS-7' },
+      conversionKey: 'exam_paper_cleanup',
+      conversionOptions: {
+        outputMode: 'pdf',
+        cleanupMode: 'grayscale',
+        splitDoublePage: false,
+        enhanceContrast: true
+      },
+      files: [
+        {
+          fileName: 'paper-photo.png',
+          tempPath: inputImagePath
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'paper-photo-cleaned.pdf');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'paper-photo-cleaned.pdf');
+    assert.equal(fs.existsSync(outputPath), true);
+    assert.match(fs.readFileSync(outputPath).toString('utf8', 0, 4), /^%PDF/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('images_to_word writes OCR text into one editable docx file', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputImagePath = path.join(tempRoot, 'lesson.png');
+  writePngFixture(inputImagePath, 120, 60, '#ffffff');
+  const fakeTesseractPath = writeFakeTesseract(tempRoot, '第一段文字\n第二段文字');
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN,
+    tesseractBin: PYTHON_BIN
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-DAYS-7' },
+      conversionKey: 'images_to_word',
+      conversionOptions: {
+        ocrLanguage: 'chi_sim+eng',
+        tesseractScriptPath: fakeTesseractPath
+      },
+      files: [
+        {
+          fileName: 'lesson.png',
+          tempPath: inputImagePath
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'lesson-images.docx');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'lesson-images.docx');
+    assert.equal(readDocxText(outputPath), '第一段文字\n第二段文字');
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('pdf_to_excel extracts a simple ruled table into xlsx rows', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const inputPdfPath = path.join(tempRoot, 'grade-table.pdf');
+  writeTablePdfFixture(inputPdfPath, [
+    ['Name', 'Score'],
+    ['Alice', '95'],
+    ['Bob', '88']
+  ]);
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN,
+    ocrmypdfBin: ''
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-USES-5' },
+      conversionKey: 'pdf_to_excel',
+      files: [
+        {
+          fileName: 'grade-table.pdf',
+          tempPath: inputPdfPath
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'grade-table.xlsx');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'grade-table.xlsx');
+    assert.deepEqual(readXlsxRows(outputPath), [
+      ['Name', 'Score'],
+      ['Alice', '95'],
+      ['Bob', '88']
+    ]);
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
@@ -1410,6 +1715,54 @@ image.save(r"${outputPath.replace(/\\/g, '\\\\')}", format='PNG')
   execFileSync(PYTHON_BIN, ['-c', script], { stdio: 'ignore' });
 }
 
+function writeExamPaperImageFixture(outputPath) {
+  const script = `
+from PIL import Image, ImageDraw
+
+image = Image.new('RGB', (900, 1200), 'white')
+draw = ImageDraw.Draw(image)
+draw.rectangle((18, 18, 882, 1182), outline='black', width=12)
+draw.text((120, 160), 'Exam Paper Title', fill='black')
+draw.text((120, 260), '1. Multiple choice question', fill='black')
+draw.text((120, 340), '2. Fill in the blank', fill='black')
+image.save(r"${outputPath.replace(/\\/g, '\\\\')}", format='PNG')
+`;
+  execFileSync(PYTHON_BIN, ['-c', script], { stdio: 'ignore' });
+}
+
+function writeTablePdfFixture(outputPath, rows) {
+  const serializedRows = JSON.stringify(rows);
+  const script = `
+from reportlab.pdfgen import canvas
+
+rows = ${serializedRows}
+c = canvas.Canvas(r"${outputPath.replace(/\\/g, '\\\\')}")
+start_x = 72
+start_y = 720
+cell_width = 180
+cell_height = 42
+row_count = len(rows)
+col_count = len(rows[0]) if rows else 0
+
+for row_index in range(row_count + 1):
+    y = start_y - (row_index * cell_height)
+    c.line(start_x, y, start_x + (col_count * cell_width), y)
+
+for col_index in range(col_count + 1):
+    x = start_x + (col_index * cell_width)
+    c.line(x, start_y, x, start_y - (row_count * cell_height))
+
+for row_index, row in enumerate(rows):
+    for col_index, text in enumerate(row):
+        x = start_x + (col_index * cell_width) + 10
+        y = start_y - (row_index * cell_height) - 28
+        c.drawString(x, y, str(text))
+
+c.save()
+`;
+  execFileSync(PYTHON_BIN, ['-c', script], { stdio: 'ignore' });
+}
+
 function readImageMeta(imagePath) {
   const script = `
 from PIL import Image
@@ -1486,7 +1839,9 @@ with ZipFile(r"${zipPath.replace(/\\/g, '\\\\')}") as archive:
 
 function readDocxText(docxPath) {
   const script = `
+import sys
 from docx import Document
+sys.stdout.reconfigure(encoding='utf-8')
 document = Document(r"${docxPath.replace(/\\/g, '\\\\')}")
 for paragraph in document.paragraphs:
     text = paragraph.text.strip()
@@ -1499,6 +1854,26 @@ for paragraph in document.paragraphs:
     .map((line) => line.trim())
     .filter(Boolean)
     .join('\n');
+}
+
+function readXlsxRows(xlsxPath) {
+  const script = `
+from openpyxl import load_workbook
+workbook = load_workbook(r"${xlsxPath.replace(/\\/g, '\\\\')}")
+sheet = workbook.active
+for row in sheet.iter_rows(values_only=True):
+    values = []
+    for value in row:
+        values.append('' if value is None else str(value))
+    if any(value for value in values):
+        print('\\t'.join(values))
+`;
+
+  return execFileSync(PYTHON_BIN, ['-c', script], { encoding: 'utf8' })
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.split('\t'));
 }
 
 function readPptxSlideTexts(pptxPath) {

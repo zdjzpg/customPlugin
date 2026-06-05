@@ -54,6 +54,17 @@ test('admin page uses the new site title and shares favicon assets', () => {
   assert.match(html, /favicon\.svg/);
 });
 
+test('admin page styles define a centered shell and padded panels', () => {
+  const styles = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'styles.css'),
+    'utf8'
+  );
+
+  assert.match(styles, /\.shell-admin/);
+  assert.match(styles, /\.panel/);
+  assert.match(styles, /\.hero/);
+});
+
 test('text tools no longer render grouped section headings inside the category page', () => {
   const script = fs.readFileSync(
     path.join(__dirname, '..', 'public', 'app.js'),
@@ -105,4 +116,74 @@ test('preview app includes a direct login entry for users who already have a cod
 
   assert.match(script, /已有卡密，去登录/);
   assert.match(script, /href="\/"/);
+});
+
+test('admin conversion table includes time and code columns for recent records', () => {
+  const html = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'admin.html'),
+    'utf8'
+  );
+  const script = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'admin.js'),
+    'utf8'
+  );
+
+  assert.match(html, /<th>时间<\/th>/);
+  assert.match(html, /<th>卡密<\/th>/);
+  assert.match(script, /conversion\.createdAt/);
+  assert.match(script, /conversion\.codeValue/);
+});
+
+test('admin dashboard groups management areas into three section menus with independent pagination hosts', () => {
+  const html = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'admin.html'),
+    'utf8'
+  );
+  const script = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'admin.js'),
+    'utf8'
+  );
+
+  assert.match(html, /data-admin-section-tab="codes"/);
+  assert.match(html, /data-admin-section-tab="conversions"/);
+  assert.match(html, /data-admin-section-tab="stats"/);
+  assert.match(html, /id="codes-pagination-host"/);
+  assert.match(html, /id="conversions-pagination-host"/);
+  assert.match(html, /id="usage-stats-pagination-host"/);
+  assert.match(script, /ADMIN_PAGE_SIZE\s*=\s*20/);
+});
+
+test('admin dashboard includes code-value search inputs for codes and recent conversions', () => {
+  const html = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'admin.html'),
+    'utf8'
+  );
+
+  assert.match(html, /id="codes-search-input"/);
+  assert.match(html, /id="conversions-search-input"/);
+  assert.match(html, /placeholder="输入卡密值搜索/);
+});
+
+test('admin dashboard includes a manual cleanup form for one code value', () => {
+  const html = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'admin.html'),
+    'utf8'
+  );
+
+  assert.match(html, /id="cleanup-by-code-form"/);
+  assert.match(html, /id="cleanup-code-value"/);
+  assert.match(html, /按卡密清理历史文件/);
+});
+
+test('admin dashboard includes a dedicated code chart section', () => {
+  const html = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'admin.html'),
+    'utf8'
+  );
+
+  assert.match(html, /data-admin-section-tab="charts"/);
+  assert.match(html, /data-admin-section-panel="charts"/);
+  assert.match(html, /id="usage-chart-code-input"/);
+  assert.match(html, /id="usage-chart-filter-form"/);
+  assert.match(html, /id="usage-chart-host"/);
 });

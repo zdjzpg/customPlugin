@@ -9,6 +9,7 @@ import tempfile
 import zipfile
 import math
 import random
+import re
 import wave
 from collections import deque
 from io import BytesIO
@@ -17,6 +18,7 @@ from xml.etree import ElementTree
 
 import fitz
 import cv2
+import numpy as np
 from docx import Document
 from pdf2docx import Converter as PdfToDocxConverter
 from pdf2image.exceptions import PDFInfoNotInstalledError, PDFPageCountError
@@ -25,6 +27,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageOps
 from pptx import Presentation
 from pptx.util import Emu, Pt
 from pypdf import PdfReader, PdfWriter
+from openpyxl import Workbook
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
@@ -46,14 +49,26 @@ def main() -> int:
       return pdf_to_images(sys.argv[2], sys.argv[3])
     if command == "pdf_to_word":
       return pdf_to_word(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6])
+    if command == "scan_to_searchable_pdf":
+      return scan_to_searchable_pdf(sys.argv[2], sys.argv[3], sys.argv[4])
     if command == "pdf_to_pptx":
       return pdf_to_pptx(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else "")
     if command == "ocr_text_extract":
       return ocr_text_extract(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "images_to_word":
+      return images_to_word(sys.argv[2], sys.argv[3], sys.argv[4:])
     if command == "batch_file_rename":
       return batch_file_rename(sys.argv[2], sys.argv[3], sys.argv[4:])
+    if command == "batch_pdf_to_images":
+      return batch_pdf_to_images(sys.argv[2], sys.argv[3], sys.argv[4:])
     if command == "payment_code_merge":
       return payment_code_merge(sys.argv[2], sys.argv[3], sys.argv[4:])
+    if command == "exam_paper_cleanup":
+      return exam_paper_cleanup(sys.argv[2], sys.argv[3], sys.argv[4:])
+    if command == "pdf_to_excel":
+      return pdf_to_excel(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else "{}")
+    if command == "image_table_to_excel":
+      return image_table_to_excel(sys.argv[2], sys.argv[3], sys.argv[4])
     if command == "delete_pages_pdf":
       return delete_pages_pdf(sys.argv[2], sys.argv[3], sys.argv[4])
     if command == "reorder_pages_pdf":
@@ -278,6 +293,19 @@ def pdf_to_word(output_path: str, input_path: str, conversion_mode: str, ocrmypd
     return 0
 
 
+def scan_to_searchable_pdf(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    ocrmypdf_bin = str(options.get("ocrmypdfBin") or "").strip()
+    ocr_language = str(options.get("ocrLanguage") or "chi_sim+eng").strip() or "chi_sim+eng"
+    if not ocrmypdf_bin:
+        raise SystemExit("scan_to_searchable_pdf requires ocrmypdfBin")
+
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    run_ocrmypdf_command(ocrmypdf_bin, input_path, str(output), ocr_language, skip_text=True)
+    return 0
+
+
 def pdf_to_pptx(output_path: str, input_path: str, ocrmypdf_bin: str) -> int:
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -356,6 +384,38 @@ def ocr_text_extract(output_path: str, input_path: str, options_json: str) -> in
 
         output.write_text(recognized_path.read_text(encoding="utf8", errors="ignore"), encoding="utf8")
 
+    return 0
+
+
+def images_to_word(output_path: str, options_json: str, input_paths: list[str]) -> int:
+    if not input_paths:
+        raise SystemExit("images_to_word requires at least one image")
+
+    options = json.loads(options_json or "{}")
+    tesseract_bin = str(options.get("tesseractBin") or "").strip()
+    tesseract_script_path = str(options.get("tesseractScriptPath") or "").strip()
+    ocr_language = str(options.get("ocrLanguage") or "chi_sim+eng").strip() or "chi_sim+eng"
+    if not tesseract_bin:
+        raise SystemExit("images_to_word requires tesseractBin")
+
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    document = Document()
+
+    for index, input_path in enumerate(input_paths):
+        text = run_tesseract_text(input_path, tesseract_bin, ocr_language, tesseract_script_path)
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if index > 0:
+            document.add_page_break()
+        if len(input_paths) > 1:
+            document.add_heading(Path(input_path).name, level=2)
+        if not lines:
+            document.add_paragraph("(No recognized text)")
+            continue
+        for line in lines:
+            document.add_paragraph(line)
+
+    document.save(str(output))
     return 0
 
 
@@ -1046,6 +1106,142 @@ def zip_files(zip_path: str, input_paths: list[str]) -> int:
             path = Path(input_path)
             archive.write(path, arcname=path.name)
 
+    return 0
+
+
+def batch_pdf_to_images(zip_path: str, options_json: str, input_paths: list[str]) -> int:
+    if not input_paths:
+        raise SystemExit("batch_pdf_to_images requires at least one PDF")
+
+    options = json.loads(options_json or "{}")
+    poppler_bin_dir = str(options.get("popplerBinDir") or "").strip()
+    output = Path(zip_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory(dir=str(output.parent)) as temp_directory:
+        temp_root = Path(temp_directory)
+        generated_paths: list[tuple[Path, str]] = []
+
+        for input_path in input_paths:
+          source = Path(input_path)
+          prefix = temp_root / source.stem
+          env_backup = os.environ.get("POPPLER_BIN_DIR")
+          if poppler_bin_dir:
+              os.environ["POPPLER_BIN_DIR"] = poppler_bin_dir
+          try:
+              pdf_to_images(str(prefix), str(source))
+          finally:
+              if poppler_bin_dir:
+                  if env_backup is None:
+                      os.environ.pop("POPPLER_BIN_DIR", None)
+                  else:
+                      os.environ["POPPLER_BIN_DIR"] = env_backup
+
+          for image_path in sorted(prefix.parent.glob(f"{prefix.name}*.png")):
+              generated_paths.append((image_path, f"{source.stem}/{image_path.name}"))
+
+        with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for file_path, arcname in generated_paths:
+                archive.write(file_path, arcname=arcname)
+
+    return 0
+
+
+def exam_paper_cleanup(output_path: str, options_json: str, input_paths: list[str]) -> int:
+    if not input_paths:
+        raise SystemExit("exam_paper_cleanup requires at least one file")
+
+    options = json.loads(options_json or "{}")
+    output_mode = str(options.get("outputMode") or "pdf").strip()
+    cleanup_mode = str(options.get("cleanupMode") or "grayscale").strip()
+    split_double_page = bool(options.get("splitDoublePage"))
+    enhance_contrast = bool(options.get("enhanceContrast", True))
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory(dir=str(output.parent)) as temp_directory:
+        temp_root = Path(temp_directory)
+        processed_paths: list[Path] = []
+
+        for input_path in input_paths:
+            source = Path(input_path)
+            page_images = load_document_images(source)
+            for page_index, page_image in enumerate(page_images, start=1):
+                processed_images = preprocess_exam_page_image(
+                    page_image,
+                    cleanup_mode=cleanup_mode,
+                    split_double_page=split_double_page,
+                    enhance_contrast=enhance_contrast,
+                )
+                for variant_index, processed_image in enumerate(processed_images, start=1):
+                    suffix = f"{source.stem}-page-{page_index}-{variant_index}.png"
+                    file_path = temp_root / suffix
+                    save_image_file(processed_image, file_path, force_format="PNG")
+                    processed_paths.append(file_path)
+
+        if output_mode == "image_zip":
+            write_files_to_zip(output, processed_paths)
+            return 0
+
+        images_to_pdf(str(output), [str(path) for path in processed_paths])
+    return 0
+
+
+def pdf_to_excel(output_path: str, input_path: str, options_json: str) -> int:
+    _options = json.loads(options_json or "{}")
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    workbook = Workbook()
+    default_sheet = workbook.active
+    default_sheet.title = "Table1"
+    wrote_table = False
+    sheet_index = 1
+
+    with fitz.open(input_path) as document:
+        for page_number, page in enumerate(document, start=1):
+            finder = page.find_tables()
+            tables = list(finder.tables) if finder and getattr(finder, "tables", None) else []
+            for table in tables:
+                rows = table.extract()
+                if not rows:
+                    continue
+                sheet = default_sheet if not wrote_table else workbook.create_sheet(f"Table{sheet_index}")
+                write_rows_to_sheet(sheet, rows)
+                wrote_table = True
+                sheet_index += 1
+
+    if not wrote_table:
+        raise SystemExit("pdf_to_excel did not find any table")
+
+    workbook.save(output)
+    return 0
+
+
+def image_table_to_excel(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    tesseract_bin = str(options.get("tesseractBin") or "").strip()
+    tesseract_script_path = str(options.get("tesseractScriptPath") or "").strip()
+    ocr_language = str(options.get("ocrLanguage") or "chi_sim+eng").strip() or "chi_sim+eng"
+    if not tesseract_bin:
+        raise SystemExit("image_table_to_excel requires tesseractBin")
+
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Table1"
+
+    rows = extract_rows_from_table_image(Path(input_path), tesseract_bin, ocr_language, tesseract_script_path)
+    if not rows:
+        text = run_tesseract_text(input_path, tesseract_bin, ocr_language, tesseract_script_path)
+        rows = [re.split(r"\t+|\s{2,}", line.strip()) for line in text.splitlines() if line.strip()]
+
+    if not rows:
+        raise SystemExit("image_table_to_excel did not find any table text")
+
+    write_rows_to_sheet(sheet, rows)
+    workbook.save(output)
     return 0
 
 
@@ -1763,6 +1959,222 @@ def anti_ocr_image(output_path: str, input_path: str, options_json: str) -> int:
 
         save_image_file(source, Path(output_path), force_format=output_format)
     return 0
+
+
+def run_ocrmypdf_command(
+    ocrmypdf_bin: str,
+    input_path: str,
+    output_path: str,
+    ocr_language: str,
+    skip_text: bool = False,
+) -> None:
+    command = [
+        ocrmypdf_bin,
+        "--force-ocr",
+        "--language",
+        ocr_language,
+    ]
+    if skip_text:
+        command.append("--skip-text")
+    command.extend([input_path, output_path])
+    try:
+        subprocess.run(command, check=True)
+    except FileNotFoundError as exc:
+        raise SystemExit("OCRmyPDF is not installed or not reachable") from exc
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(f"OCRmyPDF failed with exit code {exc.returncode}") from exc
+
+
+def run_tesseract_text(
+    input_path: str,
+    tesseract_bin: str,
+    ocr_language: str,
+    tesseract_script_path: str = "",
+) -> str:
+    with tempfile.TemporaryDirectory() as temp_directory:
+        text_base = Path(temp_directory) / "ocr-output"
+        command = [
+            tesseract_bin,
+            input_path,
+            str(text_base),
+            "-l",
+            ocr_language,
+        ]
+        if tesseract_script_path:
+            command = [
+                tesseract_bin,
+                tesseract_script_path,
+                input_path,
+                str(text_base),
+                "-l",
+                ocr_language,
+            ]
+        try:
+            subprocess.run(command, check=True)
+        except FileNotFoundError as exc:
+            raise SystemExit("Tesseract is not installed or not reachable") from exc
+        except subprocess.CalledProcessError as exc:
+            raise SystemExit(f"Tesseract failed with exit code {exc.returncode}") from exc
+
+        recognized_path = text_base.with_suffix(".txt")
+        if not recognized_path.exists():
+            raise SystemExit("Tesseract did not produce a txt output")
+        return recognized_path.read_text(encoding="utf8", errors="ignore")
+
+
+def load_document_images(source: Path) -> list[Image.Image]:
+    extension = source.suffix.lower()
+    if extension == ".pdf":
+        images: list[Image.Image] = []
+        with fitz.open(str(source)) as document:
+            for page in document:
+                pixmap = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
+                pil_image = Image.frombytes("RGB", [pixmap.width, pixmap.height], pixmap.samples)
+                images.append(pil_image)
+        return images
+
+    with Image.open(source) as image:
+        return [image.convert("RGB")]
+
+
+def preprocess_exam_page_image(
+    image: Image.Image,
+    cleanup_mode: str,
+    split_double_page: bool,
+    enhance_contrast: bool,
+) -> list[Image.Image]:
+    source = image.convert("RGB")
+    cv_image = cv2.cvtColor(np_from_pil(source), cv2.COLOR_RGB2BGR)
+    gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
+
+    if enhance_contrast:
+        gray = cv2.equalizeHist(gray)
+
+    threshold = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+    crop_rect = find_non_white_bounds(255 - threshold)
+    if crop_rect:
+        x, y, width, height = crop_rect
+        gray = gray[y:y + height, x:x + width]
+
+    cleaned = gray
+    if cleanup_mode == "binary":
+        cleaned = cv2.threshold(cleaned, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+    elif cleanup_mode == "color":
+        cleaned = cv2.cvtColor(cleaned, cv2.COLOR_GRAY2RGB)
+
+    processed_images: list[Image.Image] = []
+    if cleanup_mode == "color":
+        pil_image = Image.fromarray(cleaned)
+    else:
+        pil_image = Image.fromarray(cleaned).convert("L")
+
+    page_variants = split_double_page_image(pil_image) if split_double_page else [pil_image]
+    for page_image in page_variants:
+        processed_images.append(page_image)
+    return processed_images
+
+
+def split_double_page_image(image: Image.Image) -> list[Image.Image]:
+    if image.width < image.height * 1.35:
+        return [image]
+
+    midpoint = image.width // 2
+    left = image.crop((0, 0, midpoint, image.height))
+    right = image.crop((midpoint, 0, image.width, image.height))
+    return [left, right]
+
+
+def find_non_white_bounds(binary_image) -> tuple[int, int, int, int] | None:
+    coordinates = cv2.findNonZero(binary_image)
+    if coordinates is None:
+        return None
+    x, y, width, height = cv2.boundingRect(coordinates)
+    if width <= 0 or height <= 0:
+        return None
+    return x, y, width, height
+
+
+def np_from_pil(image: Image.Image):
+    return np.array(ImageOps.exif_transpose(image).convert("RGB"))
+
+
+def write_rows_to_sheet(sheet, rows: list[list[str | None]]) -> None:
+    for row_index, row in enumerate(rows, start=1):
+        for column_index, value in enumerate(row, start=1):
+            sheet.cell(row=row_index, column=column_index).value = "" if value is None else str(value).strip()
+
+
+def extract_rows_from_table_image(
+    image_path: Path,
+    tesseract_bin: str,
+    ocr_language: str,
+    tesseract_script_path: str = "",
+) -> list[list[str]]:
+    image = cv2.imread(str(image_path))
+    if image is None:
+        return []
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+    horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (max(12, image.shape[1] // 20), 1))
+    vertical_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, max(12, image.shape[0] // 20)))
+    horizontal = cv2.morphologyEx(binary, cv2.MORPH_OPEN, horizontal_kernel)
+    vertical = cv2.morphologyEx(binary, cv2.MORPH_OPEN, vertical_kernel)
+    grid = cv2.add(horizontal, vertical)
+
+    contours, _hierarchy = cv2.findContours(grid, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    cells: list[tuple[int, int, int, int]] = []
+    for contour in contours:
+        x, y, width, height = cv2.boundingRect(contour)
+        if width < 30 or height < 18:
+            continue
+        if width > image.shape[1] * 0.95 and height > image.shape[0] * 0.95:
+            continue
+        cells.append((x, y, width, height))
+
+    if not cells:
+        return []
+
+    rows = group_cells_by_rows(cells)
+    extracted_rows: list[list[str]] = []
+
+    with tempfile.TemporaryDirectory() as temp_directory:
+        temp_root = Path(temp_directory)
+        for row_index, row_cells in enumerate(rows, start=1):
+            extracted_cells: list[str] = []
+            for cell_index, (x, y, width, height) in enumerate(row_cells, start=1):
+                margin = 4
+                crop = image[max(0, y + margin):y + height - margin, max(0, x + margin):x + width - margin]
+                crop_path = temp_root / f"cell-{row_index}-{cell_index}.png"
+                cv2.imwrite(str(crop_path), crop)
+                extracted_cells.append(
+                    run_tesseract_text(str(crop_path), tesseract_bin, ocr_language, tesseract_script_path)
+                    .replace("\r", " ")
+                    .replace("\n", " ")
+                    .strip()
+                )
+            if any(cell for cell in extracted_cells):
+                extracted_rows.append(extracted_cells)
+
+    return extracted_rows
+
+
+def group_cells_by_rows(cells: list[tuple[int, int, int, int]]) -> list[list[tuple[int, int, int, int]]]:
+    sorted_cells = sorted(cells, key=lambda item: (item[1], item[0]))
+    rows: list[list[tuple[int, int, int, int]]] = []
+    tolerance = 18
+    for cell in sorted_cells:
+        if not rows:
+            rows.append([cell])
+            continue
+        last_row = rows[-1]
+        row_y = last_row[0][1]
+        if abs(cell[1] - row_y) <= tolerance:
+            last_row.append(cell)
+        else:
+            rows.append([cell])
+
+    return [sorted(row, key=lambda item: item[0]) for row in rows]
 
 
 def export_icon_pack(output_path: str, input_path: str, sizes: list[int], name_prefix: str) -> int:

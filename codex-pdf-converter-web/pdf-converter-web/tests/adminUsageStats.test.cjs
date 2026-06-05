@@ -124,6 +124,32 @@ test('GET /api/admin/usage-stats forwards custom date range filters', async () =
   }
 });
 
+test('admin usage stats markup formats image and media tool keys into Chinese labels', async () => {
+  const path = require('node:path');
+  const { pathToFileURL } = require('node:url');
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'adminUsageStatsMarkup.mjs')
+  ).href;
+  const { createUsageStatsTableMarkup } = await import(moduleUrl);
+
+  const html = createUsageStatsTableMarkup([
+    {
+      day: '2026-06-05',
+      conversionKey: 'image_heic_convert',
+      count: 5
+    },
+    {
+      day: '2026-06-05',
+      conversionKey: 'media_audio_to_text',
+      count: 3
+    }
+  ]);
+
+  assert.match(html, /HEIC 转 JPG \/ PNG/);
+  assert.match(html, /音频转文字/);
+  assert.doesNotMatch(html, /image_heic_convert/);
+});
+
 function createInMemorySessionRepository() {
   const sessions = [];
 

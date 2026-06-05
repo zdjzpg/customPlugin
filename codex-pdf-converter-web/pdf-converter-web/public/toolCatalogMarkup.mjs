@@ -1977,6 +1977,95 @@ function createConversionOptionsMarkup(item) {
     `;
   }
 
+  if (item.key === 'scan_to_searchable_pdf') {
+    return `
+      <label class="field">
+        <span>识别语言</span>
+        <select data-ocr-language>
+          <option value="chi_sim+eng">中文 + 英文</option>
+          <option value="chi_sim">仅中文</option>
+          <option value="eng">仅英文</option>
+        </select>
+      </label>
+      <p class="field-tip">适合扫描件补充可搜索文字层，方便检索、复制和归档。</p>
+    `;
+  }
+
+  if (['batch_word_to_pdf', 'batch_excel_to_pdf', 'batch_ppt_to_pdf', 'batch_pdf_to_images'].includes(item.key)) {
+    return `
+      <p class="field-tip">支持一次上传多个文件，系统会按当前顺序逐个处理并统一打包下载。</p>
+    `;
+  }
+
+  if (item.key === 'exam_paper_cleanup') {
+    return `
+      <label class="field">
+        <span>输出方式</span>
+        <select data-exam-output-mode>
+          <option value="pdf">整理后 PDF</option>
+          <option value="image_zip">整理后图片 ZIP</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>处理模式</span>
+        <select data-exam-cleanup-mode>
+          <option value="grayscale">灰度增强</option>
+          <option value="binary">黑白打印稿</option>
+          <option value="color">保留彩色</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>双页拆分</span>
+        <select data-exam-split-double-page>
+          <option value="false">不拆分</option>
+          <option value="true">检测后拆分</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>增强对比</span>
+        <select data-exam-enhance-contrast>
+          <option value="true">开启</option>
+          <option value="false">关闭</option>
+        </select>
+      </label>
+      <p class="field-tip">适合试卷拍照、讲义截图和扫描版资料的清理整理。</p>
+    `;
+  }
+
+  if (item.key === 'images_to_word') {
+    return `
+      <label class="field">
+        <span>识别语言</span>
+        <select data-ocr-language>
+          <option value="chi_sim+eng">中文 + 英文</option>
+          <option value="chi_sim">仅中文</option>
+          <option value="eng">仅英文</option>
+        </select>
+      </label>
+      <p class="field-tip">会把图片文字整理成可继续编辑的 Word，复杂排版优先保证内容可读。</p>
+    `;
+  }
+
+  if (item.key === 'pdf_to_excel') {
+    return `
+      <p class="field-tip">更适合线条清晰、排版规则的表格型 PDF，例如课表、成绩表、名单和清单。</p>
+    `;
+  }
+
+  if (item.key === 'image_table_to_excel') {
+    return `
+      <label class="field">
+        <span>识别语言</span>
+        <select data-ocr-language>
+          <option value="chi_sim+eng">中文 + 英文</option>
+          <option value="chi_sim">仅中文</option>
+          <option value="eng">仅英文</option>
+        </select>
+      </label>
+      <p class="field-tip">适合清晰表格截图和拍照图，优先提取规则网格里的单元格内容。</p>
+    `;
+  }
+
   if (item.key === 'ocr_text_extract') {
     return `
       <label class="field">

@@ -4,10 +4,12 @@ const { DatabaseSync } = require('node:sqlite');
 
 const { createApp } = require('./app.cjs');
 const { createAuthService } = require('./services/authService.cjs');
+const { createConversionCleanupService } = require('./services/conversionCleanupService.cjs');
 const { createConversionService } = require('./services/conversionService.cjs');
 const { createDevToolsService } = require('./services/devToolsService.cjs');
 const { createMediaToolsService } = require('./services/mediaToolsService.cjs');
 const { createRedemptionCodeService } = require('./services/redemptionCodeService.cjs');
+const { formatAdminConversionLabel } = require('../public/adminToolLabels.cjs');
 
 function bootstrapApplication(config) {
   const dataDirectory = path.join(__dirname, '..', 'data');
@@ -20,6 +22,12 @@ function bootstrapApplication(config) {
   const sessionRepository = createSqliteSessionRepository(database);
   const conversionRepository = createSqliteConversionRepository(database);
   const usageStatsRepository = createSqliteUsageStatsRepository(database);
+  const storageRoot = path.join(__dirname, '..', 'data');
+  const cleanupService = createConversionCleanupService({
+    conversionRepository,
+    storageRoot,
+    retentionDays: 3
+  });
 
   seedCodesIfEmpty(codeRepository);
 
@@ -37,7 +45,7 @@ function bootstrapApplication(config) {
 
   const conversionService = createConversionService({
     conversionRepository,
-    storageRoot: path.join(__dirname, '..', 'data'),
+    storageRoot,
     pythonBin: config.pythonBin,
     libreOfficeBin: config.libreOfficeBin,
     popplerBinDir: config.popplerBinDir,
@@ -47,10 +55,12 @@ function bootstrapApplication(config) {
   const devToolsService = createDevToolsService();
   const mediaToolsService = createMediaToolsService({
     conversionRepository,
-    storageRoot: path.join(__dirname, '..', 'data'),
+    storageRoot,
     ffmpegBin: config.ffmpegBin,
     pythonBin: config.pythonBin
   });
+
+  runStartupCleanup(cleanupService);
 
   return createApp({
     authService,
@@ -59,10 +69,19 @@ function bootstrapApplication(config) {
     sessionRepository,
     conversionRepository,
     conversionService,
+    cleanupService,
     devToolsService,
     mediaToolsService,
     usageStatsRepository
   });
+}
+
+function runStartupCleanup(cleanupService) {
+  try {
+    cleanupService.cleanupExpiredOutputs();
+  } catch (error) {
+    console.warn(`[pdf-converter-web] startup cleanup failed: ${error.message}`);
+  }
 }
 
 function initializeDatabase(database) {
@@ -342,6 +361,48 @@ function createSqliteConversionRepository(database) {
     WHERE id = ?
   `);
 
+  const listByCodeValueStatement = database.prepare(`
+    SELECT
+      id,
+      code_id,
+      code_value,
+      conversion_key,
+      input_file_names_json,
+      output_files_json,
+      status,
+      error_message,
+      created_at,
+      updated_at
+    FROM conversions
+    WHERE code_value = ?
+    ORDER BY id DESC
+  `);
+
+  const listCleanupCandidatesStatement = database.prepare(`
+    SELECT
+      id,
+      code_id,
+      code_value,
+      conversion_key,
+      input_file_names_json,
+      output_files_json,
+      status,
+      error_message,
+      created_at,
+      updated_at
+    FROM conversions
+    WHERE created_at < ?
+      AND output_files_json != '[]'
+    ORDER BY id ASC
+  `);
+
+  const markOutputFilesCleanedStatement = database.prepare(`
+    UPDATE conversions
+    SET output_files_json = ?,
+        updated_at = ?
+    WHERE id = ?
+  `);
+
   return {
     create(input) {
       const now = new Date().toISOString();
@@ -368,9 +429,22 @@ function createSqliteConversionRepository(database) {
     listRecent() {
       return listRecentStatement.all().map(mapConversionRow);
     },
+    listByCodeValue(codeValue) {
+      return listByCodeValueStatement.all(codeValue).map(mapConversionRow);
+    },
+    listCleanupCandidatesBefore(cutoffIso) {
+      return listCleanupCandidatesStatement.all(cutoffIso).map(mapConversionRow);
+    },
     findById(id) {
       const row = findByIdStatement.get(id);
       return row ? mapConversionRow(row) : null;
+    },
+    markOutputFilesCleaned(id, outputFiles) {
+      markOutputFilesCleanedStatement.run(
+        JSON.stringify(outputFiles || []),
+        new Date().toISOString(),
+        id
+      );
     }
   };
 }
@@ -411,11 +485,73 @@ function createSqliteUsageStatsRepository(database) {
         ORDER BY day DESC, count DESC, conversion_key ASC
       `);
 
-      return statement.all(dateFrom, dateTo).map((row) => ({
-        day: row.day,
-        conversionKey: row.conversion_key,
-        count: row.count
-      }));
+        return statement.all(dateFrom, dateTo).map((row) => ({
+          day: row.day,
+          conversionKey: row.conversion_key,
+          count: row.count
+        }));
+    },
+    listChartSeries(query) {
+      const { dateFrom, dateTo } = resolveUsageStatsDateRange(query);
+      const codeValue = String(query?.codeValue || '').trim();
+      if (!codeValue) {
+        return {
+          days: [],
+          series: []
+        };
+      }
+
+      const rows = database.prepare(`
+        SELECT
+          substr(created_at, 1, 10) AS day,
+          conversion_key,
+          COUNT(1) AS count
+        FROM usage_stats
+        WHERE event_type = 'conversion_start'
+          AND code_value = ?
+          AND substr(created_at, 1, 10) >= ?
+          AND substr(created_at, 1, 10) <= ?
+        GROUP BY substr(created_at, 1, 10), conversion_key
+        ORDER BY day ASC, count DESC, conversion_key ASC
+      `).all(codeValue, dateFrom, dateTo);
+
+      if (!rows.length) {
+        return {
+          days: [],
+          series: []
+        };
+      }
+
+      const dayList = Array.from(new Set(rows.map((row) => row.day)));
+      const totalByKey = new Map();
+      for (const row of rows) {
+        totalByKey.set(row.conversion_key, (totalByKey.get(row.conversion_key) || 0) + row.count);
+      }
+
+      const topKeys = Array.from(totalByKey.entries())
+        .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+        .slice(0, 15)
+        .map(([key]) => key);
+
+      const series = topKeys.map((conversionKey) => {
+        const countByDay = new Map(
+          rows
+            .filter((row) => row.conversion_key === conversionKey)
+            .map((row) => [row.day, row.count])
+        );
+
+        return {
+          conversionKey,
+          label: formatAdminConversionLabel(conversionKey),
+          totalCount: totalByKey.get(conversionKey) || 0,
+          countsByDay: dayList.map((day) => countByDay.get(day) || 0)
+        };
+      });
+
+      return {
+        days: dayList,
+        series
+      };
     }
   };
 }

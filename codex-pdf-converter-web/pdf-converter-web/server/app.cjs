@@ -13,6 +13,7 @@ function createApp(dependencies) {
     conversionService,
     devToolsService,
     mediaToolsService,
+    cleanupService,
     usageStatsRepository,
     jsonLimit = '50mb',
     uploadTempDirectory = path.join(__dirname, '..', 'data', 'upload-temp')
@@ -391,6 +392,34 @@ function createApp(dependencies) {
     });
   });
 
+  app.post('/api/admin/conversions/cleanup-by-code', (request, response) => {
+    const session = readAuthorizedSession(request, sessionRepository, 'admin');
+    if (!session) {
+      response.status(401).json({
+        ok: false,
+        reason: 'UNAUTHORIZED'
+      });
+      return;
+    }
+
+    try {
+      const result = cleanupService?.cleanupOutputsByCodeValue(request.body?.codeValue);
+      response.json({
+        ok: true,
+        result: result || {
+          cleanedConversions: 0,
+          cleanedFiles: 0
+        }
+      });
+    } catch (error) {
+      response.status(error.statusCode || 500).json({
+        ok: false,
+        reason: error.reason || 'CLEANUP_FAILED',
+        message: error.message
+      });
+    }
+  });
+
   app.get('/api/admin/usage-stats', (request, response) => {
     const session = readAuthorizedSession(request, sessionRepository, 'admin');
     if (!session) {
@@ -404,6 +433,25 @@ function createApp(dependencies) {
     response.json({
       ok: true,
       stats: usageStatsRepository?.listByDay(normalizeUsageStatsQuery(request.query)) || []
+    });
+  });
+
+  app.get('/api/admin/usage-chart', (request, response) => {
+    const session = readAuthorizedSession(request, sessionRepository, 'admin');
+    if (!session) {
+      response.status(401).json({
+        ok: false,
+        reason: 'UNAUTHORIZED'
+      });
+      return;
+    }
+
+    response.json({
+      ok: true,
+      chart: usageStatsRepository?.listChartSeries(normalizeUsageChartQuery(request.query)) || {
+        days: [],
+        series: []
+      }
     });
   });
 
@@ -725,6 +773,15 @@ function normalizeUsageStatsQuery(query) {
     preset,
     dateFrom: preset === 'custom' && typeof query?.dateFrom === 'string' ? query.dateFrom.trim() || null : null,
     dateTo: preset === 'custom' && typeof query?.dateTo === 'string' ? query.dateTo.trim() || null : null
+  };
+}
+
+function normalizeUsageChartQuery(query) {
+  const base = normalizeUsageStatsQuery(query);
+
+  return {
+    ...base,
+    codeValue: typeof query?.codeValue === 'string' ? query.codeValue.trim() : ''
   };
 }
 

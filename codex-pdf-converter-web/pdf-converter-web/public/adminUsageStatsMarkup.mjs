@@ -1,3 +1,5 @@
+import { formatAdminConversionLabel } from './adminToolLabels.mjs';
+
 export function createUsageStatsFilterMarkup(filter) {
   const currentPreset = filter?.preset || 'last7days';
   const dateFrom = escapeHtml(filter?.dateFrom || '');
@@ -38,7 +40,7 @@ export function createUsageStatsTableMarkup(stats) {
       (item) => `
         <tr>
           <td>${escapeHtml(item.day)}</td>
-          <td>${escapeHtml(formatConversionKey(item.conversionKey))}</td>
+          <td>${escapeHtml(formatAdminConversionLabel(item.conversionKey))}</td>
           <td>${escapeHtml(item.count)}</td>
         </tr>
       `
@@ -57,41 +59,4 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
-}
-
-function formatConversionKey(conversionKey) {
-  const labels = {
-    word_to_pdf: 'Word 转 PDF',
-    pdf_to_pptx: 'PDF 转 PPT',
-    pdf_to_word: 'PDF 转 Word',
-    ocr_text_extract: 'OCR 文字识别',
-    batch_file_rename: '批量文件重命名',
-    pdf_to_images: 'PDF 转图片',
-    images_to_pdf: '图片转 PDF',
-    add_page_numbers_pdf: 'PDF 加页码',
-    sign_stamp_pdf: 'PDF 签名 / 盖章',
-    batch_sign_stamp_pdf: '批量 PDF 盖章',
-    rotate_pdf: 'PDF 旋转页面',
-    merge_pdf: 'PDF 合并',
-    compress_pdf: 'PDF 压缩',
-    pdf_extract_pages: 'PDF 提取页面',
-    split_pdf: '拆分 PDF',
-    media_audio_to_text: '音频转文字',
-    dev_sitemap_extract: 'sitemap 链接提取',
-    dev_html_link_extract: '网页链接提取',
-    dev_ssl_check: '网站 SSL 证书检测',
-    dev_ssl_expiry_check: 'SSL 证书过期查询',
-    dev_ssl_cert_parse: 'SSL 证书解析',
-    dev_gzip_check: '网页 gzip 压缩检测',
-    dev_brotli_check: '网页 brotli 压缩检测',
-    dev_redirect_analysis: 'URL 重定向分析',
-    dev_whois_lookup: '域名 whois 查询',
-    dev_cdn_check: '网站 CDN 检测',
-    dev_meta_info_check: '网页 meta 信息检测',
-    dev_tdk_check: '网页 TDK 信息检测',
-    dev_keyword_density_check: '网页关键词密度检测',
-    dev_spider_preview: '网页蜘蛛模拟抓取'
-  };
-
-  return labels[conversionKey] || conversionKey;
 }

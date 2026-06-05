@@ -25,6 +25,228 @@ body {
   background: var(--bg);
 }
 
+.shell {
+  width: min(1600px, calc(100vw - 48px));
+  margin: 0 auto;
+  padding: 28px 0 48px;
+}
+
+.shell-admin {
+  display: grid;
+  gap: 24px;
+}
+
+.hero {
+  display: grid;
+  gap: 12px;
+  padding: 8px 2px 0;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(34px, 4vw, 52px);
+  line-height: 1.08;
+}
+
+.hero-copy {
+  margin: 0;
+  max-width: 760px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.panel {
+  display: grid;
+  gap: 22px;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.panel-header h2,
+.panel-header p {
+  margin: 0;
+}
+
+.panel-header p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.admin-section-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-section-tab {
+  appearance: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: var(--surface-soft);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-section-tab-active {
+  border-color: rgba(63, 124, 255, 0.28);
+  background: var(--brand-soft);
+  color: var(--brand-deep);
+}
+
+.admin-section-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-section-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-section-copy p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.admin-search-field {
+  max-width: 420px;
+}
+
+.admin-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 14px;
+}
+
+.admin-chart-empty {
+  padding: 28px 22px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 18px;
+  background: var(--surface-soft);
+  color: var(--muted);
+}
+
+.admin-cleaned-file {
+  color: var(--muted);
+}
+
+.admin-usage-chart-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+}
+
+.admin-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.admin-chart-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.admin-chart-legend-count {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.admin-usage-chart-svg {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff, #fbfdff);
+}
+
+.admin-chart-grid-line {
+  stroke: rgba(123, 138, 163, 0.18);
+  stroke-width: 1;
+}
+
+.admin-chart-axis-line {
+  stroke: rgba(123, 138, 163, 0.34);
+  stroke-width: 1.2;
+}
+
+.admin-chart-axis-label {
+  fill: #6b7b95;
+  font-size: 12px;
+}
+
+.admin-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.admin-pagination-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.admin-pagination-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-pagination-button,
+.admin-pagination-number {
+  appearance: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.admin-pagination-number-active {
+  border-color: rgba(63, 124, 255, 0.28);
+  background: var(--brand-soft);
+  color: var(--brand-deep);
+}
+
+.admin-pagination-button:disabled,
+.admin-pagination-number:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .grid-row::before,
 .grid-row::after {
   content: "";
@@ -682,6 +904,10 @@ body {
 
 .button-muted {
   background: linear-gradient(135deg, #90a8dd, #6b86c0);
+}
+
+.button-danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
 }
 
 .ghost-link {
@@ -1709,6 +1935,27 @@ body {
 }
 
 @media (max-width: 720px) {
+  .shell {
+    width: min(100vw - 20px, 1600px);
+    padding: 16px 0 28px;
+  }
+
+  .panel {
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .panel-header {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .admin-pagination,
+  .admin-pagination-summary,
+  .admin-pagination-actions {
+    align-items: flex-start;
+  }
+
   .buyer-station-shell {
     height: auto;
     overflow: visible;

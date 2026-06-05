@@ -41,13 +41,18 @@ This installs:
 The install script also runs:
 
 ```bash
-sudo python3 -m pip install pypdf pdf2docx ocrmypdf pymupdf python-pptx pillow-heif "rembg[cpu]" "qrcode[pil]" openai-whisper
+sudo python3 -m pip install pypdf pdf2docx ocrmypdf pymupdf python-pptx pillow-heif openpyxl "rembg[cpu]" "qrcode[pil]" openai-whisper
 ```
 
 This is required by:
 
 - `PDF 转 PPT`
 - `PDF 转 Word`
+- `扫描件转可搜索 PDF`
+- `图片转 Word`
+- `PDF 转 Excel`
+- `图片表格转 Excel`
+- `试卷 / 讲义整理`
 - `PDF 提取页面`
 - `拆分 PDF`
 - `PDF 压缩`
@@ -137,8 +142,14 @@ curl -I http://127.0.0.1
 Then verify in browser:
 
 - buyer login page opens
+- buyer preview page opens at `/preview`
 - admin login page opens
 - admin can create a code
+- admin dashboard tabs switch correctly between:
+  - `卡密管理`
+  - `最近转换记录`
+  - `功能统计`
+  - `卡密图表`
 - buyer can use a code to log in
 - `Images -> PDF` works
 - `PDF -> Images` works
@@ -148,6 +159,13 @@ Then verify in browser:
 - `PDF 提取页面` works
 - `拆分 PDF` works
 - `Word -> PDF` works
+- `扫描件转可搜索 PDF` works
+- `批量 Word 转 PDF` works
+- `批量 PDF 转图片` works
+- `试卷 / 讲义整理` works
+- `图片转 Word` works
+- `PDF 转 Excel` works
+- `图片表格转 Excel` works
 - `图片隐私打码` works
 - `图片模糊背景填充` works
 - `收款码合并` works
@@ -155,6 +173,13 @@ Then verify in browser:
 - `批量二维码` works
 - `二维码解码` works
 - admin can see conversion records
+- admin recent-conversions table shows:
+  - `时间`
+  - `卡密`
+  - Chinese tool labels
+- admin code-management search works by partial code value
+- admin recent-conversions search works by partial code value
+- admin code chart can query one code and render the top-15 tool legend
 
 ## 6.1 Word -> PDF Chinese text troubleshooting
 
@@ -234,3 +259,16 @@ If environment variables changed:
 ```bash
 pm2 restart ecosystem.config.cjs --only pdf-converter-web --update-env
 ```
+
+Current admin/chart update note:
+
+- the latest admin dashboard round added:
+  - `/preview`
+  - admin section tabs
+  - admin client-side pagination
+  - admin code-value search
+  - admin per-code usage chart
+- this round is a `mixed change`
+  because it touches:
+  - `public/*`
+  - `server/*`

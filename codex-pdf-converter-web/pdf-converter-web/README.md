@@ -7,6 +7,13 @@ Independent web app for:
 - `PPT -> PDF`
 - `PDF -> PPTX`
 - `PDF -> Word`
+- `扫描件转可搜索 PDF`
+- `批量 Word / Excel / PPT 转 PDF`
+- `批量 PDF -> Images`
+- `试卷 / 讲义整理`
+- `图片转 Word`
+- `PDF 转 Excel`
+- `图片表格转 Excel`
 - `音视频工具`
 - `PDF -> Images`
 - `Images -> PDF`
@@ -34,6 +41,7 @@ Current scope:
 
 - single admin login
 - buyer login via redemption code
+- public preview page at `/preview`
 - local file storage
 - SQLite for metadata
 - `Images -> PDF` real conversion
@@ -41,7 +49,11 @@ Current scope:
 - `PDF -> Images` production path wired, requires poppler
 - admin code management
 - admin conversion records
+- admin feature usage statistics
+- admin code-value search for code management and recent conversions
+- admin per-code daily click chart with top-15 tool legend
 - image-tools category with local/server image processing
+- office / teaching document cleanup and OCR exports
 
 This project is intentionally isolated from the parent workspace.
 
@@ -69,6 +81,7 @@ Then open:
 
 - buyer page: `http://127.0.0.1:3015/`
 - admin page: `http://127.0.0.1:3015/admin`
+- preview page: `http://127.0.0.1:3015/preview`
 
 ### Default admin credentials
 
@@ -91,6 +104,7 @@ See [.env.example](D:/aa-workplace/customPlugin/codex-pdf-converter-web/pdf-conv
 - `POPPLER_BIN_DIR`
 - `GHOSTSCRIPT_BIN`
 - `OCRMYPDF_BIN`
+- `TESSERACT_BIN`
 - `FFMPEG_BIN`
 
 ## Conversion notes
@@ -127,7 +141,76 @@ See [.env.example](D:/aa-workplace/customPlugin/codex-pdf-converter-web/pdf-conv
   - OCR language packs such as Chinese and English
 - The market-standard tradeoff still applies:
   - text PDFs usually preserve editability and layout better
-  - scanned PDFs depend on OCR quality and page complexity
+- scanned PDFs depend on OCR quality and page complexity
+
+### 扫描件转可搜索 PDF
+
+- Uses `ocrmypdf`
+- Accepts:
+  - `.pdf`
+- Outputs:
+  - searchable `.pdf`
+- Best for:
+  - scanned handouts
+  - copied documents
+  - archive PDFs that need keyword search
+
+### 批量 Office / PDF 处理
+
+- Current batch coverage includes:
+  - `批量 Word 转 PDF`
+  - `批量 Excel 转 PDF`
+  - `批量 PPT 转 PDF`
+  - `批量 PDF 转图片`
+- Outputs:
+  - one ZIP package
+- Current behavior:
+  - preserves the user-visible upload order
+  - runs each file through the corresponding single-file conversion path
+
+### 试卷 / 讲义整理
+
+- Accepts:
+  - `.pdf`
+  - `.png`
+  - `.jpg`
+  - `.jpeg`
+  - `.webp`
+  - `.bmp`
+  - `.tif`
+  - `.tiff`
+- Current first version supports:
+  - border cleanup
+  - contrast enhancement
+  - grayscale / black-white cleanup
+  - optional double-page split
+  - PDF or image ZIP output
+
+### 图片转 Word
+
+- Uses:
+  - `tesseract`
+  - `python-docx`
+- Accepts common image formats
+- Outputs:
+  - one `.docx`
+- Current behavior:
+  - focuses on extracting readable text into editable paragraphs
+  - does not promise complex page layout fidelity
+
+### PDF 转 Excel / 图片表格转 Excel
+
+- `PDF 转 Excel`
+  - uses `PyMuPDF` table detection plus `openpyxl`
+- `图片表格转 Excel`
+  - uses `OpenCV` grid detection plus `tesseract` OCR
+- Outputs:
+  - one `.xlsx`
+- Current first version is best suited for:
+  - ruled tables
+  - schedules
+  - score sheets
+  - simple lists and rosters
 
 ### PDF -> PPTX
 
@@ -192,6 +275,16 @@ Current buyer homepage now includes:
 Current homepage short copy:
 
 - `文件、图像与文本处理一站完成`
+
+Current public preview behavior:
+
+- `/preview` is publicly accessible without a redemption code
+- buyers can search tools and switch categories there
+- preview cards do not enter detail pages
+- clicking preview cards only shows the login/contact prompt
+- preview page includes:
+  - `已有卡密，去登录`
+    shortcut back to `/`
 
 Deferred image-tool items that are intentionally not exposed in buyer UI yet are tracked in:
 
@@ -295,6 +388,21 @@ If you want to use all current audio tools locally or on the server, make sure:
     - Python package `openai-whisper`
   - current recommended default:
     - `WHISPER_MODEL=tiny`
+- `扫描件转可搜索 PDF`
+  - requires:
+    - `OCRMYPDF_BIN`
+- `图片转 Word`
+  - requires:
+    - `TESSERACT_BIN`
+- `图片表格转 Excel`
+  - requires:
+    - `TESSERACT_BIN`
+- `PDF 转 Excel`
+  - requires Python package:
+    - `openpyxl`
+- `试卷 / 讲义整理`
+  - requires:
+    - Python `cv2`
 - `二维码生成 / 批量二维码`
   - requires Python package:
     - `qrcode[pil]`
@@ -374,3 +482,31 @@ If you want to use all current audio tools locally or on the server, make sure:
 Ubuntu deployment guide:
 
 - [deployment-ubuntu-22.04.md](D:/aa-workplace/customPlugin/codex-pdf-converter-web/pdf-converter-web/docs/deployment-ubuntu-22.04.md)
+
+## Admin Dashboard
+
+Current admin dashboard includes four modules inside one page:
+
+- `卡密管理`
+  - create / enable / disable codes
+  - code-value substring search
+  - client-side pagination with `20` rows per page
+- `最近转换记录`
+  - shows time, code, tool, status, input, output, error
+  - tool names are rendered with Chinese labels
+  - code-value substring search
+  - client-side pagination with `20` rows per page
+- `功能统计`
+  - grouped by day and feature
+  - supports:
+    - `今天`
+    - `昨天`
+    - `近7天`
+    - `近30天`
+    - `自定义日期`
+  - client-side pagination with `20` rows per page
+- `卡密图表`
+  - query one code value at a time
+  - groups clicks by day
+  - legend shows the top `15` tools for that code in the selected date range
+  - chart is rendered with local frontend markup, no external chart dependency

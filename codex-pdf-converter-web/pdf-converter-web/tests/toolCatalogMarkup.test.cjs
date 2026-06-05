@@ -1379,6 +1379,114 @@ test('createToolDetailMarkup renders pdf_to_word with OCR mode choices', async (
   assert.match(html, /中文 \+ 英文/);
 });
 
+test('createToolDetailMarkup renders scan_to_searchable_pdf with OCR language choices', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'scan_to_searchable_pdf',
+    label: '扫描件转可搜索 PDF',
+    helperText: '适合扫描版资料补充可搜索文字层，方便检索和复制内容。',
+    accepts: '.pdf',
+    maxFileSizeMb: 30
+  });
+
+  assert.match(html, /识别语言/);
+  assert.match(html, /中文 \+ 英文/);
+  assert.match(html, /可搜索 PDF/);
+});
+
+test('createToolDetailMarkup renders batch Office and batch PDF image tools as multi-file upload forms', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const batchWordHtml = createToolDetailMarkup({
+    key: 'batch_word_to_pdf',
+    label: '批量 Word 转 PDF',
+    helperText: '一次上传多个 Word 文件，统一转成 PDF 后打包下载。',
+    accepts: '.doc,.docx',
+    maxFileSizeMb: 30,
+    maxTotalFileSizeMb: 200,
+    allowMultipleFiles: true
+  });
+  const batchPdfImagesHtml = createToolDetailMarkup({
+    key: 'batch_pdf_to_images',
+    label: '批量 PDF 转图片',
+    helperText: '一次上传多个 PDF，分别转成图片后统一打包下载。',
+    accepts: '.pdf',
+    maxFileSizeMb: 30,
+    maxTotalFileSizeMb: 180,
+    allowMultipleFiles: true
+  });
+
+  assert.match(batchWordHtml, /multiple/);
+  assert.match(batchWordHtml, /按当前顺序/);
+  assert.match(batchPdfImagesHtml, /multiple/);
+  assert.match(batchPdfImagesHtml, /开始转换/);
+});
+
+test('createToolDetailMarkup renders exam_paper_cleanup with cleanup and split controls', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'exam_paper_cleanup',
+    label: '试卷 / 讲义整理',
+    helperText: '适合拍照试卷和讲义做纠偏、去黑边、提亮和双页拆分整理。',
+    accepts: '.pdf,.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff',
+    maxFileSizeMb: 25,
+    maxTotalFileSizeMb: 120,
+    allowMultipleFiles: true
+  });
+
+  assert.match(html, /输出方式/);
+  assert.match(html, /处理模式/);
+  assert.match(html, /双页拆分/);
+  assert.match(html, /增强对比/);
+});
+
+test('createToolDetailMarkup renders images_to_word and Excel table tools with OCR-related options', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const imageWordHtml = createToolDetailMarkup({
+    key: 'images_to_word',
+    label: '图片转 Word',
+    helperText: '把图片中的文字整理成可继续编辑的 Word 文档。',
+    accepts: '.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff',
+    maxFileSizeMb: 20,
+    maxTotalFileSizeMb: 120,
+    allowMultipleFiles: true
+  });
+  const imageTableHtml = createToolDetailMarkup({
+    key: 'image_table_to_excel',
+    label: '图片表格转 Excel',
+    helperText: '适合清晰表格截图和拍照表格，优先导出规则网格内容。',
+    accepts: '.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff',
+    maxFileSizeMb: 20
+  });
+  const pdfTableHtml = createToolDetailMarkup({
+    key: 'pdf_to_excel',
+    label: 'PDF 转 Excel',
+    helperText: '适合规则表格型 PDF，优先导出课表、名单和清单类表格。',
+    accepts: '.pdf',
+    maxFileSizeMb: 30
+  });
+
+  assert.match(imageWordHtml, /识别语言/);
+  assert.match(imageWordHtml, /可继续编辑的 Word/);
+  assert.match(imageTableHtml, /识别语言/);
+  assert.match(pdfTableHtml, /规则表格/);
+});
+
 test('createToolDetailMarkup renders watermark_pdf with text and image watermark controls', async () => {
   const moduleUrl = pathToFileURL(
     path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')

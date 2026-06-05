@@ -121,6 +121,90 @@ function createConversionService(options) {
         helperText: '支持文本型 PDF 直接转 Word，也支持 OCR 识别扫描件后导出 Word。'
       },
       {
+        key: 'scan_to_searchable_pdf',
+        label: '扫描件转可搜索 PDF',
+        status: 'available',
+        accepts: '.pdf',
+        maxFileSizeMb: 30,
+        helperText: '适合扫描版资料补充可搜索文字层，方便检索和复制内容。'
+      },
+      {
+        key: 'batch_word_to_pdf',
+        label: '批量 Word 转 PDF',
+        status: 'available',
+        accepts: libreOfficeBin ? '.doc,.docx' : '.docx',
+        maxFileSizeMb: 30,
+        maxTotalFileSizeMb: 200,
+        allowMultipleFiles: true,
+        helperText: '一次上传多个 Word 文件，统一转成 PDF 后打包下载。'
+      },
+      {
+        key: 'batch_excel_to_pdf',
+        label: '批量 Excel 转 PDF',
+        status: 'available',
+        accepts: '.xlsx,.xls',
+        maxFileSizeMb: 30,
+        maxTotalFileSizeMb: 200,
+        allowMultipleFiles: true,
+        helperText: '一次上传多个 Excel 文件，统一转成 PDF 后打包下载。'
+      },
+      {
+        key: 'batch_ppt_to_pdf',
+        label: '批量 PPT 转 PDF',
+        status: 'available',
+        accepts: '.ppt,.pptx',
+        maxFileSizeMb: 40,
+        maxTotalFileSizeMb: 250,
+        allowMultipleFiles: true,
+        helperText: '一次上传多个 PPT 文件，统一转成 PDF 后打包下载。'
+      },
+      {
+        key: 'batch_pdf_to_images',
+        label: '批量 PDF 转图片',
+        status: 'available',
+        accepts: '.pdf',
+        maxFileSizeMb: 30,
+        maxTotalFileSizeMb: 180,
+        allowMultipleFiles: true,
+        helperText: '一次上传多个 PDF，分别转成图片后统一打包下载。'
+      },
+      {
+        key: 'exam_paper_cleanup',
+        label: '试卷 / 讲义整理',
+        status: 'available',
+        accepts: '.pdf,.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff',
+        maxFileSizeMb: 25,
+        maxTotalFileSizeMb: 120,
+        allowMultipleFiles: true,
+        helperText: '适合拍照试卷和讲义做纠偏、去黑边、提亮和双页拆分整理。'
+      },
+      {
+        key: 'images_to_word',
+        label: '图片转 Word',
+        status: 'available',
+        accepts: '.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff',
+        maxFileSizeMb: 20,
+        maxTotalFileSizeMb: 120,
+        allowMultipleFiles: true,
+        helperText: '把图片中的文字整理成可继续编辑的 Word 文档。'
+      },
+      {
+        key: 'pdf_to_excel',
+        label: 'PDF 转 Excel',
+        status: 'available',
+        accepts: '.pdf',
+        maxFileSizeMb: 30,
+        helperText: '适合规则表格型 PDF，优先导出课表、名单和清单类表格。'
+      },
+      {
+        key: 'image_table_to_excel',
+        label: '图片表格转 Excel',
+        status: 'available',
+        accepts: '.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff',
+        maxFileSizeMb: 20,
+        helperText: '适合清晰表格截图和拍照表格，优先导出规则网格内容。'
+      },
+      {
         key: 'ocr_text_extract',
         label: 'OCR 文字识别',
         categoryKey: 'text_tools',
@@ -369,6 +453,32 @@ async function executeConversion(options) {
     return [outputPath];
   }
 
+  if (conversionKey === 'scan_to_searchable_pdf') {
+    const sourcePdf = findPrimaryPdfPath(inputFiles, writtenFiles);
+    if (!sourcePdf) {
+      throw createConversionError('INVALID_SEARCHABLE_PDF', '请先选择一个 PDF 文件。', 400);
+    }
+    if (!ocrmypdfBin) {
+      throw createConversionError(
+        'OCRMYPDF_NOT_CONFIGURED',
+        '当前环境还不能处理扫描件，请先安装并配置 OCRmyPDF。',
+        400
+      );
+    }
+
+    const outputPath = path.join(outputDirectory, `${path.parse(sourcePdf).name}-searchable.pdf`);
+    await runPythonScript(pythonBin, [
+      'scan_to_searchable_pdf',
+      outputPath,
+      sourcePdf,
+      JSON.stringify({
+        ocrmypdfBin,
+        ocrLanguage: normalizeOcrLanguage(conversionOptions?.ocrLanguage)
+      })
+    ]);
+    return [outputPath];
+  }
+
   if (conversionKey === 'pdf_to_pptx') {
     const sourcePdf = findPrimaryPdfPath(inputFiles, writtenFiles);
     if (!sourcePdf) {
@@ -437,6 +547,60 @@ async function executeConversion(options) {
         numberWidth: Number.parseInt(String(conversionOptions?.numberWidth ?? '2'), 10) || 2
       }),
       ...writtenFiles
+    ]);
+    return [outputPath];
+  }
+
+  if (conversionKey === 'images_to_word') {
+    if (writtenFiles.length === 0) {
+      throw createConversionError('IMAGE_REQUIRED', '请先选择至少一张图片。', 400);
+    }
+    if (!tesseractBin) {
+      throw createConversionError(
+        'TESSERACT_NOT_CONFIGURED',
+        '当前环境还不能处理图片识别，请先安装并配置 Tesseract。',
+        400
+      );
+    }
+
+    const outputPath = path.join(outputDirectory, `${path.parse(writtenFiles[0]).name}-images.docx`);
+    await runPythonScript(pythonBin, [
+      'images_to_word',
+      outputPath,
+      JSON.stringify({
+        ocrLanguage: normalizeOcrLanguage(conversionOptions?.ocrLanguage),
+        tesseractBin,
+        tesseractScriptPath: typeof conversionOptions?.tesseractScriptPath === 'string'
+          ? conversionOptions.tesseractScriptPath
+          : ''
+      }),
+      ...writtenFiles
+    ]);
+    return [outputPath];
+  }
+
+  if (conversionKey === 'image_table_to_excel') {
+    const sourcePath = requireSingleImageFile(conversionKey, inputFiles, writtenFiles);
+    if (!tesseractBin) {
+      throw createConversionError(
+        'TESSERACT_NOT_CONFIGURED',
+        '当前环境还不能处理表格识别，请先安装并配置 Tesseract。',
+        400
+      );
+    }
+
+    const outputPath = path.join(outputDirectory, `${path.parse(sourcePath).name}.xlsx`);
+    await runPythonScript(pythonBin, [
+      'image_table_to_excel',
+      outputPath,
+      sourcePath,
+      JSON.stringify({
+        ocrLanguage: normalizeOcrLanguage(conversionOptions?.ocrLanguage),
+        tesseractBin,
+        tesseractScriptPath: typeof conversionOptions?.tesseractScriptPath === 'string'
+          ? conversionOptions.tesseractScriptPath
+          : ''
+      })
     ]);
     return [outputPath];
   }
@@ -582,6 +746,95 @@ async function executeConversion(options) {
 
   if (conversionKey === 'ppt_to_pdf') {
     return convertOfficeDocumentToPdf('ppt_to_pdf', writtenFiles, outputDirectory, libreOfficeBin);
+  }
+
+  if (conversionKey === 'batch_word_to_pdf') {
+    return batchConvertWordDocumentsToPdf(writtenFiles, outputDirectory, pythonBin, libreOfficeBin);
+  }
+
+  if (conversionKey === 'batch_excel_to_pdf') {
+    return batchConvertOfficeDocumentsToPdf(
+      'batch_excel_to_pdf',
+      writtenFiles,
+      outputDirectory,
+      pythonBin,
+      libreOfficeBin,
+      'batch-excel-to-pdf.zip'
+    );
+  }
+
+  if (conversionKey === 'batch_ppt_to_pdf') {
+    return batchConvertOfficeDocumentsToPdf(
+      'batch_ppt_to_pdf',
+      writtenFiles,
+      outputDirectory,
+      pythonBin,
+      libreOfficeBin,
+      'batch-ppt-to-pdf.zip'
+    );
+  }
+
+  if (conversionKey === 'batch_pdf_to_images') {
+    if (writtenFiles.length === 0) {
+      throw createConversionError('FILE_REQUIRED', '请先选择至少一个 PDF 文件。', 400);
+    }
+
+    const outputPath = path.join(outputDirectory, 'batch-pdf-to-images.zip');
+    await runPythonScript(
+      pythonBin,
+      [
+        'batch_pdf_to_images',
+        outputPath,
+        JSON.stringify({
+          popplerBinDir
+        }),
+        ...writtenFiles
+      ],
+      popplerBinDir ? { POPPLER_BIN_DIR: popplerBinDir } : {}
+    );
+    return [outputPath];
+  }
+
+  if (conversionKey === 'pdf_to_excel') {
+    const sourcePdf = findPrimaryPdfPath(inputFiles, writtenFiles);
+    if (!sourcePdf) {
+      throw createConversionError('INVALID_PDF_TO_EXCEL', '请先选择一个 PDF 文件。', 400);
+    }
+
+    const outputPath = path.join(outputDirectory, `${path.parse(sourcePdf).name}.xlsx`);
+    await runPythonScript(pythonBin, [
+      'pdf_to_excel',
+      outputPath,
+      sourcePdf,
+      JSON.stringify({
+        ocrmypdfBin: ocrmypdfBin || ''
+      })
+    ]);
+    return [outputPath];
+  }
+
+  if (conversionKey === 'exam_paper_cleanup') {
+    if (writtenFiles.length === 0) {
+      throw createConversionError('FILE_REQUIRED', '请先选择至少一个文件。', 400);
+    }
+
+    const outputMode = conversionOptions?.outputMode === 'image_zip' ? 'image_zip' : 'pdf';
+    const outputFileName = outputMode === 'image_zip'
+      ? `${path.parse(writtenFiles[0]).name}-cleaned.zip`
+      : `${path.parse(writtenFiles[0]).name}-cleaned.pdf`;
+    const outputPath = path.join(outputDirectory, outputFileName);
+    await runPythonScript(pythonBin, [
+      'exam_paper_cleanup',
+      outputPath,
+      JSON.stringify({
+        outputMode,
+        cleanupMode: normalizeCleanupMode(conversionOptions?.cleanupMode),
+        splitDoublePage: Boolean(conversionOptions?.splitDoublePage),
+        enhanceContrast: conversionOptions?.enhanceContrast !== false
+      }),
+      ...writtenFiles
+    ]);
+    return [outputPath];
   }
 
   if (conversionKey === 'watermark_pdf') {
@@ -1183,6 +1436,10 @@ function normalizeOcrLanguage(value) {
   return ['chi_sim+eng', 'chi_sim', 'eng'].includes(value) ? value : 'chi_sim+eng';
 }
 
+function normalizeCleanupMode(value) {
+  return ['color', 'grayscale', 'binary'].includes(value) ? value : 'grayscale';
+}
+
 async function convertOfficeDocumentToPdf(conversionKey, writtenFiles, outputDirectory, libreOfficeBin) {
   if (writtenFiles.length !== 1) {
     throw new Error(`${conversionKey} requires exactly one Office file`);
@@ -1204,6 +1461,79 @@ async function convertOfficeDocumentToPdf(conversionKey, writtenFiles, outputDir
   }
 
   return [outputPath];
+}
+
+async function batchConvertOfficeDocumentsToPdf(
+  conversionKey,
+  writtenFiles,
+  outputDirectory,
+  pythonBin,
+  libreOfficeBin,
+  zipFileName
+) {
+  if (writtenFiles.length === 0) {
+    throw createConversionError('FILE_REQUIRED', '请先选择至少一个文件。', 400);
+  }
+
+  const outputFiles = [];
+  for (const inputPath of writtenFiles) {
+    outputFiles.push(await convertSingleOfficeDocumentToPdf(conversionKey, inputPath, outputDirectory, libreOfficeBin));
+  }
+
+  const zipPath = path.join(outputDirectory, zipFileName);
+  await runPythonScript(pythonBin, ['zip_files', zipPath, ...outputFiles]);
+  return [zipPath];
+}
+
+async function batchConvertWordDocumentsToPdf(writtenFiles, outputDirectory, pythonBin, libreOfficeBin) {
+  if (writtenFiles.length === 0) {
+    throw createConversionError('FILE_REQUIRED', '请先选择至少一个文件。', 400);
+  }
+
+  const outputFiles = [];
+  for (const inputPath of writtenFiles) {
+    outputFiles.push(await convertSingleWordDocumentToPdf(inputPath, outputDirectory, pythonBin, libreOfficeBin));
+  }
+
+  const zipPath = path.join(outputDirectory, 'batch-word-to-pdf.zip');
+  await runPythonScript(pythonBin, ['zip_files', zipPath, ...outputFiles]);
+  return [zipPath];
+}
+
+async function convertSingleOfficeDocumentToPdf(conversionKey, inputPath, outputDirectory, libreOfficeBin) {
+  if (!libreOfficeBin) {
+    throw createConversionError(
+      'LIBREOFFICE_NOT_CONFIGURED',
+      '当前环境还不能处理这个 Office 文件，请先安装并配置 LibreOffice。',
+      400
+    );
+  }
+
+  await runLibreOfficeConversion(libreOfficeBin, inputPath, outputDirectory);
+  const outputPath = path.join(outputDirectory, `${path.parse(inputPath).name}.pdf`);
+  if (!fs.existsSync(outputPath)) {
+    throw new Error('LibreOffice conversion did not produce a PDF file');
+  }
+
+  return outputPath;
+}
+
+async function convertSingleWordDocumentToPdf(inputPath, outputDirectory, pythonBin, libreOfficeBin) {
+  if (libreOfficeBin) {
+    return convertSingleOfficeDocumentToPdf('word_to_pdf', inputPath, outputDirectory, libreOfficeBin);
+  }
+
+  if (path.extname(inputPath).toLowerCase() !== '.docx') {
+    throw createConversionError(
+      'UNSUPPORTED_WORD_FORMAT',
+      '当前环境仅支持 .docx。若要转换 .doc，请先安装 LibreOffice。',
+      400
+    );
+  }
+
+  const outputPath = path.join(outputDirectory, `${path.parse(inputPath).name}.pdf`);
+  await runPythonScript(pythonBin, ['docx_to_pdf_fallback', inputPath, outputPath]);
+  return outputPath;
 }
 
 function toBoundedNumber(value, fallback, min, max) {

@@ -489,9 +489,38 @@ function collectConversionOptions(form, conversionKey) {
     };
   }
 
+  if (conversionKey === 'scan_to_searchable_pdf') {
+    return {
+      ocrLanguage: form.querySelector('[data-ocr-language]')?.value || 'chi_sim+eng'
+    };
+  }
+
   if (conversionKey === 'ocr_text_extract') {
     return {
       ocrLanguage: form.querySelector('[data-ocr-language]')?.value || 'chi_sim+eng'
+    };
+  }
+
+  if (conversionKey === 'images_to_word') {
+    return {
+      ocrLanguage: form.querySelector('[data-ocr-language]')?.value || 'chi_sim+eng'
+    };
+  }
+
+  if (conversionKey === 'image_table_to_excel') {
+    return {
+      ocrLanguage: form.querySelector('[data-ocr-language]')?.value || 'chi_sim+eng'
+    };
+  }
+
+  if (conversionKey === 'exam_paper_cleanup') {
+    return {
+      outputMode: form.querySelector('[data-exam-output-mode]')?.value === 'image_zip'
+        ? 'image_zip'
+        : 'pdf',
+      cleanupMode: form.querySelector('[data-exam-cleanup-mode]')?.value || 'grayscale',
+      splitDoublePage: form.querySelector('[data-exam-split-double-page]')?.value === 'true',
+      enhanceContrast: form.querySelector('[data-exam-enhance-contrast]')?.value !== 'false'
     };
   }
 
