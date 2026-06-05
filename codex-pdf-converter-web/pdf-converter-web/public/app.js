@@ -17,6 +17,14 @@ import { buyerCategoryCatalog } from './buyerCategoryCatalog.mjs';
 import { createCategoryIconMarkup } from './categoryIconMarkup.mjs';
 import { devToolCatalog, getDevToolByKey } from './devToolCatalog.mjs';
 import { runDevTool } from './devToolRuntime.mjs';
+import {
+  collectWaveformPeaks,
+  createObjectUrlFromBytes,
+  createToneWavBytes,
+  createWhiteNoiseWavBytes,
+  drawWaveform
+} from './mediaToolRuntime.mjs';
+import { getMediaToolByKey, mediaToolCatalog } from './mediaToolCatalog.mjs';
 import { getTextToolByKey, textToolCatalog } from './textToolCatalog.mjs';
 import {
   createDeleteThumbnailMarkup,
@@ -39,7 +47,7 @@ const buyerMessage = document.querySelector('#buyer-message');
 
 let conversionCatalog = [];
 const categoryCatalog = buyerCategoryCatalog;
-const quickKeywordCatalog = ['PDF 转 PPT', '文本去重', 'Base64', 'UUID', '图片压缩', 'GIF 拆分', 'SSL'];
+const quickKeywordCatalog = ['PDF 转 PPT', '文本去重', 'Base64', '音频剪切', '文字转语音', '图片压缩', 'SSL'];
 const selectedFilesByConversionKey = new Map();
 const conversionSummaries = new Map();
 const signatureCanvasStateByConversionKey = new Map();
@@ -316,7 +324,7 @@ async function handleConversionSubmit(event) {
 
     conversionSummaries.set(conversionKey, body.conversion.summary || null);
     clearUploadProgress(conversionKey);
-    setMessage(getConversionMessageElement(), '转换完成，可以下载结果了。');
+    setMessage(getConversionMessageElement(), '');
     renderResults(conversionKey, body.conversion.files);
   } catch (error) {
     conversionSummaries.delete(conversionKey);
@@ -407,6 +415,10 @@ function appendStructuredRangeRow(host, conversionKey) {
 }
 
 function collectConversionOptions(form, conversionKey) {
+  if (isImageConversionKey(conversionKey)) {
+    return collectImageConversionOptions(form, conversionKey);
+  }
+
   if (conversionKey === 'compress_pdf') {
     return {
       compressionLevel: form.querySelector('[data-compression-level]')?.value === 'strong'
@@ -539,6 +551,191 @@ function collectConversionOptions(form, conversionKey) {
   };
 }
 
+function isImageConversionKey(conversionKey) {
+  return Boolean(getBuyerToolByKey(conversionKey)?.categoryKey === 'image_tools');
+}
+
+function collectImageConversionOptions(form, conversionKey) {
+  const outputFormat = form.querySelector('[data-image-output-format]')?.value || '';
+
+  if (conversionKey === 'image_compress_batch') {
+    return {
+      quality: Number.parseInt(form.querySelector('[data-image-quality]')?.value || '75', 10) || 75
+    };
+  }
+
+  if (conversionKey === 'image_resize_exact') {
+    return {
+      targetWidth: Number.parseInt(form.querySelector('[data-target-width]')?.value || '800', 10) || 800,
+      targetHeight: Number.parseInt(form.querySelector('[data-target-height]')?.value || '600', 10) || 600,
+      outputFormat
+    };
+  }
+
+  if (conversionKey === 'image_resize_scale') {
+    return {
+      scalePercent: Number.parseInt(form.querySelector('[data-scale-percent]')?.value || '100', 10) || 100,
+      outputFormat
+    };
+  }
+
+  if (conversionKey === 'image_crop_free') {
+    return {
+      cropX: Number.parseInt(form.querySelector('[data-crop-x]')?.value || '0', 10) || 0,
+      cropY: Number.parseInt(form.querySelector('[data-crop-y]')?.value || '0', 10) || 0,
+      cropWidth: Number.parseInt(form.querySelector('[data-crop-width]')?.value || '300', 10) || 300,
+      cropHeight: Number.parseInt(form.querySelector('[data-crop-height]')?.value || '300', 10) || 300,
+      outputFormat
+    };
+  }
+
+  if (['image_crop_ratio', 'image_crop_ratio_batch'].includes(conversionKey)) {
+    return {
+      aspectRatio: form.querySelector('[data-aspect-ratio]')?.value || '1:1',
+      outputFormat
+    };
+  }
+
+  if (conversionKey === 'image_split_grid') {
+    return {
+      rows: Number.parseInt(form.querySelector('[data-grid-rows]')?.value || '2', 10) || 2,
+      columns: Number.parseInt(form.querySelector('[data-grid-columns]')?.value || '2', 10) || 2,
+      outputFormat
+    };
+  }
+
+  if (conversionKey === 'image_concat_long') {
+    return {
+      direction: form.querySelector('[data-image-direction]')?.value || 'vertical',
+      gap: Number.parseInt(form.querySelector('[data-image-gap]')?.value || '0', 10) || 0,
+      backgroundColor: form.querySelector('[data-background-color]')?.value || '#ffffff',
+      outputFormat
+    };
+  }
+
+  if (conversionKey === 'image_collage') {
+    return {
+      columns: Number.parseInt(form.querySelector('[data-collage-columns]')?.value || '2', 10) || 2,
+      gap: Number.parseInt(form.querySelector('[data-image-gap]')?.value || '12', 10) || 12,
+      backgroundColor: form.querySelector('[data-background-color]')?.value || '#ffffff',
+      outputFormat
+    };
+  }
+
+  if (['image_fill_background', 'image_dark_mode_background'].includes(conversionKey)) {
+    return {
+      backgroundColor: form.querySelector('[data-background-color]')?.value || '#ffffff',
+      outputFormat
+    };
+  }
+
+  if (conversionKey === 'image_watermark_tile') {
+    return {
+      textContent: form.querySelector('[data-watermark-text]')?.value?.trim() || '仅供内部使用',
+      fontSize: Number.parseInt(form.querySelector('[data-watermark-font-size]')?.value || '24', 10) || 24,
+      opacity: Number.parseFloat(form.querySelector('[data-watermark-opacity]')?.value || '0.22') || 0.22,
+      rotation: Number.parseInt(form.querySelector('[data-watermark-rotation]')?.value || '-28', 10) || -28,
+      gap: Number.parseInt(form.querySelector('[data-watermark-gap]')?.value || '120', 10) || 120,
+      outputFormat
+    };
+  }
+
+  if (conversionKey === 'image_printmaking') {
+    return {
+      threshold: Number.parseInt(form.querySelector('[data-threshold]')?.value || '126', 10) || 126,
+      outputFormat
+    };
+  }
+
+  if (['image_remove_solid_bg', 'id_photo_bg_swap'].includes(conversionKey)) {
+    return {
+      backgroundColor: form.querySelector('[data-background-color]')?.value || '#438edb',
+      tolerance: Number.parseInt(form.querySelector('[data-color-tolerance]')?.value || '36', 10) || 36,
+      outputFormat
+    };
+  }
+
+  if (conversionKey === 'image_add_padding') {
+    return {
+      paddingTop: Number.parseInt(form.querySelector('[data-padding-top]')?.value || '40', 10) || 40,
+      paddingRight: Number.parseInt(form.querySelector('[data-padding-right]')?.value || '40', 10) || 40,
+      paddingBottom: Number.parseInt(form.querySelector('[data-padding-bottom]')?.value || '40', 10) || 40,
+      paddingLeft: Number.parseInt(form.querySelector('[data-padding-left]')?.value || '40', 10) || 40,
+      backgroundColor: form.querySelector('[data-background-color]')?.value || '#ffffff',
+      outputFormat
+    };
+  }
+
+  if (conversionKey === 'image_pixelate') {
+    return {
+      blockSize: Number.parseInt(form.querySelector('[data-block-size]')?.value || '12', 10) || 12,
+      outputFormat
+    };
+  }
+
+  if (conversionKey === 'image_increase_size') {
+    return {
+      targetSizeKb: Number.parseInt(form.querySelector('[data-target-size-kb]')?.value || '100', 10) || 100,
+      outputFormat
+    };
+  }
+
+  if (conversionKey === 'image_clear_content') {
+    return {
+      backgroundColor: form.querySelector('[data-background-color]')?.value || '#ffffff',
+      outputFormat
+    };
+  }
+
+  if (conversionKey === 'image_format_convert') {
+    return { outputFormat };
+  }
+
+  if (conversionKey === 'image_modify_dpi') {
+    return {
+      dpi: Number.parseInt(form.querySelector('[data-image-dpi]')?.value || '300', 10) || 300,
+      outputFormat
+    };
+  }
+
+  if (conversionKey === 'gif_merge') {
+    return {
+      durationMs: Number.parseInt(form.querySelector('[data-gif-duration-ms]')?.value || '400', 10) || 400
+    };
+  }
+
+  if (conversionKey === 'image_round_corner') {
+    return {
+      radius: Number.parseInt(form.querySelector('[data-round-corner-radius]')?.value || '36', 10) || 36
+    };
+  }
+
+  if (conversionKey === 'image_tile_fill') {
+    return {
+      targetWidth: Number.parseInt(form.querySelector('[data-target-width]')?.value || '1200', 10) || 1200,
+      targetHeight: Number.parseInt(form.querySelector('[data-target-height]')?.value || '1200', 10) || 1200,
+      outputFormat
+    };
+  }
+
+  if (['id_photo_resize', 'exam_id_photo_process', 'id_photo_crop'].includes(conversionKey)) {
+    return {
+      idPhotoPreset: form.querySelector('[data-id-photo-preset]')?.value || 'one_inch',
+      maxSizeKb: Number.parseInt(form.querySelector('[data-target-size-kb]')?.value || '120', 10) || 120,
+      outputFormat
+    };
+  }
+
+  if (conversionKey === 'anti_ocr_image') {
+    return {
+      noiseLevel: Number.parseInt(form.querySelector('[data-noise-level]')?.value || '18', 10) || 18,
+      outputFormat
+    };
+  }
+
+  return outputFormat ? { outputFormat } : {};
+}
+
 function requiresPageSelection(conversionKey) {
   return conversionKey === 'pdf_extract_pages' || conversionKey === 'split_pdf';
 }
@@ -576,6 +773,22 @@ function renderDetail(conversionKey) {
   if (toolItem.kind === 'local_text') {
     form.addEventListener('submit', handleLocalTextToolSubmit);
     detailHost.querySelector(`[data-copy-output="${conversionKey}"]`)?.addEventListener('click', handleCopyTextToolOutput);
+    setMessage(getConversionMessageElement(), '');
+    return;
+  }
+
+  if (toolItem.kind === 'local_media_tool') {
+    form.addEventListener('submit', handleLocalMediaToolSubmit);
+    detailHost.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setMessage(getConversionMessageElement(), '');
+    return;
+  }
+
+  if (toolItem.kind === 'server_media_tool' || toolItem.kind === 'file_media_tool') {
+    form.querySelector('[data-file-input]')?.addEventListener('change', handleFileInputChange);
+    renderSelectedFileList(form, conversionKey);
+    form.addEventListener('submit', handleRemoteMediaToolSubmit);
+    detailHost.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setMessage(getConversionMessageElement(), '');
     return;
   }
@@ -694,17 +907,6 @@ function handleDashboardClick(event) {
       mobileNavOpen: false
     };
     renderBuyerDashboard();
-    return;
-  }
-
-  const homeButton = event.target.closest('[data-topbar-home]');
-  if (homeButton) {
-    currentViewState = {
-      ...currentViewState,
-      searchKeyword: '',
-      mobileNavOpen: false
-    };
-    renderToolList();
     return;
   }
 
@@ -901,7 +1103,7 @@ function handleLocalTextToolSubmit(event) {
     outputElement.value = result.outputText || '';
   }
   renderTextToolSummary(resultHost, result.summary);
-  setMessage(getConversionMessageElement(), '处理完成，可以复制结果了。');
+  setMessage(getConversionMessageElement(), '');
 }
 
 async function handleLocalDevToolSubmit(event) {
@@ -913,7 +1115,7 @@ async function handleLocalDevToolSubmit(event) {
   try {
     const result = await runDevTool(toolKey, collectDevToolOptions(form, toolKey));
     renderDevToolResult(toolKey, result);
-    setMessage(getConversionMessageElement(), '处理完成，可以复制结果了。');
+    setMessage(getConversionMessageElement(), '');
   } catch (error) {
     setMessage(getConversionMessageElement(), error.message || '处理失败，请检查输入后重试。');
   }
@@ -944,7 +1146,198 @@ async function handleRemoteDevToolSubmit(event) {
     }
 
     renderDevToolResult(toolKey, body.result || {});
-    setMessage(getConversionMessageElement(), '处理完成，可以复制结果了。');
+    setMessage(getConversionMessageElement(), '');
+  } catch (error) {
+    setMessage(getConversionMessageElement(), error.message || '处理失败，请稍后重试。');
+  }
+}
+
+async function handleRemoteMediaToolSubmit(event) {
+  event.preventDefault();
+
+  const form = event.currentTarget;
+  const toolKey = form.dataset.conversionKey;
+  const toolItem = getBuyerToolByKey(toolKey);
+
+  try {
+    const payload = new FormData();
+    payload.append('toolKey', toolKey);
+    payload.append('toolOptions', JSON.stringify(collectMediaToolOptions(form, toolKey)));
+
+    if (toolItem?.kind === 'file_media_tool') {
+      const input = form.querySelector('[data-file-input]');
+      const files = getSelectedFiles(form, toolKey);
+      const accepts = (input?.dataset.accepts || '')
+        .split(',')
+        .map((item) => item.trim().toLowerCase())
+        .filter(Boolean);
+      const limits = {
+        maxFileSizeMb: toNullableNumber(form.dataset.maxFileSizeMb),
+        maxTotalFileSizeMb: toNullableNumber(form.dataset.maxTotalFileSizeMb)
+      };
+
+      if (files.length === 0) {
+        setMessage(getConversionMessageElement(), '先选择文件。');
+        return;
+      }
+
+      const validationMessage = validateSelectedFiles(files, accepts, limits);
+      if (validationMessage) {
+        setMessage(getConversionMessageElement(), validationMessage);
+        return;
+      }
+
+      for (const file of files) {
+        payload.append('files', file, file.name);
+      }
+    }
+
+    renderUploadProgress(toolKey, {
+      stage: 'uploading',
+      percent: 0,
+      detail: getUploadStageText('uploading')
+    });
+
+    const response = await uploadWithProgress('/api/media-tools/run', payload, (progressEvent) => {
+      if (!progressEvent.lengthComputable) {
+        return;
+      }
+
+      const percent = progressEvent.total > 0 ? (progressEvent.loaded / progressEvent.total) * 100 : 0;
+      renderUploadProgress(toolKey, {
+        stage: 'uploading',
+        percent,
+        detail: getUploadStageText('uploading')
+      });
+    });
+
+    renderUploadProgress(toolKey, {
+      stage: 'processing',
+      percent: 100,
+      detail: getUploadStageText('processing')
+    });
+
+    const body = await readApiResponse(response);
+    if (!response.ok) {
+      renderUploadProgress(toolKey, {
+        stage: 'error',
+        percent: 100,
+        detail: body.message || getUploadStageText('error')
+      });
+      setMessage(getConversionMessageElement(), body.message || '处理失败，请稍后重试。');
+      return;
+    }
+
+    clearUploadProgress(toolKey);
+    renderResults(toolKey, body.result?.files || []);
+    setMessage(getConversionMessageElement(), '');
+  } catch (error) {
+    renderUploadProgress(toolKey, {
+      stage: 'error',
+      percent: 100,
+      detail: getUploadStageText('error')
+    });
+    setMessage(getConversionMessageElement(), error.message || '处理失败，请稍后重试。');
+  }
+}
+
+async function handleLocalMediaToolSubmit(event) {
+  event.preventDefault();
+
+  const form = event.currentTarget;
+  const toolKey = form.dataset.conversionKey;
+  const resultHost = buyerDashboard.querySelector(`[data-results="${toolKey}"]`);
+  if (!resultHost) {
+    return;
+  }
+
+  try {
+    if (toolKey === 'media_audio_player') {
+      const file = form.querySelector('[data-media-file-input]')?.files?.[0];
+      if (!file) {
+        setMessage(getConversionMessageElement(), '先选择音频文件。');
+        return;
+      }
+
+      const audioElement = resultHost.querySelector('[data-media-audio-preview]');
+      const waveformCanvas = resultHost.querySelector('[data-media-waveform]');
+      const statusElement = resultHost.querySelector('[data-media-status]');
+      const objectUrl = URL.createObjectURL(file);
+      if (audioElement) {
+        audioElement.src = objectUrl;
+        audioElement.classList.remove('hidden');
+      }
+      if (statusElement) {
+        statusElement.textContent = `已加载：${file.name}`;
+      }
+
+      if (waveformCanvas && window.AudioContext) {
+        const arrayBuffer = await file.arrayBuffer();
+        const audioContext = new window.AudioContext();
+        try {
+          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+          drawWaveform(waveformCanvas, collectWaveformPeaks(audioBuffer.getChannelData(0), 160));
+        } finally {
+          await audioContext.close();
+        }
+      }
+
+      setMessage(getConversionMessageElement(), '音频已加载，可以直接试听。');
+      return;
+    }
+
+    if (toolKey === 'media_video_speed_preview') {
+      const file = form.querySelector('[data-media-file-input]')?.files?.[0];
+      if (!file) {
+        setMessage(getConversionMessageElement(), '先选择视频文件。');
+        return;
+      }
+
+      const videoElement = resultHost.querySelector('[data-media-video-preview]');
+      const statusElement = resultHost.querySelector('[data-media-status]');
+      const playbackRate = Number.parseFloat(form.querySelector('[data-media-playback-rate]')?.value || '1') || 1;
+      if (videoElement) {
+        videoElement.src = URL.createObjectURL(file);
+        videoElement.playbackRate = playbackRate;
+        videoElement.classList.remove('hidden');
+      }
+      if (statusElement) {
+        statusElement.textContent = `已加载：${file.name}，当前速度 ${playbackRate}x`;
+      }
+      setMessage(getConversionMessageElement(), '视频已加载，可以直接预览。');
+      return;
+    }
+
+    const durationSeconds = Number.parseFloat(form.querySelector('[data-media-duration]')?.value || '0') || 0;
+    const volume = Number.parseFloat(form.querySelector('[data-media-volume]')?.value || '0.5') || 0.5;
+    const bytes = toolKey === 'media_tone_generator'
+      ? createToneWavBytes({
+          frequencyHz: Number.parseFloat(form.querySelector('[data-media-frequency]')?.value || '440') || 440,
+          durationSeconds,
+          volume
+        })
+      : createWhiteNoiseWavBytes({
+          durationSeconds,
+          volume
+        });
+
+    const objectUrl = createObjectUrlFromBytes(bytes);
+    const audioElement = resultHost.querySelector('[data-media-audio-preview]');
+    const downloadLink = resultHost.querySelector('[data-media-download-link]');
+    const statusElement = resultHost.querySelector('[data-media-status]');
+    if (audioElement) {
+      audioElement.src = objectUrl;
+      audioElement.classList.remove('hidden');
+    }
+    if (downloadLink) {
+      downloadLink.href = objectUrl;
+      downloadLink.download = `${toolKey === 'media_tone_generator' ? 'tone-generator' : 'white-noise'}.wav`;
+      downloadLink.classList.remove('hidden');
+    }
+    if (statusElement) {
+      statusElement.textContent = `已生成 ${durationSeconds || 0} 秒音频，可直接试听或下载。`;
+    }
+    setMessage(getConversionMessageElement(), '音频已生成。');
   } catch (error) {
     setMessage(getConversionMessageElement(), error.message || '处理失败，请稍后重试。');
   }
@@ -998,6 +1391,8 @@ function collectDevToolOptions(form, toolKey) {
   const inlineStyleNames = form.querySelector('[data-inline-style-names]')?.value || '';
   const cookieDomain = form.querySelector('[data-cookie-domain]')?.value || '';
   const cookiePath = form.querySelector('[data-cookie-path]')?.value || '/';
+  const generateCount = form.querySelector('[data-generate-count]')?.value || '20';
+  const macSeparator = form.querySelector('[data-mac-separator]')?.value ?? ':';
 
   return {
     sourceText,
@@ -1046,6 +1441,8 @@ function collectDevToolOptions(form, toolKey) {
     inlineStyleNames,
     cookieDomain,
     cookiePath,
+    generateCount,
+    macSeparator,
     browserUserAgent: navigator.userAgent || '',
     browserPlatform: navigator.platform || '',
     browserLanguage: navigator.language || '',
@@ -1072,6 +1469,32 @@ function collectDevToolOptions(form, toolKey) {
     uuidCount,
     toolKey
   };
+}
+
+function collectMediaToolOptions(form, toolKey) {
+  if (toolKey === 'media_text_to_speech') {
+    return {
+      sourceText: form.querySelector('[data-media-source-text]')?.value || '',
+      language: form.querySelector('[data-media-language]')?.value || 'zh',
+      outputFormat: form.querySelector('[data-media-output-format]')?.value || 'mp3'
+    };
+  }
+
+  if (toolKey === 'media_audio_clip') {
+    return {
+      startTimeText: form.querySelector('[data-media-start-time]')?.value || '',
+      endTimeText: form.querySelector('[data-media-end-time]')?.value || '',
+      outputFormat: form.querySelector('[data-media-output-format]')?.value || 'mp3'
+    };
+  }
+
+  if (toolKey === 'media_audio_merge') {
+    return {
+      outputFormat: form.querySelector('[data-media-output-format]')?.value || 'mp3'
+    };
+  }
+
+  return {};
 }
 
 function renderDevToolResult(toolKey, result) {
@@ -1192,7 +1615,8 @@ function renderSelectedFileList(form, conversionKey) {
 }
 
 function getSelectedFiles(form, conversionKey) {
-  if (conversionKey === 'merge_pdf') {
+  const toolItem = getBuyerToolByKey(conversionKey);
+  if (conversionKey === 'merge_pdf' || toolItem?.allowMultipleFiles) {
     return selectedFilesByConversionKey.get(conversionKey) || [];
   }
 
@@ -1345,6 +1769,10 @@ function getToolsForCategory(categoryKey) {
     return devToolCatalog;
   }
 
+  if (categoryKey === 'media_tools') {
+    return mediaToolCatalog;
+  }
+
   if (categoryKey === 'image_tools') {
     return conversionCatalog.filter((item) => item.categoryKey === 'image_tools');
   }
@@ -1373,14 +1801,16 @@ function getAllBuyerTools() {
   return [
     ...conversionCatalog.map((item) => ({ ...item, categoryKey: item.categoryKey || 'ppt_tools' })),
     ...textToolCatalog,
-    ...devToolCatalog
+    ...devToolCatalog,
+    ...mediaToolCatalog
   ];
 }
 
 function getBuyerToolByKey(toolKey) {
   return conversionCatalog.find((entry) => entry.key === toolKey) ||
     getTextToolByKey(toolKey) ||
-    getDevToolByKey(toolKey);
+    getDevToolByKey(toolKey) ||
+    getMediaToolByKey(toolKey);
 }
 
 function syncBuyerRouteState() {

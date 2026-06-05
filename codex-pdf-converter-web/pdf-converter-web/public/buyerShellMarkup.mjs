@@ -15,16 +15,15 @@ export function createBuyerShellMarkup(input) {
     <div class="buyer-station-shell">
       <header class="buyer-topbar" data-buyer-topbar>
         <div class="buyer-brand">
-          <div class="buyer-brand-mark" aria-hidden="true">PP</div>
+          <div class="buyer-brand-mark" aria-hidden="true">
+            <img class="brand-mark-icon" src="/brand-mark.svg?v=20260604" alt="" />
+          </div>
           <div class="buyer-brand-copy">
-            <strong>PP 工具站</strong>
-            <span>文件处理与文本处理一站完成</span>
+            <strong>轻舟文件工具站</strong>
+            <span>文件、图像与文本处理一站完成</span>
           </div>
         </div>
         <div class="buyer-topbar-actions">
-          <button class="topbar-pill topbar-pill-active" type="button" data-topbar-home>首页</button>
-          <button class="topbar-pill" type="button" disabled aria-disabled="true">最近</button>
-          <button class="topbar-pill" type="button" disabled aria-disabled="true">收藏</button>
           <button class="buyer-mobile-nav-toggle" type="button" data-mobile-nav-toggle aria-label="打开分类菜单">
             ☰
           </button>

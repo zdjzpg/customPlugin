@@ -46,6 +46,11 @@ test('createBuyerShellMarkup renders UU-style top bar, side navigation, and sear
   assert.match(html, /data-category-icon="text_tools"/);
   assert.match(html, /data-category-icon="dev_tools"/);
   assert.match(html, /<svg/);
+  assert.match(html, /轻舟文件工具站/);
+  assert.doesNotMatch(html, />PP 工具站</);
+  assert.doesNotMatch(html, />首页</);
+  assert.doesNotMatch(html, />最近</);
+  assert.doesNotMatch(html, />收藏</);
 });
 
 test('createBuyerShellMarkup can render the mobile navigation panel in open state', async () => {

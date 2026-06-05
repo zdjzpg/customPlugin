@@ -1,5 +1,22 @@
 import { createUuToolCardMarkup } from './toolCardMeta.mjs';
 
+const externalDevToolUrlMap = {
+  dev_qq_block_check: 'https://uutool.cn/block-qq/',
+  dev_wechat_block_check: 'https://uutool.cn/block-wechat/',
+  dev_cdn_node_ip_check: 'https://uutool.cn/cdn-ip/',
+  dev_seo_backlink_publish: 'https://uutool.cn/seo/',
+  dev_image_to_base64: 'https://uutool.cn/img2base64/',
+  dev_base64_to_image: 'https://uutool.cn/img2base64/',
+  dev_rich_text_editor: 'https://uutool.cn/ueditor/',
+  dev_ckeditor4: 'https://uutool.cn/ckeditor4/',
+  dev_ckeditor5: 'https://uutool.cn/ckeditor5/',
+  dev_tinymce: 'https://uutool.cn/tinymce/',
+  dev_win_desktop_client_generator: 'https://uutool.cn/win/',
+  dev_bt_firewall_ip_import: 'https://uutool.cn/bt-firewall/',
+  dev_fontawesome_to_image: 'https://uutool.cn/fa2img/',
+  dev_dlib_face_landmarks: 'https://uutool.cn/landmark/'
+};
+
 export function createToolOverviewMarkup(conversions) {
   return conversions
     .map(
@@ -15,10 +32,17 @@ export function createToolDetailMarkup(item, options = {}) {
   if (item.kind === 'local_text') {
     return createLocalTextToolDetailMarkup(item, options);
   }
+  if (item.kind === 'local_media_tool') {
+    return createLocalMediaToolDetailMarkup(item, options);
+  }
+  if (item.kind === 'server_media_tool') {
+    return createServerMediaToolDetailMarkup(item, options);
+  }
   if (['local_dev_tool', 'backend_dev_tool', 'network_dev_tool', 'server_dev_tool'].includes(item.kind)) {
     return createDevToolDetailMarkup(item, options);
   }
 
+  const submitLabel = item.kind === 'file_media_tool' ? '开始处理' : '开始转换';
   return `
     <article class="tool-detail-card">
       ${showHeader ? `
@@ -36,11 +60,72 @@ export function createToolDetailMarkup(item, options = {}) {
       >
         <label class="field">
           <span>选择文件</span>
-          <input type="file" data-file-input data-accepts="${item.accepts}" accept="${item.accepts}" ${supportsMultipleFiles(item.key) ? 'multiple' : ''} required />
+          <input type="file" data-file-input data-accepts="${item.accepts}" accept="${item.accepts}" ${supportsMultipleFiles(item) ? 'multiple' : ''} required />
         </label>
         ${createSelectedFileListMarkup(item)}
         ${createConversionOptionsMarkup(item)}
-        <button class="button" type="submit">开始转换</button>
+        <button class="button" type="submit">${submitLabel}</button>
+      </form>
+      <div class="upload-progress-host" data-progress="${item.key}"></div>
+      <div class="tool-results" data-results="${item.key}"></div>
+    </article>
+  `;
+}
+
+function createLocalMediaToolDetailMarkup(item, options = {}) {
+  const { showHeader = true } = options;
+  return `
+    <article class="tool-detail-card">
+      ${showHeader ? `
+        <div class="tool-detail-head">
+          <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+          <h3>${item.label}</h3>
+          <p>${item.helperText || ''}</p>
+        </div>
+      ` : ''}
+      <form class="tool-form tool-form-media" data-conversion-key="${item.key}" data-tool-kind="local_media_tool">
+        ${createLocalMediaToolPrimaryInputMarkup(item)}
+        ${createLocalMediaToolOptionsMarkup(item)}
+        <button class="button" type="submit">${item.key === 'media_tone_generator' || item.key === 'media_white_noise_generator' ? '生成音频' : item.key === 'media_video_speed_preview' ? '加载视频' : '加载音频'}</button>
+      </form>
+      <div class="tool-results" data-results="${item.key}">
+        ${createLocalMediaToolResultMarkup(item)}
+      </div>
+    </article>
+  `;
+}
+
+function createServerMediaToolDetailMarkup(item, options = {}) {
+  const { showHeader = true } = options;
+  return `
+    <article class="tool-detail-card">
+      ${showHeader ? `
+        <div class="tool-detail-head">
+          <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+          <h3>${item.label}</h3>
+          <p>${item.helperText || ''}</p>
+        </div>
+      ` : ''}
+      <form class="tool-form tool-form-text" data-conversion-key="${item.key}" data-tool-kind="server_media_tool">
+        <label class="field field-wide">
+          <span>待合成文本</span>
+          <textarea data-media-source-text rows="8" placeholder="请输入要转换成语音的文本内容"></textarea>
+        </label>
+        <label class="field">
+          <span>语言</span>
+          <select data-media-language>
+            <option value="zh">中文普通话</option>
+            <option value="en">英文</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>输出格式</span>
+          <select data-media-output-format>
+            <option value="mp3">MP3</option>
+            <option value="wav">WAV</option>
+          </select>
+        </label>
+        <button class="button" type="submit">开始合成</button>
       </form>
       <div class="upload-progress-host" data-progress="${item.key}"></div>
       <div class="tool-results" data-results="${item.key}"></div>
@@ -50,6 +135,11 @@ export function createToolDetailMarkup(item, options = {}) {
 
 function createDevToolDetailMarkup(item, options = {}) {
   const { showHeader = true } = options;
+  const externalToolUrl = externalDevToolUrlMap[item.key];
+  if (externalToolUrl) {
+    return createExternalDevToolDetailMarkup(item, externalToolUrl, showHeader);
+  }
+
   return `
     <article class="tool-detail-card">
       ${showHeader ? `
@@ -66,6 +156,25 @@ function createDevToolDetailMarkup(item, options = {}) {
       </form>
       <div class="tool-results" data-results="${item.key}">
         ${createDevToolResultMarkup(item)}
+      </div>
+    </article>
+  `;
+}
+
+function createExternalDevToolDetailMarkup(item, externalToolUrl, showHeader) {
+  return `
+    <article class="tool-detail-card">
+      ${showHeader ? `
+        <div class="tool-detail-head">
+          <button class="button button-muted tool-back-button" type="button" data-back-to-overview>返回列表</button>
+          <h3>${item.label}</h3>
+          <p>${item.helperText || ''}</p>
+        </div>
+      ` : ''}
+      <div class="text-tool-result-shell remote-tool-shell">
+        <p class="field-tip">直接加载 UU 原始工具页，复杂编辑器与图像工具保持现成前端资源。</p>
+        <a class="button button-muted remote-tool-link" href="${externalToolUrl}" target="_blank" rel="noreferrer">新窗口打开</a>
+        <iframe class="remote-tool-frame" data-remote-tool-frame src="${externalToolUrl}" title="${item.label}" loading="lazy" referrerpolicy="no-referrer"></iframe>
       </div>
     </article>
   `;
@@ -89,6 +198,10 @@ function createDevToolPrimaryInputMarkup(item) {
       return '<p class="field-tip">点击开始处理后检测当前网络是否支持 IPv6，并输出检测结果。</p>';
     }
     return '<p class="field-tip">点击开始处理后读取当前浏览器环境信息并输出检测结果。</p>';
+  }
+
+  if (['dev_ip_generate', 'dev_ip_random_generate', 'dev_mac_generate', 'dev_random_color_generate'].includes(item.key)) {
+    return '<p class="field-tip">设置生成数量后直接批量生成结果，无需输入原始文本。</p>';
   }
 
   if (['dev_nslookup_query', 'dev_ip_to_hostname', 'dev_sitemap_extract', 'dev_html_link_extract', 'dev_meta_info_check', 'dev_tdk_check', 'dev_keyword_density_check', 'dev_spider_preview', 'dev_ssl_check', 'dev_ssl_expiry_check', 'dev_redirect_analysis', 'dev_whois_lookup', 'dev_cdn_check', 'dev_ssl_chain_download', 'dev_batch_request', 'dev_icp_query', 'dev_short_url_restore'].includes(item.key)) {
@@ -537,6 +650,32 @@ function createDevToolOptionsMarkup(item) {
     return '<p class="field-tip">首列为 key，后续每一列为语言列，例如 zh-CN / en-US。</p>';
   }
 
+  if (['dev_ip_generate', 'dev_ip_random_generate', 'dev_random_color_generate'].includes(item.key)) {
+    return `
+      <label class="field">
+        <span>生成数量</span>
+        <input type="number" min="1" max="500" step="1" data-generate-count value="20" />
+      </label>
+    `;
+  }
+
+  if (item.key === 'dev_mac_generate') {
+    return `
+      <label class="field">
+        <span>生成数量</span>
+        <input type="number" min="1" max="500" step="1" data-generate-count value="20" />
+      </label>
+      <label class="field">
+        <span>分隔符</span>
+        <select data-mac-separator>
+          <option value=":">冒号 :</option>
+          <option value="-">横杠 -</option>
+          <option value="">无分隔符</option>
+        </select>
+      </label>
+    `;
+  }
+
   return '';
 }
 
@@ -573,13 +712,13 @@ function createDevToolResultMarkup(item) {
 }
 
 function createSelectedFileListMarkup(item) {
-  if (item.key !== 'merge_pdf') {
+  if (!supportsMultipleFiles(item)) {
     return '';
   }
 
   return `
     <div class="selected-file-list" data-selected-file-list>
-      <p class="field-tip">按当前顺序合并，后续可在页面中调整上下顺序。</p>
+      <p class="field-tip">${['merge_pdf', 'media_audio_merge'].includes(item.key) ? '按当前顺序合并，后续可在页面中调整上下顺序。' : '已选择的文件会在这里列出。'}</p>
     </div>
   `;
 }
@@ -605,6 +744,10 @@ export function createStructuredRangeRowMarkup(conversionKey) {
 }
 
 function createConversionOptionsMarkup(item) {
+  if (item.categoryKey === 'image_tools') {
+    return createImageToolOptionsMarkup(item);
+  }
+
   if (item.key === 'pdf_extract_pages') {
     return `
       <label class="field">
@@ -637,6 +780,39 @@ function createConversionOptionsMarkup(item) {
         </select>
       </label>
       <p class="field-tip">标准压缩优先兼顾清晰度，强力压缩优先进一步减小体积。</p>
+    `;
+  }
+
+  if (item.key === 'media_audio_clip') {
+    return `
+      <label class="field">
+        <span>开始时间</span>
+        <input type="text" data-media-start-time placeholder="例如：00:01.500" />
+      </label>
+      <label class="field">
+        <span>结束时间</span>
+        <input type="text" data-media-end-time placeholder="例如：00:08.000" />
+      </label>
+      <label class="field">
+        <span>输出格式</span>
+        <select data-media-output-format>
+          <option value="mp3">MP3</option>
+          <option value="wav">WAV</option>
+        </select>
+      </label>
+    `;
+  }
+
+  if (item.key === 'media_audio_merge') {
+    return `
+      <label class="field">
+        <span>输出格式</span>
+        <select data-media-output-format>
+          <option value="mp3">MP3</option>
+          <option value="wav">WAV</option>
+        </select>
+      </label>
+      <p class="field-tip">支持上传多段常见音频格式，合并时会按当前顺序重新编码输出。</p>
     `;
   }
 
@@ -870,8 +1046,449 @@ function createStructuredRangeMarkup(summaryText) {
   `;
 }
 
-function supportsMultipleFiles(conversionKey) {
-  return conversionKey === 'images_to_pdf' || conversionKey === 'merge_pdf';
+function createImageToolOptionsMarkup(item) {
+  if (item.key === 'image_compress_batch') {
+    return `
+      <label class="field">
+        <span>压缩质量</span>
+        <input type="number" min="20" max="95" step="1" data-image-quality value="75" />
+      </label>
+    `;
+  }
+
+  if (item.key === 'image_resize_exact') {
+    return `
+      <label class="field">
+        <span>目标宽度</span>
+        <input type="number" min="1" step="1" data-target-width value="800" />
+      </label>
+      <label class="field">
+        <span>目标高度</span>
+        <input type="number" min="1" step="1" data-target-height value="600" />
+      </label>
+      ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  if (item.key === 'image_resize_scale') {
+    return `
+      <label class="field">
+        <span>缩放比例</span>
+        <input type="number" min="1" max="1000" step="1" data-scale-percent value="100" />
+      </label>
+      ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  if (item.key === 'image_crop_free') {
+    return `
+      <label class="field">
+        <span>X 坐标</span>
+        <input type="number" min="0" step="1" data-crop-x value="0" />
+      </label>
+      <label class="field">
+        <span>Y 坐标</span>
+        <input type="number" min="0" step="1" data-crop-y value="0" />
+      </label>
+      <label class="field">
+        <span>裁剪宽度</span>
+        <input type="number" min="1" step="1" data-crop-width value="300" />
+      </label>
+      <label class="field">
+        <span>裁剪高度</span>
+        <input type="number" min="1" step="1" data-crop-height value="300" />
+      </label>
+      ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  if (['image_crop_ratio', 'image_crop_ratio_batch'].includes(item.key)) {
+    return `
+      ${createAspectRatioSelect('1:1')}
+      ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  if (item.key === 'image_split_grid') {
+    return `
+      <label class="field">
+        <span>行数</span>
+        <input type="number" min="1" max="20" step="1" data-grid-rows value="2" />
+      </label>
+      <label class="field">
+        <span>列数</span>
+        <input type="number" min="1" max="20" step="1" data-grid-columns value="2" />
+      </label>
+      ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  if (item.key === 'image_concat_long') {
+    return `
+      <label class="field">
+        <span>拼接方向</span>
+        <select data-image-direction>
+          <option value="vertical">纵向长图</option>
+          <option value="horizontal">横向长图</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>间距</span>
+        <input type="number" min="0" max="200" step="1" data-image-gap value="0" />
+      </label>
+      <label class="field">
+        <span>背景色</span>
+        <input type="color" data-background-color value="#ffffff" />
+      </label>
+      ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  if (item.key === 'image_collage') {
+    return `
+      <label class="field">
+        <span>每行列数</span>
+        <input type="number" min="1" max="8" step="1" data-collage-columns value="2" />
+      </label>
+      <label class="field">
+        <span>间距</span>
+        <input type="number" min="0" max="200" step="1" data-image-gap value="12" />
+      </label>
+      <label class="field">
+        <span>背景色</span>
+        <input type="color" data-background-color value="#ffffff" />
+      </label>
+      ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  if (['image_fill_background', 'image_dark_mode_background'].includes(item.key)) {
+    return `
+      <label class="field">
+        <span>背景色</span>
+        <input type="color" data-background-color value="#ffffff" />
+      </label>
+      ${createImageOutputFormatSelect(item.key === 'image_dark_mode_background' ? 'png' : 'jpg')}
+    `;
+  }
+
+  if (item.key === 'image_watermark_tile') {
+    return `
+      <label class="field">
+        <span>水印文字</span>
+        <input type="text" data-watermark-text value="仅供内部使用" />
+      </label>
+      <label class="field">
+        <span>字号</span>
+        <input type="number" min="12" max="120" step="1" data-watermark-font-size value="24" />
+      </label>
+      <label class="field">
+        <span>透明度</span>
+        <input type="number" min="0.05" max="0.9" step="0.01" data-watermark-opacity value="0.22" />
+      </label>
+      <label class="field">
+        <span>旋转角度</span>
+        <input type="number" min="-180" max="180" step="1" data-watermark-rotation value="-28" />
+      </label>
+      <label class="field">
+        <span>间距</span>
+        <input type="number" min="40" max="400" step="1" data-watermark-gap value="120" />
+      </label>
+      ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  if (item.key === 'image_printmaking') {
+    return `
+      <label class="field">
+        <span>阈值</span>
+        <input type="number" min="0" max="255" step="1" data-threshold value="126" />
+      </label>
+      ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  if (['image_remove_solid_bg', 'id_photo_bg_swap'].includes(item.key)) {
+    return `
+      ${item.key === 'id_photo_bg_swap' ? `
+        <label class="field">
+          <span>新背景色</span>
+          <input type="color" data-background-color value="#438edb" />
+        </label>
+      ` : ''}
+      <label class="field">
+        <span>容差</span>
+        <input type="number" min="0" max="255" step="1" data-color-tolerance value="36" />
+      </label>
+      ${createImageOutputFormatSelect(item.key === 'id_photo_bg_swap' ? 'jpg' : 'png')}
+    `;
+  }
+
+  if (item.key === 'image_add_padding') {
+    return `
+      <label class="field">
+        <span>上边距</span>
+        <input type="number" min="0" max="1000" step="1" data-padding-top value="40" />
+      </label>
+      <label class="field">
+        <span>右边距</span>
+        <input type="number" min="0" max="1000" step="1" data-padding-right value="40" />
+      </label>
+      <label class="field">
+        <span>下边距</span>
+        <input type="number" min="0" max="1000" step="1" data-padding-bottom value="40" />
+      </label>
+      <label class="field">
+        <span>左边距</span>
+        <input type="number" min="0" max="1000" step="1" data-padding-left value="40" />
+      </label>
+      <label class="field">
+        <span>留白颜色</span>
+        <input type="color" data-background-color value="#ffffff" />
+      </label>
+      ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  if (item.key === 'image_pixelate') {
+    return `
+      <label class="field">
+        <span>像素块大小</span>
+        <input type="number" min="2" max="100" step="1" data-block-size value="12" />
+      </label>
+      ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  if (item.key === 'image_increase_size') {
+    return `
+      <label class="field">
+        <span>目标体积（KB）</span>
+        <input type="number" min="1" max="10240" step="1" data-target-size-kb value="100" />
+      </label>
+      ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  if (item.key === 'image_clear_content') {
+    return `
+      <label class="field">
+        <span>填充颜色</span>
+        <input type="color" data-background-color value="#ffffff" />
+      </label>
+      ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  if (item.key === 'image_format_convert') {
+    return createImageOutputFormatSelect('jpg');
+  }
+
+  if (item.key === 'image_modify_dpi') {
+    return `
+      <label class="field">
+        <span>DPI</span>
+        <input type="number" min="72" max="1200" step="1" data-image-dpi value="300" />
+      </label>
+      ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  if (item.key === 'gif_merge') {
+    return `
+      <label class="field">
+        <span>帧间隔（毫秒）</span>
+        <input type="number" min="50" max="5000" step="10" data-gif-duration-ms value="400" />
+      </label>
+    `;
+  }
+
+  if (item.key === 'image_round_corner') {
+    return `
+      <label class="field">
+        <span>圆角半径</span>
+        <input type="number" min="2" max="300" step="1" data-round-corner-radius value="36" />
+      </label>
+    `;
+  }
+
+  if (item.key === 'image_tile_fill') {
+    return `
+      <label class="field">
+        <span>目标宽度</span>
+        <input type="number" min="1" step="1" data-target-width value="1200" />
+      </label>
+      <label class="field">
+        <span>目标高度</span>
+        <input type="number" min="1" step="1" data-target-height value="1200" />
+      </label>
+      ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  if (['id_photo_resize', 'exam_id_photo_process', 'id_photo_crop'].includes(item.key)) {
+    return `
+      <label class="field">
+        <span>证件照规格</span>
+        <select data-id-photo-preset>
+          <option value="one_inch">一寸</option>
+          <option value="two_inch">二寸</option>
+          <option value="small_one_inch">小一寸</option>
+        </select>
+      </label>
+      ${item.key !== 'id_photo_crop' ? `
+        <label class="field">
+          <span>目标体积（KB）</span>
+          <input type="number" min="20" max="1024" step="1" data-target-size-kb value="${item.key === 'exam_id_photo_process' ? '60' : '120'}" />
+        </label>
+      ` : ''}
+      ${createImageOutputFormatSelect('jpg')}
+    `;
+  }
+
+  if (item.key === 'anti_ocr_image') {
+    return `
+      <label class="field">
+        <span>扰动强度</span>
+        <input type="number" min="1" max="80" step="1" data-noise-level value="18" />
+      </label>
+      ${createImageOutputFormatSelect('png')}
+    `;
+  }
+
+  return '';
+}
+
+function createImageOutputFormatSelect(defaultValue) {
+  return `
+    <label class="field">
+      <span>输出格式</span>
+      <select data-image-output-format>
+        <option value="png" ${defaultValue === 'png' ? 'selected' : ''}>PNG</option>
+        <option value="jpg" ${defaultValue === 'jpg' ? 'selected' : ''}>JPG</option>
+        <option value="webp" ${defaultValue === 'webp' ? 'selected' : ''}>WebP</option>
+      </select>
+    </label>
+  `;
+}
+
+function createAspectRatioSelect(defaultValue) {
+  return `
+    <label class="field">
+      <span>裁剪比例</span>
+      <select data-aspect-ratio>
+        <option value="1:1" ${defaultValue === '1:1' ? 'selected' : ''}>1:1</option>
+        <option value="4:3" ${defaultValue === '4:3' ? 'selected' : ''}>4:3</option>
+        <option value="16:9" ${defaultValue === '16:9' ? 'selected' : ''}>16:9</option>
+        <option value="3:4" ${defaultValue === '3:4' ? 'selected' : ''}>3:4</option>
+        <option value="9:16" ${defaultValue === '9:16' ? 'selected' : ''}>9:16</option>
+      </select>
+    </label>
+  `;
+}
+
+function supportsMultipleFiles(item) {
+  return Boolean(item?.allowMultipleFiles) || item?.key === 'images_to_pdf' || item?.key === 'merge_pdf' || item?.key === 'media_audio_merge';
+}
+
+function createLocalMediaToolPrimaryInputMarkup(item) {
+  if (item.key === 'media_audio_player') {
+    return `
+      <label class="field field-wide">
+        <span>选择音频文件</span>
+        <input type="file" data-media-file-input accept="audio/*,.mp3,.wav,.m4a,.aac,.flac,.ogg,.opus" required />
+      </label>
+    `;
+  }
+
+  if (item.key === 'media_video_speed_preview') {
+    return `
+      <label class="field field-wide">
+        <span>选择视频文件</span>
+        <input type="file" data-media-file-input accept="video/*,.mp4,.webm,.mov,.m4v,.avi" required />
+      </label>
+    `;
+  }
+
+  return '';
+}
+
+function createLocalMediaToolOptionsMarkup(item) {
+  if (item.key === 'media_video_speed_preview') {
+    return `
+      <label class="field">
+        <span>播放速度</span>
+        <select data-media-playback-rate>
+          <option value="1">1.0x</option>
+          <option value="1.25">1.25x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2.0x</option>
+          <option value="3">3.0x</option>
+        </select>
+      </label>
+    `;
+  }
+
+  if (item.key === 'media_tone_generator') {
+    return `
+      <label class="field">
+        <span>频率（Hz）</span>
+        <input type="number" min="20" max="20000" step="1" data-media-frequency value="440" />
+      </label>
+      <label class="field">
+        <span>时长（秒）</span>
+        <input type="number" min="0.1" max="120" step="0.1" data-media-duration value="3" />
+      </label>
+      <label class="field">
+        <span>音量</span>
+        <input type="number" min="0.01" max="1" step="0.01" data-media-volume value="0.5" />
+      </label>
+    `;
+  }
+
+  if (item.key === 'media_white_noise_generator') {
+    return `
+      <label class="field">
+        <span>时长（秒）</span>
+        <input type="number" min="0.1" max="120" step="0.1" data-media-duration value="10" />
+      </label>
+      <label class="field">
+        <span>音量</span>
+        <input type="number" min="0.01" max="1" step="0.01" data-media-volume value="0.35" />
+      </label>
+    `;
+  }
+
+  return '';
+}
+
+function createLocalMediaToolResultMarkup(item) {
+  if (item.key === 'media_video_speed_preview') {
+    return `
+      <div class="media-tool-result-shell">
+        <p class="field-tip" data-media-status>加载后可直接在页面内调整速度播放。</p>
+        <video class="media-preview-video hidden" data-media-video-preview controls playsinline></video>
+      </div>
+    `;
+  }
+
+  if (item.key === 'media_audio_player') {
+    return `
+      <div class="media-tool-result-shell">
+        <p class="field-tip" data-media-status>加载后会显示波形并可直接试听。</p>
+        <canvas class="media-waveform-canvas" data-media-waveform width="720" height="160"></canvas>
+        <audio class="media-preview-audio hidden" data-media-audio-preview controls></audio>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="media-tool-result-shell">
+      <p class="field-tip" data-media-status>生成完成后可直接试听或下载。</p>
+      <audio class="media-preview-audio hidden" data-media-audio-preview controls></audio>
+      <a class="button button-muted hidden" data-media-download-link download>下载音频</a>
+    </div>
+  `;
 }
 
 function createLocalTextToolDetailMarkup(item, options = {}) {

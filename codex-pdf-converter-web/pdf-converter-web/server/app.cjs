@@ -12,6 +12,7 @@ function createApp(dependencies) {
     conversionRepository,
     conversionService,
     devToolsService,
+    mediaToolsService,
     usageStatsRepository,
     jsonLimit = '50mb',
     uploadTempDirectory = path.join(__dirname, '..', 'data', 'upload-temp')
@@ -309,6 +310,54 @@ function createApp(dependencies) {
     }
   });
 
+  app.post('/api/media-tools/run', upload.any(), async (request, response) => {
+    const session = readAuthorizedSession(request, sessionRepository, 'buyer');
+    if (!session) {
+      cleanupUploadedFiles(request.files);
+      response.status(401).json({
+        ok: false,
+        reason: 'UNAUTHORIZED'
+      });
+      return;
+    }
+
+    const input = normalizeMediaToolRequest(request);
+    if (!isValidMediaToolRequest(input)) {
+      cleanupUploadedFiles(request.files);
+      response.status(400).json({
+        ok: false,
+        reason: 'INVALID_MEDIA_TOOL_REQUEST'
+      });
+      return;
+    }
+
+    try {
+      usageStatsRepository?.recordConversionStart({
+        codeId: session.codeId || null,
+        codeValue: session.codeValue || null,
+        conversionKey: input.toolKey
+      });
+
+      const result = await mediaToolsService.runTool({
+        session,
+        toolKey: input.toolKey,
+        toolOptions: input.toolOptions,
+        files: input.files
+      });
+
+      response.json({
+        ok: true,
+        result
+      });
+    } catch (error) {
+      response.status(error.statusCode || 500).json({
+        ok: false,
+        reason: error.reason || 'MEDIA_TOOL_RUN_FAILED',
+        message: error.message
+      });
+    }
+  });
+
   app.get('/admin', (_request, response) => {
     response.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
   });
@@ -518,6 +567,28 @@ function normalizeDevToolRequest(body) {
   };
 }
 
+function normalizeMediaToolRequest(input) {
+  const request = input;
+  const normalizedToolOptions = normalizeConversionOptions(request.body?.toolOptions);
+
+  return {
+    toolKey: typeof request.body?.toolKey === 'string' ? request.body.toolKey.trim() : '',
+    toolOptions: normalizedToolOptions.value,
+    toolOptionsInvalid: normalizedToolOptions.invalid,
+    files: Array.isArray(request.files) && request.files.length > 0
+      ? request.files.map((file) => ({
+          fileName:
+            typeof file?.originalname === 'string'
+              ? decodeMultipartFileName(file.originalname).trim()
+              : '',
+          fieldName: typeof file?.fieldname === 'string' ? file.fieldname : 'files',
+          tempPath: file.path,
+          sizeBytes: file.size
+        }))
+      : []
+  };
+}
+
 function isValidConversionRequest(input) {
   if (input.conversionOptionsInvalid) {
     return false;
@@ -532,6 +603,14 @@ function isValidConversionRequest(input) {
 
 function isValidDevToolRequest(input) {
   return Boolean(input.toolKey) &&
+    Boolean(input.toolOptions) &&
+    typeof input.toolOptions === 'object' &&
+    !Array.isArray(input.toolOptions);
+}
+
+function isValidMediaToolRequest(input) {
+  return Boolean(input.toolKey) &&
+    !input.toolOptionsInvalid &&
     Boolean(input.toolOptions) &&
     typeof input.toolOptions === 'object' &&
     !Array.isArray(input.toolOptions);

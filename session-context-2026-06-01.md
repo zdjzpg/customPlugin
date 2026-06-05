@@ -992,3 +992,463 @@ Post-update verification should additionally confirm:
 1. 做 `ICP备案查询 / 批量查询 / 备案反查`
 2. 做 `Nslookup / IP反查主机名 / 死链检测`
 3. 做 `JSON/CSV/PHP/JS 对象互转` 与 `RSA / 代码美化压缩`
+
+## 2026-06-04 图像工具类目与浏览器回归更新
+
+### 新买家端类目已完成
+
+产品现在已经新增第四个一级类目：
+
+- `图像工具`
+
+当前 buyer 首页类目现状：
+
+- `PPT 工具`
+- `文本工具`
+- `编程工具`
+- `图像工具`
+
+当前搜索现状：
+
+- 全站搜索同时覆盖以上四个类目
+
+### 当前已完成并接入 buyer 端的图像工具
+
+当前已完成并接入 buyer 端的图像工具包括：
+
+- 图片批量压缩
+- 图片宽高修改
+- 图片尺寸修改
+- 图片裁剪
+- 图片固定比例裁剪
+- 图片固定比例批量裁剪
+- 图片平均切割
+- 图片拼长图
+- 多图合并拼图
+- PNG 加背景
+- 暗黑模式适配
+- 图片水印平铺
+- 图片去色
+- 图片反相
+- 黑白版画
+- 浮雕画制作
+- 单色抠图
+- favicon 制作
+- 多尺寸图标生成
+- chrome 插件图标生成
+- 图片留白
+- 图片像素化马赛克
+- 增加图像体积
+- 图像内容清除
+- 图片格式转换
+- excel 图片提取
+- PPT 图片提取
+- 图片 300dpi 修改
+- GIF 拆分
+- GIF 合成
+- png 反向抠图
+- 圆角图片制作
+- 图片平铺填充
+- 证件照改大小
+- 报名证件照处理
+- 证件照剪切
+- 证件照换底色
+- 防识别图像转换
+
+### 当前 buyer 端图像工具接入规则
+
+当前规则：
+
+- 图像工具复用现有 `/api/conversions/catalog`
+- 图像工具复用现有 `/api/conversions/run`
+- 图像工具通过 `categoryKey = image_tools` 接入买家端
+- 类目内工具卡直接平铺，不做二级分组
+
+### 当前未进 buyer 端 UI 的图像页条目
+
+这类工具本轮没有显示在买家端，只记录在设计 / 待办文档中：
+
+- 网站图标读取下载
+- 图片下载
+- 图像链接批量下载
+- 图片列表显示
+- QQ 头像获取
+- QQ 头像墙
+- 公众号二维码获取
+- 百度百科图片去水印
+- 网页截屏 pdf 转换
+- 微信公众号文章 pdf 制作
+- 二维码生成 / 批量二维码 / 解码 / 提取
+- 条形码生成
+- svg 预览与 svg 转 png/jpg/webp/base64
+- heic 图片预览
+- 其它需要外站抓取、额外渲染依赖或独立交互设计的长尾图像工具
+
+当前登记文档：
+
+- `D:\aa-workplace\customPlugin\codex-pdf-converter-web\pdf-converter-web\docs\superpowers\specs\2026-06-04-image-tools-program-design.md`
+
+### 当前首页文案更新
+
+当前 homepage hero copy 已同步调整为：
+
+- `文件、图像与文本处理一站完成`
+
+### 当前自动化与真实页面验证状态
+
+图像工具接入后，自动化与真实页面自测都已继续补齐。
+
+当前全量自动化状态：
+
+- Node 全量测试通过
+- latest count at completion time:
+  - `338/338`
+
+当前真实页面自测已覆盖：
+
+- buyer 登录
+- 首页 `图像工具` 一级类目显示
+- 进入 `图像工具` 列表
+- 搜索命中 `图片宽高修改`
+- `图片宽高修改`
+  - 上传 PNG
+  - 转成 `320 x 180`
+  - 下载结果校验
+- `图片格式转换`
+  - PNG 转 JPG
+  - 下载结果校验
+- `GIF 合成`
+  - 两张 PNG 合成 GIF
+  - 下载结果校验为 `2 帧`
+- `图片批量压缩`
+  - 两张图片压缩
+  - 下载 ZIP
+  - ZIP 内容校验
+- `favicon 制作`
+  - 透明 PNG 转 ICO
+  - 下载结果校验
+
+### 当前本地浏览器测试证据目录
+
+当前浏览器回归临时目录在：
+
+- `D:\temp\codex-image-tools-browser-20260604`
+
+其中包含：
+
+- `downloads`
+- `screenshots`
+
+### Server update note for this round
+
+This round is a mixed change.
+
+It requires:
+
+- buyer frontend category / detail UI update
+- backend catalog exposure update
+- Python conversion command update
+
+Current update classification for this round:
+
+- `mixed change`
+
+Current server-side dependency note for this round:
+
+- no new Node dependency was added in this round
+- no new Python third-party package was added in this round
+- default assumption:
+  - server already has the existing project dependency `Pillow`
+
+Recommended server command after upload:
+
+```bash
+cd /home/admin/pdf-converter-web
+npm install --omit=dev --registry=https://registry.npmmirror.com --no-audit --fund=false
+pm2 restart ecosystem.config.cjs --only pdf-converter-web --update-env
+curl http://127.0.0.1:3015/api/health
+curl http://127.0.0.1:3015/api/conversions/catalog
+```
+
+Post-update verification should additionally confirm:
+
+- buyer left nav shows:
+  - `图像工具`
+- `/api/conversions/catalog` contains multiple entries with:
+  - `categoryKey = image_tools`
+- buyer search can find:
+  - `图片宽高修改`
+  - `图片格式转换`
+  - `GIF 合成`
+  - `favicon 制作`
+- at least these image tools work online:
+  - `图片宽高修改`
+  - `图片格式转换`
+  - `GIF 合成`
+  - `图片批量压缩`
+  - `favicon 制作`
+
+## 2026-06-04 音视频工具类目与浏览器回归更新
+
+### 新买家端类目已完成
+
+产品现在已经新增第五个一级类目：
+
+- `音视频工具`
+
+当前 buyer 首页类目现状：
+
+- `PPT 工具`
+- `文本工具`
+- `编程工具`
+- `图像工具`
+- `音视频工具`
+
+当前搜索现状：
+
+- 全站搜索同时覆盖以上五个类目
+
+### 当前已完成并接入 buyer 端的音视频工具
+
+当前已完成并接入 buyer 端的音视频工具包括：
+
+- 文字转语音
+- 音频剪切
+- 音频合并
+- 音频试听播放
+- 视频加速播放
+- 特定频率音频生成
+- 白噪音生成器
+
+### 当前 buyer 端音视频工具接入规则
+
+当前规则：
+
+- 音视频工具不复用 `/api/conversions/catalog`
+- 当前接入分成两类：
+  - 本地浏览器工具
+  - `/api/media-tools/run` 后端工具
+- 当前后端工具包括：
+  - `文字转语音`
+  - `音频剪切`
+  - `音频合并`
+- 当前本地浏览器工具包括：
+  - `音频试听播放`
+  - `视频加速播放`
+  - `特定频率音频生成`
+  - `白噪音生成器`
+- 音视频工具通过独立类目 `media_tools` 接入买家端
+- 类目内工具卡直接平铺，不做二级分组
+- 每个 `media_*` 工具键都必须显式配置：
+  - UU 风格图标
+  - UU 风格淡彩卡片背景
+- 不允许让音视频卡片落回默认：
+  - `fa-wrench`
+  - `style6`
+
+### 当前音视频工具首版能力边界
+
+- `文字转语音`
+  - 当前首版仅支持：
+    - `中文普通话`
+    - `英文`
+  - 当前输出格式：
+    - `mp3`
+    - `wav`
+- `音频剪切`
+  - 当前支持上传单个音频文件
+  - 按开始时间 / 结束时间截取
+  - 当前输出格式：
+    - `mp3`
+    - `wav`
+- `音频合并`
+  - 当前支持多文件上传
+  - 按当前页面顺序合并
+  - 当前输出格式：
+    - `mp3`
+    - `wav`
+- `音频试听播放`
+  - 当前为本地浏览器加载
+  - 生成简易波形并直接试听
+- `视频加速播放`
+  - 当前为本地浏览器加载
+  - 支持直接设置播放速度预览
+- `特定频率音频生成`
+  - 当前为本地浏览器生成 WAV
+- `白噪音生成器`
+  - 当前为本地浏览器生成 WAV
+
+### 当前自动化与真实页面验证状态
+
+音视频工具接入后，自动化与真实页面自测都已继续补齐。
+
+当前全量自动化状态：
+
+- Node 全量测试通过
+- latest count at completion time:
+  - `338/338`
+
+当前真实页面自测已覆盖：
+
+- buyer 登录
+- 首页 `音视频工具` 一级类目显示
+- 进入 `音视频工具` 列表
+- `文字转语音`
+  - 提交成功
+  - 结果卡出现
+  - 下载 `text-to-speech.mp3`
+- `音频剪切`
+  - 上传 `tone-a.mp3`
+  - 按 `00:01.000` 到 `00:03.500` 截取
+  - 结果卡出现
+- `音频合并`
+  - 两段音频上传并按顺序合并
+  - 结果卡出现
+- `音频试听播放`
+  - 本地加载 `preview.wav`
+  - 波形显示
+  - 音频可直接试听
+- `视频加速播放`
+  - 本地加载 `preview.mp4`
+  - `2x` 播放速度生效
+- `特定频率音频生成`
+  - 生成本地 WAV
+  - 试听与下载按钮出现
+- `白噪音生成器`
+  - 生成本地 WAV
+  - 试听与下载按钮出现
+
+### 当前本地浏览器测试证据目录
+
+当前浏览器回归临时目录在：
+
+- `D:\temp\media-tools-browser-test-20260604`
+
+其中包含：
+
+- `downloads`
+- `screenshots`
+
+关键截图包括：
+
+- `media_category.png`
+- `text_to_speech.png`
+- `audio_clip.png`
+- `audio_merge.png`
+- `tts-check-3015.png`
+
+### Server update note for this round
+
+This round is a mixed change.
+
+It requires:
+
+- buyer frontend category / detail UI update
+- backend media route update
+- Python runtime dependency update
+- system dependency update
+
+Current update classification for this round:
+
+- `mixed change`
+
+Current server-side dependency note for this round:
+
+- no new Node dependency was added in this round
+- new Python third-party package required:
+  - `edge-tts`
+- new system dependency required:
+  - `ffmpeg`
+
+Recommended server command after upload:
+
+```bash
+cd /home/admin/pdf-converter-web
+npm install --omit=dev --registry=https://registry.npmmirror.com --no-audit --fund=false
+sudo apt update
+sudo apt install -y ffmpeg
+sudo python3 -m pip install edge-tts
+pm2 restart ecosystem.config.cjs --only pdf-converter-web --update-env
+curl http://127.0.0.1:3015/api/health
+```
+
+If the server also needs the broader newer PDF runtime set, the combined command can still be:
+
+```bash
+cd /home/admin/pdf-converter-web
+sudo apt update
+sudo apt install -y ffmpeg ghostscript tesseract-ocr tesseract-ocr-chi-sim tesseract-ocr-eng
+sudo python3 -m pip install pypdf pdf2docx pymupdf python-pptx ocrmypdf edge-tts
+pm2 restart ecosystem.config.cjs --only pdf-converter-web --update-env
+```
+
+Post-update verification should additionally confirm:
+
+- buyer left nav shows:
+  - `音视频工具`
+- buyer can enter `音视频工具` list
+- buyer search can find:
+  - `文字转语音`
+  - `音频剪切`
+  - `音频合并`
+- `文字转语音` works online
+- `音频剪切` works online
+- `音频合并` works online
+- local browser tools still render correctly online:
+  - `音频试听播放`
+  - `视频加速播放`
+  - `特定频率音频生成`
+  - `白噪音生成器`
+- media cards do not fall back to:
+  - default wrench icon
+  - default gray card palette
+
+### Combined server update note for this release
+
+- `编程工具`
+- `图像工具`
+- `音视频工具`
+
+Recommended combined server command:
+
+```bash
+cd /home/admin/pdf-converter-web
+npm install --omit=dev --registry=https://registry.npmmirror.com --no-audit --fund=false
+sudo apt update
+sudo apt install -y ffmpeg
+sudo python3 -m pip install edge-tts
+pm2 restart ecosystem.config.cjs --only pdf-converter-web --update-env
+curl http://127.0.0.1:3015/api/health
+curl http://127.0.0.1:3015/api/conversions/catalog
+```
+
+Dependency note:
+
+- `编程工具`：本轮不需要额外依赖
+- `图像工具`：本轮不新增依赖，默认服务器已有 `Pillow`
+- `音视频工具`：需要 `edge-tts` 和 `ffmpeg`
+
+If the server also lacks the newer PDF runtime set, use:
+
+```bash
+cd /home/admin/pdf-converter-web
+npm install --omit=dev --registry=https://registry.npmmirror.com --no-audit --fund=false
+sudo apt update
+sudo apt install -y ffmpeg ghostscript tesseract-ocr tesseract-ocr-chi-sim tesseract-ocr-eng
+sudo python3 -m pip install pypdf pdf2docx pymupdf python-pptx ocrmypdf edge-tts
+pm2 restart ecosystem.config.cjs --only pdf-converter-web --update-env
+curl http://127.0.0.1:3015/api/health
+curl http://127.0.0.1:3015/api/conversions/catalog
+```
+
+Minimum online checks:
+
+- 左侧类目有 `编程工具 / 图像工具 / 音视频工具`
+- 搜索能找到 `Base64 加解密 / 图片宽高修改 / 文字转语音`
+- 线上抽测通过：
+  - `网站 SSL 证书检测`
+  - `图片格式转换`
+  - `GIF 合成`
+  - `文字转语音`
+  - `音频剪切`
+  - `音频合并`

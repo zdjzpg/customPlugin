@@ -7,6 +7,8 @@ import asyncio
 import subprocess
 import tempfile
 import zipfile
+import math
+import random
 from io import BytesIO
 from pathlib import Path
 from xml.etree import ElementTree
@@ -16,7 +18,7 @@ from docx import Document
 from pdf2docx import Converter as PdfToDocxConverter
 from pdf2image.exceptions import PDFInfoNotInstalledError, PDFPageCountError
 from pdf2image import convert_from_path
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFilter, ImageOps
 from pptx import Presentation
 from pptx.util import Emu, Pt
 from pypdf import PdfReader, PdfWriter
@@ -69,6 +71,82 @@ def main() -> int:
       return docx_to_pdf_fallback(sys.argv[2], sys.argv[3])
     if command == "zip_files":
       return zip_files(sys.argv[2], sys.argv[3:])
+    if command == "image_compress_batch":
+      return image_compress_batch(sys.argv[2], sys.argv[3], sys.argv[4:])
+    if command == "image_resize_exact":
+      return image_resize_exact(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_resize_scale":
+      return image_resize_scale(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_crop_free":
+      return image_crop_free(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_crop_ratio":
+      return image_crop_ratio(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_crop_ratio_batch":
+      return image_crop_ratio_batch(sys.argv[2], sys.argv[3], sys.argv[4:])
+    if command == "image_split_grid":
+      return image_split_grid(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_concat_long":
+      return image_concat_long(sys.argv[2], sys.argv[3], sys.argv[4:])
+    if command == "image_collage":
+      return image_collage(sys.argv[2], sys.argv[3], sys.argv[4:])
+    if command == "image_fill_background":
+      return image_fill_background(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_dark_mode_background":
+      return image_fill_background(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_watermark_tile":
+      return image_watermark_tile(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_grayscale":
+      return image_grayscale(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_invert":
+      return image_invert(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_printmaking":
+      return image_printmaking(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_emboss":
+      return image_emboss(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_remove_solid_bg":
+      return image_remove_solid_bg(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "favicon_generate":
+      return favicon_generate(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "app_icon_generate":
+      return app_icon_generate(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "chrome_icon_generate":
+      return chrome_icon_generate(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_add_padding":
+      return image_add_padding(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_pixelate":
+      return image_pixelate(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_increase_size":
+      return image_increase_size(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_clear_content":
+      return image_clear_content(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_format_convert":
+      return image_format_convert_dispatch(sys.argv[2], sys.argv[3:])
+    if command == "excel_extract_images":
+      return extract_images_from_office_zip(sys.argv[2], sys.argv[3], "xl/media/")
+    if command == "ppt_extract_images":
+      return extract_images_from_office_zip(sys.argv[2], sys.argv[3], "ppt/media/")
+    if command == "image_modify_dpi":
+      return image_modify_dpi(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "gif_split":
+      return gif_split(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "gif_merge":
+      return gif_merge(sys.argv[2], sys.argv[3], sys.argv[4:])
+    if command == "png_alpha_invert":
+      return png_alpha_invert(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_round_corner":
+      return image_round_corner(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "image_tile_fill":
+      return image_tile_fill(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "id_photo_resize":
+      return id_photo_resize(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "exam_id_photo_process":
+      return id_photo_resize(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "id_photo_crop":
+      return id_photo_crop(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "id_photo_bg_swap":
+      return id_photo_bg_swap(sys.argv[2], sys.argv[3], sys.argv[4])
+    if command == "anti_ocr_image":
+      return anti_ocr_image(sys.argv[2], sys.argv[3], sys.argv[4])
     if command == "text_to_speech":
       return text_to_speech(
           sys.argv[2],
@@ -799,6 +877,747 @@ def zip_files(zip_path: str, input_paths: list[str]) -> int:
     return 0
 
 
+def image_compress_batch(zip_path: str, options_json: str, input_paths: list[str]) -> int:
+    if not input_paths:
+        raise SystemExit("image_compress_batch requires at least one image")
+
+    options = json.loads(options_json or "{}")
+    quality = max(20, min(95, int(options.get("quality") or 75)))
+    zip_output = Path(zip_path)
+    zip_output.parent.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory(dir=str(zip_output.parent)) as temp_directory:
+        temp_root = Path(temp_directory)
+        generated_paths: list[Path] = []
+        for input_path in input_paths:
+            source = Path(input_path)
+            output_path = temp_root / f"{source.stem}-compressed{normalize_image_suffix(source.suffix, '.jpg')}"
+            with Image.open(source) as image:
+                save_image_file(image, output_path, quality=quality)
+            generated_paths.append(output_path)
+
+        write_files_to_zip(zip_output, generated_paths)
+
+    return 0
+
+
+def image_resize_exact(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    width = max(1, int(options.get("targetWidth") or 1))
+    height = max(1, int(options.get("targetHeight") or 1))
+
+    with Image.open(input_path) as image:
+        resized = image.convert("RGBA").resize((width, height), Image.Resampling.LANCZOS)
+        save_image_file(resized, Path(output_path))
+
+    return 0
+
+
+def image_resize_scale(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    scale_percent = max(1, int(options.get("scalePercent") or 100))
+
+    with Image.open(input_path) as image:
+        width = max(1, round(image.width * scale_percent / 100))
+        height = max(1, round(image.height * scale_percent / 100))
+        resized = image.convert("RGBA").resize((width, height), Image.Resampling.LANCZOS)
+        save_image_file(resized, Path(output_path))
+
+    return 0
+
+
+def image_crop_free(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    crop_x = max(0, int(options.get("cropX") or 0))
+    crop_y = max(0, int(options.get("cropY") or 0))
+    crop_width = max(1, int(options.get("cropWidth") or 1))
+    crop_height = max(1, int(options.get("cropHeight") or 1))
+
+    with Image.open(input_path) as image:
+        cropped = image.convert("RGBA").crop((
+            crop_x,
+            crop_y,
+            min(image.width, crop_x + crop_width),
+            min(image.height, crop_y + crop_height),
+        ))
+        save_image_file(cropped, Path(output_path))
+
+    return 0
+
+
+def image_crop_ratio(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    aspect_ratio = parse_ratio_text(options.get("aspectRatio") or "1:1")
+
+    with Image.open(input_path) as image:
+        cropped = center_crop_to_ratio(image.convert("RGBA"), aspect_ratio)
+        save_image_file(cropped, Path(output_path))
+
+    return 0
+
+
+def image_crop_ratio_batch(zip_path: str, options_json: str, input_paths: list[str]) -> int:
+    options = json.loads(options_json or "{}")
+    aspect_ratio = parse_ratio_text(options.get("aspectRatio") or "1:1")
+    output_format = normalize_format_name(options.get("outputFormat") or "png")
+    zip_output = Path(zip_path)
+    zip_output.parent.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory(dir=str(zip_output.parent)) as temp_directory:
+        temp_root = Path(temp_directory)
+        generated_paths: list[Path] = []
+        for input_path in input_paths:
+            source = Path(input_path)
+            output_ext = format_to_extension(output_format)
+            output_path = temp_root / f"{source.stem}-ratio-cropped.{output_ext}"
+            with Image.open(source) as image:
+                cropped = center_crop_to_ratio(image.convert("RGBA"), aspect_ratio)
+                save_image_file(cropped, output_path, force_format=output_format)
+            generated_paths.append(output_path)
+
+        write_files_to_zip(zip_output, generated_paths)
+
+    return 0
+
+
+def image_split_grid(zip_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    rows = max(1, int(options.get("rows") or 2))
+    columns = max(1, int(options.get("columns") or 2))
+    output_format = normalize_format_name(options.get("outputFormat") or "png")
+    zip_output = Path(zip_path)
+    zip_output.parent.mkdir(parents=True, exist_ok=True)
+
+    with Image.open(input_path) as image:
+        base_image = image.convert("RGBA")
+        tile_width = max(1, math.floor(base_image.width / columns))
+        tile_height = max(1, math.floor(base_image.height / rows))
+
+        with tempfile.TemporaryDirectory(dir=str(zip_output.parent)) as temp_directory:
+            temp_root = Path(temp_directory)
+            generated_paths: list[Path] = []
+
+            for row in range(rows):
+                for column in range(columns):
+                    left = column * tile_width
+                    top = row * tile_height
+                    right = base_image.width if column == columns - 1 else left + tile_width
+                    bottom = base_image.height if row == rows - 1 else top + tile_height
+                    part = base_image.crop((left, top, right, bottom))
+                    output_path = temp_root / f"{Path(input_path).stem}-r{row + 1}-c{column + 1}.{format_to_extension(output_format)}"
+                    save_image_file(part, output_path, force_format=output_format)
+                    generated_paths.append(output_path)
+
+            write_files_to_zip(zip_output, generated_paths)
+
+    return 0
+
+
+def image_concat_long(output_path: str, options_json: str, input_paths: list[str]) -> int:
+    if not input_paths:
+        raise SystemExit("image_concat_long requires at least one image")
+
+    options = json.loads(options_json or "{}")
+    direction = "horizontal" if options.get("direction") == "horizontal" else "vertical"
+    gap = max(0, int(options.get("gap") or 0))
+    background_color = options.get("backgroundColor") or "#ffffff"
+    images = [Image.open(path).convert("RGBA") for path in input_paths]
+
+    try:
+        if direction == "horizontal":
+            total_width = sum(image.width for image in images) + gap * max(0, len(images) - 1)
+            total_height = max(image.height for image in images)
+            canvas_image = Image.new("RGBA", (total_width, total_height), parse_color_value(background_color))
+            cursor_x = 0
+            for image in images:
+                canvas_image.alpha_composite(image, (cursor_x, (total_height - image.height) // 2))
+                cursor_x += image.width + gap
+        else:
+            total_width = max(image.width for image in images)
+            total_height = sum(image.height for image in images) + gap * max(0, len(images) - 1)
+            canvas_image = Image.new("RGBA", (total_width, total_height), parse_color_value(background_color))
+            cursor_y = 0
+            for image in images:
+                canvas_image.alpha_composite(image, ((total_width - image.width) // 2, cursor_y))
+                cursor_y += image.height + gap
+
+        save_image_file(canvas_image, Path(output_path))
+    finally:
+        for image in images:
+            image.close()
+
+    return 0
+
+
+def image_collage(output_path: str, options_json: str, input_paths: list[str]) -> int:
+    if not input_paths:
+        raise SystemExit("image_collage requires at least one image")
+
+    options = json.loads(options_json or "{}")
+    columns = max(1, int(options.get("columns") or 2))
+    gap = max(0, int(options.get("gap") or 0))
+    background_color = options.get("backgroundColor") or "#ffffff"
+    images = [Image.open(path).convert("RGBA") for path in input_paths]
+
+    try:
+        cell_width = max(image.width for image in images)
+        cell_height = max(image.height for image in images)
+        rows = math.ceil(len(images) / columns)
+        width = cell_width * columns + gap * max(0, columns - 1)
+        height = cell_height * rows + gap * max(0, rows - 1)
+        canvas_image = Image.new("RGBA", (width, height), parse_color_value(background_color))
+
+        for index, image in enumerate(images):
+            row = index // columns
+            column = index % columns
+            left = column * (cell_width + gap) + (cell_width - image.width) // 2
+            top = row * (cell_height + gap) + (cell_height - image.height) // 2
+            canvas_image.alpha_composite(image, (left, top))
+
+        save_image_file(canvas_image, Path(output_path))
+    finally:
+        for image in images:
+            image.close()
+
+    return 0
+
+
+def image_fill_background(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    background_color = parse_color_value(options.get("backgroundColor") or "#ffffff")
+
+    with Image.open(input_path) as image:
+        source = image.convert("RGBA")
+        background = Image.new("RGBA", source.size, background_color)
+        background.alpha_composite(source)
+        save_image_file(background, Path(output_path), force_format=normalize_format_name(options.get("outputFormat") or Path(output_path).suffix))
+
+    return 0
+
+
+def image_watermark_tile(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    text_content = str(options.get("textContent") or "仅供内部使用")
+    font_size = max(12, int(options.get("fontSize") or 24))
+    opacity = max(0.05, min(0.9, float(options.get("opacity") or 0.22)))
+    rotation = int(options.get("rotation") or -28)
+    gap = max(40, int(options.get("gap") or 120))
+
+    with Image.open(input_path) as image:
+      base_image = image.convert("RGBA")
+      overlay = Image.new("RGBA", base_image.size, (255, 255, 255, 0))
+      drawer = ImageDraw.Draw(overlay)
+      text_fill = (90, 90, 90, int(255 * opacity))
+      step_x = max(gap, font_size * 4)
+      step_y = max(gap, font_size * 3)
+      for x in range(-base_image.width, base_image.width * 2, step_x):
+          for y in range(-base_image.height, base_image.height * 2, step_y):
+              drawer.text((x, y), text_content, fill=text_fill)
+
+      rotated = overlay.rotate(rotation, expand=False)
+      base_image.alpha_composite(rotated)
+      save_image_file(base_image, Path(output_path))
+
+    return 0
+
+
+def image_grayscale(output_path: str, input_path: str, options_json: str) -> int:
+    with Image.open(input_path) as image:
+        grayscale = ImageOps.grayscale(image.convert("RGBA"))
+        save_image_file(grayscale, Path(output_path), force_format=normalize_format_name(json.loads(options_json or "{}").get("outputFormat") or Path(output_path).suffix))
+    return 0
+
+
+def image_invert(output_path: str, input_path: str, options_json: str) -> int:
+    with Image.open(input_path) as image:
+        rgba = image.convert("RGBA")
+        red, green, blue, alpha = rgba.split()
+        rgb = Image.merge("RGB", (red, green, blue))
+        inverted = ImageOps.invert(rgb)
+        result = Image.merge("RGBA", (*inverted.split(), alpha))
+        save_image_file(result, Path(output_path))
+    return 0
+
+
+def image_printmaking(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    threshold = max(0, min(255, int(options.get("threshold") or 126)))
+    with Image.open(input_path) as image:
+        grayscale = ImageOps.grayscale(image.convert("RGBA"))
+        result = grayscale.point(lambda value: 255 if value > threshold else 0, mode="1").convert("L")
+        save_image_file(result, Path(output_path), force_format=normalize_format_name(options.get("outputFormat") or Path(output_path).suffix))
+    return 0
+
+
+def image_emboss(output_path: str, input_path: str, options_json: str) -> int:
+    with Image.open(input_path) as image:
+        result = image.convert("RGBA").filter(ImageFilter.EMBOSS)
+        save_image_file(result, Path(output_path))
+    return 0
+
+
+def image_remove_solid_bg(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    tolerance = max(0, min(255, int(options.get("tolerance") or 36)))
+
+    with Image.open(input_path) as image:
+        rgba = image.convert("RGBA")
+        base_color = rgba.getpixel((0, 0))
+        pixels = []
+        for pixel in rgba.getdata():
+            if all(abs(pixel[index] - base_color[index]) <= tolerance for index in range(3)):
+                pixels.append((pixel[0], pixel[1], pixel[2], 0))
+            else:
+                pixels.append(pixel)
+        rgba.putdata(pixels)
+        save_image_file(rgba, Path(output_path), force_format="PNG")
+
+    return 0
+
+
+def favicon_generate(output_path: str, input_path: str, _options_json: str) -> int:
+    with Image.open(input_path) as image:
+        icon = image.convert("RGBA")
+        output = Path(output_path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        icon.save(output, format="ICO", sizes=[(16, 16), (32, 32), (48, 48), (64, 64)])
+    return 0
+
+
+def app_icon_generate(output_path: str, input_path: str, _options_json: str) -> int:
+    return export_icon_pack(output_path, input_path, [16, 32, 48, 64, 128, 256, 512], "app-icon")
+
+
+def chrome_icon_generate(output_path: str, input_path: str, _options_json: str) -> int:
+    return export_icon_pack(output_path, input_path, [16, 32, 48, 64, 128, 256], "chrome-icon")
+
+
+def image_add_padding(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    top = max(0, int(options.get("paddingTop") or 0))
+    right = max(0, int(options.get("paddingRight") or 0))
+    bottom = max(0, int(options.get("paddingBottom") or 0))
+    left = max(0, int(options.get("paddingLeft") or 0))
+    background_color = parse_color_value(options.get("backgroundColor") or "#ffffff")
+
+    with Image.open(input_path) as image:
+        source = image.convert("RGBA")
+        target = Image.new("RGBA", (source.width + left + right, source.height + top + bottom), background_color)
+        target.alpha_composite(source, (left, top))
+        save_image_file(target, Path(output_path))
+
+    return 0
+
+
+def image_pixelate(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    block_size = max(2, int(options.get("blockSize") or 12))
+    with Image.open(input_path) as image:
+        source = image.convert("RGBA")
+        reduced = source.resize((max(1, source.width // block_size), max(1, source.height // block_size)), Image.Resampling.BILINEAR)
+        result = reduced.resize(source.size, Image.Resampling.NEAREST)
+        save_image_file(result, Path(output_path))
+    return 0
+
+
+def image_increase_size(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    target_size_kb = max(1, int(options.get("targetSizeKb") or 100))
+    target_size_bytes = target_size_kb * 1024
+    with Image.open(input_path) as image:
+        save_image_file(image.convert("RGBA"), Path(output_path))
+
+    output = Path(output_path)
+    current_size = output.stat().st_size
+    if current_size < target_size_bytes:
+        with output.open("ab") as output_file:
+            output_file.write(b"\0" * (target_size_bytes - current_size))
+    return 0
+
+
+def image_clear_content(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    transparent = bool(options.get("transparent"))
+    background = (0, 0, 0, 0) if transparent else parse_color_value(options.get("backgroundColor") or "#ffffff")
+    with Image.open(input_path) as image:
+        cleared = Image.new("RGBA", image.size, background)
+        save_image_file(cleared, Path(output_path), force_format="PNG" if transparent else normalize_format_name(options.get("outputFormat") or Path(output_path).suffix))
+    return 0
+
+
+def image_format_convert_dispatch(output_path: str, args: list[str]) -> int:
+    if not args:
+        raise SystemExit("image_format_convert requires arguments")
+
+    if args[0].strip().startswith("{"):
+        return image_format_convert(output_path, args[0], args[1:])
+
+    options_json = args[1] if len(args) > 1 else "{}"
+    return image_format_convert(output_path, options_json, [args[0]])
+
+
+def image_format_convert(output_path: str, options_json: str, input_paths: list[str]) -> int:
+    if not input_paths:
+        raise SystemExit("image_format_convert requires at least one image")
+
+    options = json.loads(options_json or "{}")
+    output_format = normalize_format_name(options.get("outputFormat") or "png")
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    if output.suffix.lower() != ".zip" and len(input_paths) == 1:
+        with Image.open(input_paths[0]) as image:
+            save_image_file(image.convert("RGBA"), output, force_format=output_format)
+        return 0
+
+    with tempfile.TemporaryDirectory(dir=str(output.parent)) as temp_directory:
+        temp_root = Path(temp_directory)
+        generated_paths: list[Path] = []
+        for input_path in input_paths:
+            source = Path(input_path)
+            converted_path = temp_root / f"{source.stem}-converted.{format_to_extension(output_format)}"
+            with Image.open(source) as image:
+                save_image_file(image.convert("RGBA"), converted_path, force_format=output_format)
+            generated_paths.append(converted_path)
+
+        write_files_to_zip(output, generated_paths)
+    return 0
+
+
+def extract_images_from_office_zip(output_path: str, input_path: str, media_prefix: str) -> int:
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory(dir=str(output.parent)) as temp_directory:
+        temp_root = Path(temp_directory)
+        extracted_paths: list[Path] = []
+        with zipfile.ZipFile(input_path) as archive:
+            for name in archive.namelist():
+                if not name.startswith(media_prefix):
+                    continue
+                content = archive.read(name)
+                target_path = temp_root / Path(name).name
+                target_path.write_bytes(content)
+                extracted_paths.append(target_path)
+
+        if not extracted_paths:
+            raise SystemExit("No images found in the uploaded Office file")
+
+        write_files_to_zip(output, extracted_paths)
+    return 0
+
+
+def image_modify_dpi(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    dpi = max(1, int(options.get("dpi") or 300))
+    output_format = normalize_format_name(options.get("outputFormat") or Path(output_path).suffix)
+    with Image.open(input_path) as image:
+        save_image_file(image.convert("RGBA"), Path(output_path), force_format=output_format, dpi=(dpi, dpi))
+    return 0
+
+
+def gif_split(output_path: str, input_path: str, _options_json: str) -> int:
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    with Image.open(input_path) as image:
+        if getattr(image, "n_frames", 1) <= 1:
+            raise SystemExit("GIF only has one frame")
+
+        with tempfile.TemporaryDirectory(dir=str(output.parent)) as temp_directory:
+            temp_root = Path(temp_directory)
+            generated_paths: list[Path] = []
+            for frame_index in range(image.n_frames):
+                image.seek(frame_index)
+                frame = image.convert("RGBA")
+                frame_path = temp_root / f"{Path(input_path).stem}-frame-{frame_index + 1}.png"
+                frame.save(frame_path, format="PNG")
+                generated_paths.append(frame_path)
+
+            write_files_to_zip(output, generated_paths)
+
+    return 0
+
+
+def gif_merge(output_path: str, options_json: str, input_paths: list[str]) -> int:
+    if not input_paths:
+        raise SystemExit("gif_merge requires at least one image")
+
+    options = json.loads(options_json or "{}")
+    duration_ms = max(50, int(options.get("durationMs") or 400))
+    frames = [Image.open(path).convert("RGBA") for path in input_paths]
+
+    try:
+        first_frame = frames[0]
+        other_frames = frames[1:]
+        output = Path(output_path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        first_frame.save(
+            output,
+            format="GIF",
+            save_all=True,
+            append_images=other_frames,
+            duration=duration_ms,
+            loop=0,
+            disposal=2,
+        )
+    finally:
+        for frame in frames:
+            frame.close()
+    return 0
+
+
+def png_alpha_invert(output_path: str, input_path: str, _options_json: str) -> int:
+    with Image.open(input_path) as image:
+        rgba = image.convert("RGBA")
+        red, green, blue, alpha = rgba.split()
+        inverted_alpha = ImageOps.invert(alpha)
+        result = Image.merge("RGBA", (red, green, blue, inverted_alpha))
+        save_image_file(result, Path(output_path), force_format="PNG")
+    return 0
+
+
+def image_round_corner(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    radius = max(2, int(options.get("radius") or 36))
+    with Image.open(input_path) as image:
+        source = image.convert("RGBA")
+        mask = Image.new("L", source.size, 0)
+        drawer = ImageDraw.Draw(mask)
+        drawer.rounded_rectangle((0, 0, source.width, source.height), radius=radius, fill=255)
+        source.putalpha(mask)
+        save_image_file(source, Path(output_path), force_format="PNG")
+    return 0
+
+
+def image_tile_fill(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    target_width = max(1, int(options.get("targetWidth") or 1200))
+    target_height = max(1, int(options.get("targetHeight") or 1200))
+    output_format = normalize_format_name(options.get("outputFormat") or Path(output_path).suffix)
+    with Image.open(input_path) as image:
+        tile = image.convert("RGBA")
+        target = Image.new("RGBA", (target_width, target_height), (255, 255, 255, 0))
+        for x in range(0, target_width, tile.width):
+            for y in range(0, target_height, tile.height):
+                target.alpha_composite(tile, (x, y))
+        save_image_file(target, Path(output_path), force_format=output_format)
+    return 0
+
+
+def id_photo_resize(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    preset = resolve_id_photo_preset(options.get("idPhotoPreset") or "one_inch")
+    max_size_kb = max(20, int(options.get("maxSizeKb") or 120))
+    output_format = normalize_format_name(options.get("outputFormat") or "jpg")
+
+    with Image.open(input_path) as image:
+        cropped = center_crop_to_ratio(image.convert("RGBA"), preset[0] / preset[1])
+        resized = cropped.resize(preset, Image.Resampling.LANCZOS)
+        save_image_file(resized, Path(output_path), force_format=output_format, max_size_kb=max_size_kb)
+    return 0
+
+
+def id_photo_crop(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    preset = resolve_id_photo_preset(options.get("idPhotoPreset") or "one_inch")
+    output_format = normalize_format_name(options.get("outputFormat") or "jpg")
+    with Image.open(input_path) as image:
+        cropped = center_crop_to_ratio(image.convert("RGBA"), preset[0] / preset[1])
+        resized = cropped.resize(preset, Image.Resampling.LANCZOS)
+        save_image_file(resized, Path(output_path), force_format=output_format)
+    return 0
+
+
+def id_photo_bg_swap(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    background_color = parse_color_value(options.get("backgroundColor") or "#438edb")
+    tolerance = max(0, min(255, int(options.get("tolerance") or 36)))
+    output_format = normalize_format_name(options.get("outputFormat") or "jpg")
+
+    with Image.open(input_path) as image:
+        rgba = image.convert("RGBA")
+        base_color = rgba.getpixel((0, 0))
+        pixels = []
+        for pixel in rgba.getdata():
+            if all(abs(pixel[index] - base_color[index]) <= tolerance for index in range(3)):
+                pixels.append((*background_color[:3], 255))
+            else:
+                pixels.append(pixel)
+        rgba.putdata(pixels)
+        save_image_file(rgba, Path(output_path), force_format=output_format)
+    return 0
+
+
+def anti_ocr_image(output_path: str, input_path: str, options_json: str) -> int:
+    options = json.loads(options_json or "{}")
+    noise_level = max(1, min(80, int(options.get("noiseLevel") or 18)))
+    output_format = normalize_format_name(options.get("outputFormat") or Path(output_path).suffix)
+
+    with Image.open(input_path) as image:
+        source = image.convert("RGBA")
+        drawer = ImageDraw.Draw(source)
+        for _ in range(max(12, (source.width * source.height) // 8000)):
+            x = random.randint(0, max(0, source.width - 1))
+            y = random.randint(0, max(0, source.height - 1))
+            delta = random.randint(-noise_level, noise_level)
+            red, green, blue, alpha = source.getpixel((x, y))
+            source.putpixel((x, y), (
+                clamp_color(red + delta),
+                clamp_color(green - delta),
+                clamp_color(blue + delta // 2),
+                alpha,
+            ))
+
+        for _ in range(6):
+            start = (random.randint(0, source.width), random.randint(0, source.height))
+            end = (random.randint(0, source.width), random.randint(0, source.height))
+            drawer.line((start, end), fill=(120, 120, 120, 72), width=1)
+
+        save_image_file(source, Path(output_path), force_format=output_format)
+    return 0
+
+
+def export_icon_pack(output_path: str, input_path: str, sizes: list[int], name_prefix: str) -> int:
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with Image.open(input_path) as image:
+        source = image.convert("RGBA")
+        with tempfile.TemporaryDirectory(dir=str(output.parent)) as temp_directory:
+            temp_root = Path(temp_directory)
+            generated_paths: list[Path] = []
+            for size in sizes:
+                resized = source.resize((size, size), Image.Resampling.LANCZOS)
+                icon_path = temp_root / f"{name_prefix}-{size}.png"
+                resized.save(icon_path, format="PNG")
+                generated_paths.append(icon_path)
+            write_files_to_zip(output, generated_paths)
+    return 0
+
+
+def write_files_to_zip(zip_path: Path, input_paths: list[Path]) -> None:
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for input_path in input_paths:
+            archive.write(input_path, arcname=input_path.name)
+
+
+def save_image_file(
+    image: Image.Image,
+    output_path: Path,
+    force_format: str | None = None,
+    quality: int = 92,
+    dpi: tuple[int, int] | None = None,
+    max_size_kb: int | None = None,
+) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    format_name = normalize_format_name(force_format or output_path.suffix)
+
+    image_to_save = image.copy()
+    save_options: dict = {}
+    if dpi:
+        save_options["dpi"] = dpi
+
+    if format_name in {"JPEG", "JPG"}:
+        image_to_save = image_to_save.convert("RGB")
+        save_options.update({"format": "JPEG", "quality": quality, "optimize": True})
+    elif format_name == "PNG":
+        image_to_save = image_to_save.convert("RGBA")
+        save_options.update({"format": "PNG", "optimize": True})
+    elif format_name == "WEBP":
+        save_options.update({"format": "WEBP", "quality": quality, "method": 6})
+    elif format_name == "GIF":
+        image_to_save = image_to_save.convert("P", palette=Image.ADAPTIVE)
+        save_options.update({"format": "GIF"})
+    else:
+        save_options.update({"format": format_name})
+
+    if max_size_kb and save_options.get("format") == "JPEG":
+        current_quality = min(95, max(20, quality))
+        while current_quality >= 20:
+            image_to_save.save(output_path, **{**save_options, "quality": current_quality})
+            if output_path.stat().st_size <= max_size_kb * 1024 or current_quality == 20:
+                break
+            current_quality -= 5
+        return
+
+    image_to_save.save(output_path, **save_options)
+
+
+def normalize_format_name(value: str | None) -> str:
+    normalized = str(value or "").strip().lower().lstrip(".")
+    if normalized in {"jpg", "jpeg"}:
+        return "JPEG"
+    if normalized == "png":
+        return "PNG"
+    if normalized == "webp":
+        return "WEBP"
+    if normalized == "gif":
+        return "GIF"
+    if normalized == "ico":
+        return "ICO"
+    return "PNG"
+
+
+def format_to_extension(format_name: str) -> str:
+    normalized = normalize_format_name(format_name)
+    if normalized == "JPEG":
+        return "jpg"
+    return normalized.lower()
+
+
+def normalize_image_suffix(current_suffix: str, fallback_suffix: str) -> str:
+    suffix = current_suffix.lower()
+    if suffix in {".png", ".jpg", ".jpeg", ".webp"}:
+        return ".jpg" if suffix == ".jpeg" else suffix
+    return fallback_suffix
+
+
+def parse_ratio_text(value: str) -> float:
+    text = str(value or "1:1").strip()
+    if ":" not in text:
+        return 1.0
+    left_text, right_text = text.split(":", 1)
+    left = max(1.0, float(left_text or 1))
+    right = max(1.0, float(right_text or 1))
+    return left / right
+
+
+def center_crop_to_ratio(image: Image.Image, aspect_ratio: float) -> Image.Image:
+    source_ratio = image.width / max(1, image.height)
+    if source_ratio > aspect_ratio:
+        target_width = int(image.height * aspect_ratio)
+        left = max(0, (image.width - target_width) // 2)
+        return image.crop((left, 0, left + target_width, image.height))
+    target_height = int(image.width / max(0.0001, aspect_ratio))
+    top = max(0, (image.height - target_height) // 2)
+    return image.crop((0, top, image.width, top + target_height))
+
+
+def parse_color_value(value: str) -> tuple[int, int, int, int]:
+    color_text = str(value or "#ffffff").strip()
+    if not color_text.startswith("#") or len(color_text) not in {4, 7}:
+        color_text = "#ffffff"
+    if len(color_text) == 4:
+        color_text = "#" + "".join(char * 2 for char in color_text[1:])
+    red = int(color_text[1:3], 16)
+    green = int(color_text[3:5], 16)
+    blue = int(color_text[5:7], 16)
+    return red, green, blue, 255
+
+
+def resolve_id_photo_preset(preset_key: str) -> tuple[int, int]:
+    presets = {
+        "one_inch": (295, 413),
+        "two_inch": (413, 579),
+        "small_one_inch": (260, 378),
+    }
+    return presets.get(str(preset_key or "one_inch"), presets["one_inch"])
+
+
+def clamp_color(value: int) -> int:
+    return max(0, min(255, int(value)))
+
+
 def text_to_speech(
     output_path: str,
     source_text: str,
@@ -853,6 +1672,86 @@ def text_to_speech(
         return 0
 
     raise SystemExit("text_to_speech only supports mp3 or wav output")
+
+
+def save_image_file(
+    image: Image.Image,
+    output_path: Path,
+    force_format: str | None = None,
+    quality: int = 92,
+    dpi: tuple[int, int] | None = None,
+    max_size_kb: int | None = None,
+) -> None:
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    format_name = normalize_format_name(force_format or output.suffix or "png")
+
+    save_kwargs: dict = {}
+    if dpi:
+        save_kwargs["dpi"] = dpi
+
+    source_image = image.convert("RGBA") if image.mode not in {"RGB", "RGBA", "L"} else image.copy()
+    image_to_save = source_image
+
+    if format_name == "JPEG":
+        background = Image.new("RGB", source_image.size, (255, 255, 255))
+        if source_image.mode == "RGBA":
+            background.paste(source_image, mask=source_image.getchannel("A"))
+        else:
+            background.paste(source_image.convert("RGB"))
+        image_to_save = background
+        save_kwargs["quality"] = max(20, min(95, int(quality)))
+        save_kwargs["optimize"] = True
+    elif format_name == "WEBP":
+        image_to_save = source_image.convert("RGBA")
+        save_kwargs["quality"] = max(20, min(95, int(quality)))
+        save_kwargs["method"] = 6
+    elif format_name == "PNG":
+        image_to_save = source_image.convert("RGBA")
+        save_kwargs["optimize"] = True
+    else:
+        image_to_save = source_image
+
+    image_to_save.save(output, format=format_name, **save_kwargs)
+
+    if max_size_kb and format_name in {"JPEG", "WEBP"}:
+        target_size_bytes = max_size_kb * 1024
+        current_quality = int(save_kwargs.get("quality", quality))
+        while output.stat().st_size > target_size_bytes and current_quality > 20:
+            current_quality -= 5
+            image_to_save.save(output, format=format_name, quality=current_quality, **{
+                key: value for key, value in save_kwargs.items() if key != "quality"
+            })
+
+
+def normalize_format_name(value: str) -> str:
+    normalized = str(value or "").strip().lower().lstrip(".")
+    mapping = {
+        "jpg": "JPEG",
+        "jpeg": "JPEG",
+        "png": "PNG",
+        "webp": "WEBP",
+        "gif": "GIF",
+        "bmp": "BMP",
+        "ico": "ICO",
+        "tif": "TIFF",
+        "tiff": "TIFF",
+    }
+    return mapping.get(normalized, "PNG")
+
+
+def format_to_extension(format_name: str) -> str:
+    normalized = normalize_format_name(format_name)
+    mapping = {
+        "JPEG": "jpg",
+        "PNG": "png",
+        "WEBP": "webp",
+        "GIF": "gif",
+        "BMP": "bmp",
+        "ICO": "ico",
+        "TIFF": "tiff",
+    }
+    return mapping.get(normalized, "png")
 
 
 def ensure_page_in_bounds(page_number: int, total_pages: int) -> None:

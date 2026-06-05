@@ -7,6 +7,7 @@ Independent web app for:
 - `PPT -> PDF`
 - `PDF -> PPTX`
 - `PDF -> Word`
+- `音视频工具`
 - `PDF -> Images`
 - `Images -> PDF`
 - `PDF Merge`
@@ -17,6 +18,17 @@ Independent web app for:
 - `PDF 旋转页面`
 - `PDF 提取页面`
 - `拆分 PDF`
+- `图像工具`
+
+Current `音视频工具` line includes:
+
+- `文字转语音`
+- `音频剪切`
+- `音频合并`
+- `音频试听播放`
+- `视频加速播放`
+- `特定频率音频生成`
+- `白噪音生成器`
 
 Current scope:
 
@@ -29,6 +41,7 @@ Current scope:
 - `PDF -> Images` production path wired, requires poppler
 - admin code management
 - admin conversion records
+- image-tools category with local/server image processing
 
 This project is intentionally isolated from the parent workspace.
 
@@ -78,6 +91,7 @@ See [.env.example](D:/aa-workplace/customPlugin/codex-pdf-converter-web/pdf-conv
 - `POPPLER_BIN_DIR`
 - `GHOSTSCRIPT_BIN`
 - `OCRMYPDF_BIN`
+- `FFMPEG_BIN`
 
 ## Conversion notes
 
@@ -131,6 +145,90 @@ See [.env.example](D:/aa-workplace/customPlugin/codex-pdf-converter-web/pdf-conv
 - Requires poppler binaries such as `pdfinfo` and `pdftoppm`
 - If `tools/poppler/poppler-25.07.0/Library/bin` exists locally, the app auto-detects it
 - On Ubuntu 22.04, install poppler before using this feature
+
+### 图像工具
+
+Current implemented image-tool coverage includes:
+
+- image resize / width-height change
+- image format convert
+- image batch compress
+- free crop / ratio crop / batch ratio crop
+- split grid / long-image concat / collage
+- grayscale / invert / printmaking / emboss
+- background fill / dark-mode background / solid-background removal
+- favicon / app icon / chrome icon generation
+- padding / pixelate / DPI change / content clear / file-size increase
+- GIF split / GIF merge
+- Excel image extract / PPT image extract
+- round-corner / tile-fill / anti-OCR image
+- id-photo resize / crop / background swap
+
+Current buyer homepage now includes:
+
+- `PPT 工具`
+- `音视频工具`
+- `文本工具`
+- `编程工具`
+- `图像工具`
+
+Current homepage short copy:
+
+- `文件、图像与文本处理一站完成`
+
+Deferred image-tool items that are intentionally not exposed in buyer UI yet are tracked in:
+
+- [2026-06-04-image-tools-program-design.md](D:/aa-workplace/customPlugin/codex-pdf-converter-web/pdf-converter-web/docs/superpowers/specs/2026-06-04-image-tools-program-design.md)
+
+### Latest local verification
+
+- full Node test suite passed
+  - `338/338`
+- real browser local regression additionally covered:
+  - image-tools category entry
+  - image-tools search
+  - image resize exact
+  - image format convert
+  - GIF merge
+  - image batch compress ZIP download
+  - favicon generate
+
+Browser regression artifacts were stored in:
+
+- `D:\temp\codex-image-tools-browser-20260604`
+
+### 音视频工具
+
+- `文字转语音`
+  - current first version supports:
+    - `中文普通话`
+    - `英文`
+  - outputs:
+    - `mp3`
+    - `wav`
+  - uses Python `edge-tts`
+  - `wav` export requires `ffmpeg`
+- `音频剪切`
+  - uses `ffmpeg`
+  - supports start/end time trimming
+- `音频合并`
+  - uses `ffmpeg`
+  - merges in current upload order
+- `音频试听播放`
+  - local browser tool
+  - does not require backend processing
+- `视频加速播放`
+  - local browser tool
+  - does not require backend processing
+- `特定频率音频生成`
+  - local browser WAV generation
+- `白噪音生成器`
+  - local browser WAV generation
+
+If you want to use all current audio tools locally or on the server, make sure:
+
+- `FFMPEG_BIN` points to a reachable `ffmpeg`
+- `PYTHON_BIN` can import `edge_tts`
 
 ### PDF 提取页面 / 拆分 PDF
 

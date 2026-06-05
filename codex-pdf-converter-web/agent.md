@@ -50,6 +50,7 @@ Current buyer-facing features:
 - PPT to PDF
 - PDF to PPTX
 - PDF to Word
+- 音视频工具
 - 文本工具
 - Delete PDF pages
 - Reorder PDF pages
@@ -65,6 +66,7 @@ Current buyer-facing features:
 - PDF extract pages
 - split PDF
 - 编程工具
+- 图像工具
 
 Current behavior:
 
@@ -229,6 +231,75 @@ Current completed network-check dev-tool items include:
 - 域名 whois 查询
 - 网站 CDN 检测
 
+### 音视频工具
+
+- current `音视频工具` tools are now a mixed line:
+  - local browser media tools
+  - backend media processing tools
+- buyer-facing presentation rule:
+  - do not subgroup inside `音视频工具`
+  - show flat tool cards directly
+  - keep UU-style icon and light gradient card mapping in sync with tool keys
+
+Current completed media-tool items include:
+
+- 文字转语音
+- 音频剪切
+- 音频合并
+- 音频试听播放
+- 视频加速播放
+- 特定频率音频生成
+- 白噪音生成器
+
+Current media-tool behavior:
+
+- `文字转语音`
+  - server-side tool
+  - current first version supports:
+    - `中文普通话`
+    - `英文`
+  - output formats:
+    - `mp3`
+    - `wav`
+- `音频剪切`
+  - accepts one uploaded audio file
+  - current first version supports:
+    - `mp3`
+    - `wav`
+    - `m4a`
+    - `aac`
+    - `flac`
+    - `ogg`
+    - `opus`
+  - buyer fills:
+    - start time
+    - end time
+    - output format
+- `音频合并`
+  - accepts multiple uploaded audio files
+  - merges in current user-visible order
+  - outputs one merged file
+  - current output formats:
+    - `mp3`
+    - `wav`
+- `音频试听播放`
+  - local browser tool
+  - loads selected audio locally
+  - displays a simple waveform preview
+  - supports direct in-page playback
+- `视频加速播放`
+  - local browser tool
+  - loads selected video locally
+  - supports buyer-selected playback rate preview
+- `特定频率音频生成`
+  - local browser tool
+  - buyer fills frequency / duration / volume
+  - outputs a browser-generated WAV preview + download
+- `白噪音生成器`
+  - local browser tool
+  - buyer fills duration / volume
+  - outputs a browser-generated WAV preview + download
+
 ### Delete PDF pages
 
 - accepts one PDF
@@ -384,6 +455,8 @@ Current latest buyer list-page simplification rules:
 - the left-side nav is the primary category switcher
 - do not repeat another category-card block inside the main list area
 - do not repeat another subgroup heading block inside `文本工具`
+- `图像工具` 也和 `编程工具` 一样直接平铺工具卡
+- do not add subgroup heading blocks inside `音视频工具`
 
 Current detail-page interaction rules:
 
@@ -511,7 +584,7 @@ Current actual homepage short-copy direction in the product UI is now:
 - hero title:
   - `PP 工具站`
 - hero copy:
-  - `文件处理与文本处理一站完成`
+  - `文件、图像与文本处理一站完成`
 
 Maintenance rule:
 
@@ -565,11 +638,15 @@ It now includes:
 
 - homepage category cards:
   - `PPT 工具`
+  - `音视频工具`
   - `文本工具`
   - `编程工具`
-- full-site search across all three categories
+- `图像工具`
+- full-site search across all five categories
 - flat text-tool presentation under `文本工具`
 - flat dev-tool presentation under `编程工具`
+- flat media-tool presentation under `音视频工具`
+- flat image-tool presentation under `图像工具`
 
 ## Technical Shape
 
@@ -623,6 +700,14 @@ Important runtime pieces:
   - `pypdf`
 - PDF extract pages / split PDF:
   - `pypdf`
+- audio clip / merge:
+  - `ffmpeg`
+- text to speech:
+  - `edge-tts`
+  - `ffmpeg` for `wav` export
+- image tools:
+  - `Pillow`
+  - office zip extraction for Excel / PPT embedded images
 
 Important implementation files:
 
@@ -633,10 +718,16 @@ Important implementation files:
   - `server/app.cjs`
 - conversion service:
   - `server/services/conversionService.cjs`
+- media-tools service:
+  - `server/services/mediaToolsService.cjs`
 - page-range parsing:
   - `server/services/pageSelectionParser.cjs`
 - buyer detail markup:
   - `public/toolCatalogMarkup.mjs`
+- buyer media catalog:
+  - `public/mediaToolCatalog.mjs`
+- buyer media runtime:
+  - `public/mediaToolRuntime.mjs`
 - buyer file-order helper:
   - `public/fileSelectionOrder.mjs`
 - Python conversion entry:
@@ -752,7 +843,26 @@ Dependency/runtime change usually means:
 - Python package additions like `pypdf`
 - Python package additions like `pdf2docx`
 - Python package additions like `ocrmypdf`
+- Python package additions like `edge-tts`
+- system dependency additions like `ffmpeg`
 - system dependency updates
+
+Current image-tools round classification:
+
+- `mixed change`
+
+because it touched:
+
+- `public/*`
+- `server/services/conversionService.cjs`
+- `scripts/run_conversion.py`
+
+Current image-tools round dependency note:
+
+- no new Node package was added in this round
+- no new Python third-party package was added in this round
+- assume the server already has the existing project dependency:
+  - `Pillow`
 
 ### Standard update flow for this tool
 
@@ -776,6 +886,8 @@ Current extra runtime pieces now include:
 - `pymupdf`
 - `python-pptx`
 - `ocrmypdf`
+- `edge-tts`
+- `ffmpeg`
 - `ghostscript`
 - `tesseract-ocr`
 - `tesseract-ocr-chi-sim`
@@ -786,8 +898,8 @@ If the server is missing the newer PDF dependencies, the likely install commands
 ```bash
 cd /home/admin/pdf-converter-web
 sudo apt update
-sudo apt install -y ghostscript tesseract-ocr tesseract-ocr-chi-sim tesseract-ocr-eng
-sudo python3 -m pip install pypdf pdf2docx pymupdf python-pptx ocrmypdf
+sudo apt install -y ffmpeg ghostscript tesseract-ocr tesseract-ocr-chi-sim tesseract-ocr-eng
+sudo python3 -m pip install pypdf pdf2docx pymupdf python-pptx ocrmypdf edge-tts
 ```
 
 ### System dependency install
@@ -852,6 +964,11 @@ Additional expectations:
   - `rotate_pdf`
   - `pdf_extract_pages`
   - `split_pdf`
+  - multiple `image_tools` entries with:
+    - `categoryKey = image_tools`
+- buyer left nav shows:
+  - `音视频工具`
+  - `图像工具`
 - buyer homepage opens
 - admin page opens
 - buyer login works
@@ -877,6 +994,20 @@ Additional expectations:
 - PPT to PDF works
 - PDF extract pages works
 - split PDF works
+- image-tools category opens
+- image-tools search works
+- image resize works
+- image format convert works
+- GIF merge works
+- favicon generate works
+- image batch compress works
+- text to speech works
+- audio clip works
+- audio merge works
+- audio-player preview works locally
+- video speed preview works locally
+- tone generator works locally
+- white-noise generator works locally
 - upload progress works
 - Chinese filenames remain readable
 - admin code enable/disable works
@@ -891,7 +1022,9 @@ What is true now:
 
 - base product is online
 - multiple sellable PDF flows are implemented
+- an audio/video tool line has now also been implemented
 - a text-tool line has now also been implemented
+- an image-tool line has now also been implemented
 - buyer UI is now a tool-station shell with:
   - category cards
   - full-site search
@@ -919,6 +1052,11 @@ What is true now:
   - url extraction
   - list sort
   - regex extraction
+  - image resize
+  - image format convert
+  - GIF merge
+  - image batch compress
+  - favicon generate
 
 Latest local verification nuance:
 
@@ -933,6 +1071,44 @@ Latest text-tool / homepage verification nuance:
 - full-site search across `PPT 工具` + `文本工具` + `编程工具` was browser-verified
 - text-tool detail pages keep the current tool after refresh
 - current text tools are frontend-local tools, so this round did not require new backend or Python dependencies
+
+Latest media-tool verification nuance:
+
+- local browser self-test was run on a temporary local port `3026`
+- media category overview was verified
+- `文字转语音`
+  - submit succeeded
+  - result card appeared
+  - `text-to-speech.mp3` download was verified
+- `音频剪切`
+  - upload + submit succeeded
+  - result card appeared
+  - server generated `tone-a-clipped.mp3`
+- `音频合并`
+  - multi-file upload + submit succeeded
+  - result card appeared
+  - server generated `merged-audio.wav`
+- `音频试听播放`
+  - local audio load succeeded
+  - waveform canvas rendered
+  - audio preview element received a `blob:` source
+- `视频加速播放`
+  - local video load succeeded
+  - playback rate change to `2x` was verified
+- `特定频率音频生成`
+  - local WAV generation succeeded
+  - preview + download button appeared
+- `白噪音生成器`
+  - local WAV generation succeeded
+  - preview + download button appeared
+
+Latest visual correction nuance:
+
+- the first implementation accidentally let media cards fall back to the default tool-card meta
+- current fixed rule:
+  - every `media_*` tool key must map to an explicit UU-style icon class
+  - every `media_*` tool key must map to an explicit card `style*` gradient class
+- do not leave future media cards on the default `fa-wrench + style6` fallback unless intentionally temporary
 
 Latest dev-tool verification nuance:
 
@@ -956,6 +1132,64 @@ Latest dev-tool verification nuance:
   - 网站 CDN 检测
   - 网页 meta 信息检测
   - 网页关键词密度检测
+
+Latest image-tool verification nuance:
+
+- current latest full Node test suite passed
+  - completion-time count:
+    - `338/338`
+- real browser self-test additionally covered:
+  - image-tools top-level category
+  - image-tools search
+  - image resize exact
+  - image format convert
+  - GIF merge
+  - image-compress batch ZIP download
+  - favicon generate
+- local browser regression artifact directory:
+  - `D:\temp\codex-image-tools-browser-20260604`
+
+Current intentionally-not-exposed image-tool scope includes at least:
+
+- favicon / image / QQ / WeChat style external fetch tools
+- QR code / barcode tools
+- SVG preview and SVG-to-bitmap tools
+- HEIC preview
+- other image tools requiring extra third-party rendering stacks or external sites
+
+Current bundled rollout note for the latest three buyer lines:
+
+- `编程工具`
+- `图像工具`
+- `音视频工具`
+
+Default combined server steps:
+
+```bash
+cd /home/admin/pdf-converter-web
+npm install --omit=dev --registry=https://registry.npmmirror.com --no-audit --fund=false
+sudo apt update
+sudo apt install -y ffmpeg
+sudo python3 -m pip install edge-tts
+pm2 restart ecosystem.config.cjs --only pdf-converter-web --update-env
+curl http://127.0.0.1:3015/api/health
+curl http://127.0.0.1:3015/api/conversions/catalog
+```
+
+Bundled dependency note:
+
+- dev tools: no extra dependency required by this step
+- image tools: no new dependency in this round, assume server already has `Pillow`
+- media tools: requires `edge-tts` and `ffmpeg`
+
+Bundled rollout minimum checks:
+
+- `网站 SSL 证书检测`
+- `图片格式转换`
+- `GIF 合成`
+- `文字转语音`
+- `音频剪切`
+- `音频合并`
 
 Current still-not-finished dev-tool scope includes at least:
 

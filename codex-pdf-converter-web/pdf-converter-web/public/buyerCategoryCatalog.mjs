@@ -18,6 +18,12 @@ export const buyerCategoryCatalog = [
     iconLabel: 'D'
   },
   {
+    key: 'media_tools',
+    label: '音视频工具',
+    description: '覆盖文字转语音、音频剪切合并、音频试听和视频倍速预览能力。',
+    iconLabel: 'M'
+  },
+  {
     key: 'image_tools',
     label: '图像工具',
     description: '覆盖图片压缩、裁剪、拼接、GIF 和常用图像处理能力。',

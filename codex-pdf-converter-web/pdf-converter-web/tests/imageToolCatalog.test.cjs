@@ -29,6 +29,7 @@ test('conversion catalog exposes the first implemented image tool batch under im
     'image_concat_long',
     'image_collage',
     'image_fill_background',
+    'image_dark_mode_background',
     'image_watermark_tile',
     'image_grayscale',
     'image_invert',
@@ -52,6 +53,7 @@ test('conversion catalog exposes the first implemented image tool batch under im
     'image_round_corner',
     'image_tile_fill',
     'id_photo_resize',
+    'exam_id_photo_process',
     'id_photo_crop',
     'id_photo_bg_swap',
     'anti_ocr_image'

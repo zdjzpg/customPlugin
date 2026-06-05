@@ -53,3 +53,26 @@ test('shared tool card meta includes scraped uu icon mapping for newly added dev
   assert.equal(fontawesomeMeta.badge, 'FontAwesome');
   assert.equal(fontawesomeMeta.styleClass, 'style6');
 });
+
+test('shared tool card meta exposes uu-style icon and palette mapping for media tools', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCardMeta.mjs')
+  ).href;
+  const { getToolCardMeta } = await import(moduleUrl);
+
+  const ttsMeta = getToolCardMeta('media_text_to_speech');
+  const clipMeta = getToolCardMeta('media_audio_clip');
+  const playerMeta = getToolCardMeta('media_audio_player');
+
+  assert.equal(ttsMeta.iconClass, 'fa fa-volume-up');
+  assert.equal(ttsMeta.badge, '语音');
+  assert.equal(ttsMeta.styleClass, 'style9');
+
+  assert.equal(clipMeta.iconClass, 'fa fa-scissors');
+  assert.equal(clipMeta.badge, '音频');
+  assert.equal(clipMeta.styleClass, 'style10');
+
+  assert.equal(playerMeta.iconClass, 'fa fa-headphones');
+  assert.equal(playerMeta.badge, '试听');
+  assert.equal(playerMeta.styleClass, 'style13');
+});

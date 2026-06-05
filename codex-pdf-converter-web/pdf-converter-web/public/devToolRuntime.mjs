@@ -83,7 +83,20 @@ export async function runDevTool(toolKey, input) {
     return {
       outputText: hashAlgorithm === 'md5'
         ? md5Hex(sourceText)
-        : await digestHex(sourceText, hashAlgorithm)
+        : await digestHexCompatible(sourceText, hashAlgorithm)
+    };
+  }
+
+  if (toolKey === 'dev_sha1_hash' || toolKey === 'dev_sha224_hash' || toolKey === 'dev_sha256_hash' || toolKey === 'dev_sha384_hash' || toolKey === 'dev_sha512_hash') {
+    const hashAlgorithmByToolKey = {
+      dev_sha1_hash: 'sha1',
+      dev_sha224_hash: 'sha224',
+      dev_sha256_hash: 'sha256',
+      dev_sha384_hash: 'sha384',
+      dev_sha512_hash: 'sha512'
+    };
+    return {
+      outputText: await digestHexCompatible(sourceText, hashAlgorithmByToolKey[toolKey])
     };
   }
 
@@ -526,6 +539,67 @@ export async function runDevTool(toolKey, input) {
     };
   }
 
+  if (toolKey === 'dev_ip_generate' || toolKey === 'dev_ip_random_generate') {
+    const generateCount = toPositiveInteger(input?.generateCount, 20, 1, 500);
+    return {
+      outputText: Array.from(
+        { length: generateCount },
+        () => toolKey === 'dev_ip_random_generate' ? randomPublicIpv4() : randomIpv4()
+      ).join('\n')
+    };
+  }
+
+  if (toolKey === 'dev_ip_range_restore') {
+    return {
+      outputText: expandIpv4Ranges(sourceText).join('\n')
+    };
+  }
+
+  if (toolKey === 'dev_ip_to_number') {
+    return {
+      outputText: splitNonEmptyLines(sourceText)
+        .map((line) => String(parseIpv4ToNumber(line)))
+        .join('\n')
+    };
+  }
+
+  if (toolKey === 'dev_ipv4_to_ipv6') {
+    return {
+      outputText: splitNonEmptyLines(sourceText)
+        .map(convertIpv4ToMappedIpv6)
+        .join('\n')
+    };
+  }
+
+  if (toolKey === 'dev_ascii_batch_encode') {
+    return {
+      outputText: splitNonEmptyLines(sourceText)
+        .map((line) => Array.from(line).map((char) => String(char.codePointAt(0))).join(' '))
+        .join('\n')
+    };
+  }
+
+  if (toolKey === 'dev_mac_generate') {
+    const generateCount = toPositiveInteger(input?.generateCount, 20, 1, 500);
+    const macSeparator = typeof input?.macSeparator === 'string' ? input.macSeparator : ':';
+    return {
+      outputText: Array.from({ length: generateCount }, () => randomMacAddress(macSeparator)).join('\n')
+    };
+  }
+
+  if (toolKey === 'dev_random_color_generate') {
+    const generateCount = toPositiveInteger(input?.generateCount, 20, 1, 500);
+    return {
+      outputText: Array.from({ length: generateCount }, () => randomHexColor()).join('\n')
+    };
+  }
+
+  if (toolKey === 'dev_google_translate_tag_clean') {
+    return {
+      outputText: stripGoogleTranslateFontTags(sourceText)
+    };
+  }
+
   throw new Error(`Unsupported dev tool: ${toolKey}`);
 }
 
@@ -760,6 +834,220 @@ async function digestHex(text, hashAlgorithm) {
   return Array.from(new Uint8Array(digestBuffer))
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
+}
+
+async function digestHexCompatible(text, hashAlgorithm) {
+  if (hashAlgorithm === 'sha224') {
+    return sha224Hex(text);
+  }
+
+  return digestHex(text, hashAlgorithm);
+}
+
+function sha224Hex(text) {
+  const encoded = new TextEncoder().encode(text);
+  const words = bytesToWordArray(encoded);
+  const bitLength = encoded.length * 8;
+  words[bitLength >>> 5] = (words[bitLength >>> 5] || 0) | (0x80 << (24 - (bitLength % 32)));
+  words[(((bitLength + 64) >>> 9) << 4) + 15] = bitLength;
+
+  let h0 = 0xc1059ed8;
+  let h1 = 0x367cd507;
+  let h2 = 0x3070dd17;
+  let h3 = 0xf70e5939;
+  let h4 = 0xffc00b31;
+  let h5 = 0x68581511;
+  let h6 = 0x64f98fa7;
+  let h7 = 0xbefa4fa4;
+
+  const schedule = new Array(64);
+  for (let index = 0; index < words.length; index += 16) {
+    for (let offset = 0; offset < 16; offset += 1) {
+      schedule[offset] = words[index + offset] | 0;
+    }
+    for (let offset = 16; offset < 64; offset += 1) {
+      const sigma0 = rightRotate(schedule[offset - 15], 7) ^ rightRotate(schedule[offset - 15], 18) ^ (schedule[offset - 15] >>> 3);
+      const sigma1 = rightRotate(schedule[offset - 2], 17) ^ rightRotate(schedule[offset - 2], 19) ^ (schedule[offset - 2] >>> 10);
+      schedule[offset] = (schedule[offset - 16] + sigma0 + schedule[offset - 7] + sigma1) | 0;
+    }
+
+    let a = h0;
+    let b = h1;
+    let c = h2;
+    let d = h3;
+    let e = h4;
+    let f = h5;
+    let g = h6;
+    let h = h7;
+
+    for (let offset = 0; offset < 64; offset += 1) {
+      const sum1 = rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25);
+      const choice = (e & f) ^ (~e & g);
+      const temp1 = (h + sum1 + choice + SHA256_K[offset] + schedule[offset]) | 0;
+      const sum0 = rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22);
+      const majority = (a & b) ^ (a & c) ^ (b & c);
+      const temp2 = (sum0 + majority) | 0;
+
+      h = g;
+      g = f;
+      f = e;
+      e = (d + temp1) | 0;
+      d = c;
+      c = b;
+      b = a;
+      a = (temp1 + temp2) | 0;
+    }
+
+    h0 = (h0 + a) | 0;
+    h1 = (h1 + b) | 0;
+    h2 = (h2 + c) | 0;
+    h3 = (h3 + d) | 0;
+    h4 = (h4 + e) | 0;
+    h5 = (h5 + f) | 0;
+    h6 = (h6 + g) | 0;
+    h7 = (h7 + h) | 0;
+  }
+
+  return [h0, h1, h2, h3, h4, h5, h6]
+    .map((word) => (word >>> 0).toString(16).padStart(8, '0'))
+    .join('');
+}
+
+function bytesToWordArray(bytes) {
+  const words = [];
+  for (let index = 0; index < bytes.length; index += 1) {
+    words[index >>> 2] = words[index >>> 2] || 0;
+    words[index >>> 2] |= bytes[index] << (24 - (index % 4) * 8);
+  }
+  return words;
+}
+
+function rightRotate(value, amount) {
+  return (value >>> amount) | (value << (32 - amount));
+}
+
+const SHA256_K = [
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+];
+
+function randomIpv4() {
+  return Array.from({ length: 4 }, () => Math.floor(Math.random() * 256)).join('.');
+}
+
+function randomPublicIpv4() {
+  while (true) {
+    const octets = Array.from({ length: 4 }, () => Math.floor(Math.random() * 256));
+    const [a, b] = octets;
+    if (a === 0 || a === 10 || a === 127 || a >= 224) {
+      continue;
+    }
+    if (a === 169 && b === 254) {
+      continue;
+    }
+    if (a === 172 && b >= 16 && b <= 31) {
+      continue;
+    }
+    if (a === 192 && b === 168) {
+      continue;
+    }
+    return octets.join('.');
+  }
+}
+
+function parseIpv4ToNumber(ipText) {
+  const octets = String(ipText).trim().split('.');
+  if (octets.length !== 4) {
+    throw new Error('请输入合法的 IPv4 地址。');
+  }
+
+  return octets.reduce((result, octet) => {
+    if (!/^\d+$/.test(octet)) {
+      throw new Error('请输入合法的 IPv4 地址。');
+    }
+    const value = Number.parseInt(octet, 10);
+    if (value < 0 || value > 255) {
+      throw new Error('请输入合法的 IPv4 地址。');
+    }
+    return (result << 8) + value;
+  }, 0) >>> 0;
+}
+
+function numberToIpv4(value) {
+  const numericValue = value >>> 0;
+  return [
+    (numericValue >>> 24) & 255,
+    (numericValue >>> 16) & 255,
+    (numericValue >>> 8) & 255,
+    numericValue & 255
+  ].join('.');
+}
+
+function expandIpv4Ranges(text) {
+  const result = [];
+  for (const line of splitNonEmptyLines(text)) {
+    if (line.includes('/')) {
+      const [baseIp, prefixLengthText] = line.split('/');
+      const prefixLength = Number.parseInt(prefixLengthText, 10);
+      if (!Number.isFinite(prefixLength) || prefixLength < 0 || prefixLength > 32) {
+        throw new Error('CIDR 前缀格式不正确。');
+      }
+      const baseNumber = parseIpv4ToNumber(baseIp);
+      const hostBits = 32 - prefixLength;
+      const rangeSize = 2 ** hostBits;
+      const start = hostBits === 32 ? 0 : ((baseNumber >>> hostBits) << hostBits) >>> 0;
+      for (let offset = 0; offset < rangeSize; offset += 1) {
+        result.push(numberToIpv4((start + offset) >>> 0));
+      }
+      continue;
+    }
+
+    if (line.includes('-')) {
+      const [startText, endText] = line.split('-');
+      const start = parseIpv4ToNumber(startText);
+      const end = parseIpv4ToNumber(endText);
+      if (end < start) {
+        throw new Error('IP 地址段结束值不能小于开始值。');
+      }
+      for (let current = start; current <= end; current += 1) {
+        result.push(numberToIpv4(current));
+      }
+      continue;
+    }
+
+    result.push(numberToIpv4(parseIpv4ToNumber(line)));
+  }
+  return result;
+}
+
+function convertIpv4ToMappedIpv6(ipText) {
+  const value = parseIpv4ToNumber(ipText);
+  const hex = value.toString(16).padStart(8, '0');
+  return `::ffff:${hex.slice(0, 4)}:${hex.slice(4)}`;
+}
+
+function randomMacAddress(separator) {
+  const actualSeparator = typeof separator === 'string' ? separator : ':';
+  return Array.from({ length: 6 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0').toUpperCase())
+    .join(actualSeparator);
+}
+
+function randomHexColor() {
+  return `#${Math.floor(Math.random() * 0x1000000).toString(16).padStart(6, '0').toUpperCase()}`;
+}
+
+function stripGoogleTranslateFontTags(text) {
+  return String(text)
+    .replace(/<font\b[^>]*style="[^"]*vertical-align:\s*inherit;?[^"]*"[^>]*>/gi, '')
+    .replace(/<\/font>/gi, '')
+    .replace(/>\s+</g, '><')
+    .trim();
 }
 
 function escapeXml(text) {

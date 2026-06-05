@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { parsePageSelection } = require('./pageSelectionParser.cjs');
+const { imageConversionCatalog } = require('./imageConversionCatalog.cjs');
 
 function createConversionService(options) {
   const {
@@ -222,7 +223,11 @@ function createConversionService(options) {
         accepts: '.pdf',
         maxFileSizeMb: 20,
         helperText: '按范围拆成多个 PDF，并统一打包为 ZIP 下载。'
-      }
+      },
+      ...imageConversionCatalog.map((item) => ({
+        status: 'available',
+        ...item
+      }))
     ];
   }
 }
@@ -658,6 +663,204 @@ async function executeConversion(options) {
     return [outputPath];
   }
 
+  if (conversionKey === 'image_compress_batch') {
+    if (writtenFiles.length === 0) {
+      throw createConversionError('IMAGE_REQUIRED', '请先选择至少一张图片。', 400);
+    }
+
+    const zipPath = path.join(outputDirectory, 'compressed-images.zip');
+    await runPythonScript(pythonBin, [
+      'image_compress_batch',
+      zipPath,
+      JSON.stringify({
+        quality: Number.parseInt(String(conversionOptions?.quality ?? '75'), 10) || 75
+      }),
+      ...writtenFiles
+    ]);
+    return [zipPath];
+  }
+
+  if (conversionKey === 'image_resize_exact') {
+    const sourcePath = requireSingleImageFile(conversionKey, inputFiles, writtenFiles);
+    const ext = normalizeImageOutputFormat(conversionOptions?.outputFormat, sourcePath);
+    const outputPath = path.join(outputDirectory, `${path.parse(sourcePath).name}-resized.${ext}`);
+    await runPythonScript(pythonBin, [
+      'image_resize_exact',
+      outputPath,
+      sourcePath,
+      JSON.stringify({
+        targetWidth: Number.parseInt(String(conversionOptions?.targetWidth ?? '800'), 10) || 800,
+        targetHeight: Number.parseInt(String(conversionOptions?.targetHeight ?? '600'), 10) || 600
+      })
+    ]);
+    return [outputPath];
+  }
+
+  if (conversionKey === 'image_resize_scale') {
+    const sourcePath = requireSingleImageFile(conversionKey, inputFiles, writtenFiles);
+    const ext = normalizeImageOutputFormat(conversionOptions?.outputFormat, sourcePath);
+    const outputPath = path.join(outputDirectory, `${path.parse(sourcePath).name}-scaled.${ext}`);
+    await runPythonScript(pythonBin, [
+      'image_resize_scale',
+      outputPath,
+      sourcePath,
+      JSON.stringify({
+        scalePercent: Number.parseInt(String(conversionOptions?.scalePercent ?? '100'), 10) || 100
+      })
+    ]);
+    return [outputPath];
+  }
+
+  if (conversionKey === 'image_crop_free') {
+    const sourcePath = requireSingleImageFile(conversionKey, inputFiles, writtenFiles);
+    const ext = normalizeImageOutputFormat(conversionOptions?.outputFormat, sourcePath);
+    const outputPath = path.join(outputDirectory, `${path.parse(sourcePath).name}-cropped.${ext}`);
+    await runPythonScript(pythonBin, [
+      'image_crop_free',
+      outputPath,
+      sourcePath,
+      JSON.stringify({
+        cropX: Number.parseInt(String(conversionOptions?.cropX ?? '0'), 10) || 0,
+        cropY: Number.parseInt(String(conversionOptions?.cropY ?? '0'), 10) || 0,
+        cropWidth: Number.parseInt(String(conversionOptions?.cropWidth ?? '300'), 10) || 300,
+        cropHeight: Number.parseInt(String(conversionOptions?.cropHeight ?? '300'), 10) || 300
+      })
+    ]);
+    return [outputPath];
+  }
+
+  if (conversionKey === 'image_crop_ratio') {
+    const sourcePath = requireSingleImageFile(conversionKey, inputFiles, writtenFiles);
+    const ext = normalizeImageOutputFormat(conversionOptions?.outputFormat, sourcePath);
+    const outputPath = path.join(outputDirectory, `${path.parse(sourcePath).name}-ratio-cropped.${ext}`);
+    await runPythonScript(pythonBin, [
+      'image_crop_ratio',
+      outputPath,
+      sourcePath,
+      JSON.stringify({
+        aspectRatio: String(conversionOptions?.aspectRatio || '1:1')
+      })
+    ]);
+    return [outputPath];
+  }
+
+  if (conversionKey === 'image_crop_ratio_batch') {
+    if (writtenFiles.length === 0) {
+      throw createConversionError('IMAGE_REQUIRED', '请先选择至少一张图片。', 400);
+    }
+
+    const zipPath = path.join(outputDirectory, 'ratio-cropped-images.zip');
+    await runPythonScript(pythonBin, [
+      'image_crop_ratio_batch',
+      zipPath,
+      JSON.stringify({
+        aspectRatio: String(conversionOptions?.aspectRatio || '1:1'),
+        outputFormat: normalizeImageOutputFormat(conversionOptions?.outputFormat, writtenFiles[0])
+      }),
+      ...writtenFiles
+    ]);
+    return [zipPath];
+  }
+
+  if (conversionKey === 'image_split_grid') {
+    const sourcePath = requireSingleImageFile(conversionKey, inputFiles, writtenFiles);
+    const zipPath = path.join(outputDirectory, `${path.parse(sourcePath).name}-grid.zip`);
+    await runPythonScript(pythonBin, [
+      'image_split_grid',
+      zipPath,
+      sourcePath,
+      JSON.stringify({
+        rows: Number.parseInt(String(conversionOptions?.rows ?? '2'), 10) || 2,
+        columns: Number.parseInt(String(conversionOptions?.columns ?? '2'), 10) || 2,
+        outputFormat: normalizeImageOutputFormat(conversionOptions?.outputFormat, sourcePath)
+      })
+    ]);
+    return [zipPath];
+  }
+
+  if (conversionKey === 'image_concat_long' || conversionKey === 'image_collage') {
+    if (writtenFiles.length === 0) {
+      throw createConversionError('IMAGE_REQUIRED', '请先选择至少一张图片。', 400);
+    }
+
+    const ext = normalizeImageOutputFormat(conversionOptions?.outputFormat, writtenFiles[0]);
+    const suffix = conversionKey === 'image_concat_long' ? 'long' : 'collage';
+    const outputPath = path.join(outputDirectory, `${path.parse(writtenFiles[0]).name}-${suffix}.${ext}`);
+    await runPythonScript(pythonBin, [
+      conversionKey,
+      outputPath,
+      JSON.stringify({
+        direction: conversionOptions?.direction === 'horizontal' ? 'horizontal' : 'vertical',
+        gap: Number.parseInt(String(conversionOptions?.gap ?? '0'), 10) || 0,
+        columns: Number.parseInt(String(conversionOptions?.columns ?? '2'), 10) || 2,
+        backgroundColor: String(conversionOptions?.backgroundColor || '#ffffff')
+      }),
+      ...writtenFiles
+    ]);
+    return [outputPath];
+  }
+
+  if (['image_fill_background', 'image_dark_mode_background', 'image_grayscale', 'image_invert', 'image_printmaking', 'image_emboss', 'image_remove_solid_bg', 'image_add_padding', 'image_pixelate', 'image_increase_size', 'image_clear_content', 'image_format_convert', 'image_modify_dpi', 'png_alpha_invert', 'image_round_corner', 'image_tile_fill', 'id_photo_resize', 'exam_id_photo_process', 'id_photo_crop', 'id_photo_bg_swap', 'anti_ocr_image', 'image_watermark_tile'].includes(conversionKey)) {
+    if (conversionKey !== 'image_format_convert' || writtenFiles.length <= 1) {
+      const sourcePath = requireSingleImageFile(conversionKey, inputFiles, writtenFiles);
+      const ext = resolveImageCommandOutputExtension(conversionKey, sourcePath, conversionOptions);
+      const outputPath = path.join(outputDirectory, `${path.parse(sourcePath).name}-${buildImageCommandSuffix(conversionKey)}.${ext}`);
+      await runPythonScript(pythonBin, [
+        conversionKey,
+        outputPath,
+        sourcePath,
+        JSON.stringify(buildImageCommandOptions(conversionKey, conversionOptions))
+      ]);
+      return [outputPath];
+    }
+
+    if (writtenFiles.length === 0) {
+      throw createConversionError('IMAGE_REQUIRED', '请先选择至少一张图片。', 400);
+    }
+
+    const ext = normalizeImageOutputFormat(conversionOptions?.outputFormat, writtenFiles[0]);
+    const zipPath = path.join(outputDirectory, 'converted-images.zip');
+    await runPythonScript(pythonBin, [
+      'image_format_convert',
+      zipPath,
+      JSON.stringify({
+        outputFormat: ext
+      }),
+      ...writtenFiles
+    ]);
+    return [zipPath];
+  }
+
+  if (['favicon_generate', 'app_icon_generate', 'chrome_icon_generate', 'excel_extract_images', 'ppt_extract_images', 'gif_split'].includes(conversionKey)) {
+    const sourcePath = requireSingleImageFile(conversionKey, inputFiles, writtenFiles);
+    const outputExtension = conversionKey === 'favicon_generate' ? 'ico' : 'zip';
+    const outputPath = path.join(outputDirectory, `${path.parse(sourcePath).name}-${buildImageCommandSuffix(conversionKey)}.${outputExtension}`);
+    await runPythonScript(pythonBin, [
+      conversionKey,
+      outputPath,
+      sourcePath,
+      JSON.stringify(buildImageCommandOptions(conversionKey, conversionOptions))
+    ]);
+    return [outputPath];
+  }
+
+  if (conversionKey === 'gif_merge') {
+    if (writtenFiles.length === 0) {
+      throw createConversionError('IMAGE_REQUIRED', '请先选择至少一张图片。', 400);
+    }
+
+    const outputPath = path.join(outputDirectory, `${path.parse(writtenFiles[0]).name}-merged.gif`);
+    await runPythonScript(pythonBin, [
+      'gif_merge',
+      outputPath,
+      JSON.stringify({
+        durationMs: Number.parseInt(String(conversionOptions?.durationMs ?? '400'), 10) || 400
+      }),
+      ...writtenFiles
+    ]);
+    return [outputPath];
+  }
+
   if (conversionKey === 'word_to_pdf') {
     if (writtenFiles.length !== 1) {
       throw new Error('word_to_pdf requires exactly one Word file');
@@ -817,6 +1020,168 @@ function findPrimaryPdfPath(inputFiles, writtenFiles) {
 function findAuxiliaryFilePath(inputFiles, writtenFiles, fieldName) {
   const index = inputFiles.findIndex((file) => file.fieldName === fieldName);
   return index === -1 ? '' : writtenFiles[index];
+}
+
+function requireSingleImageFile(conversionKey, inputFiles, writtenFiles) {
+  const sourcePath = findPrimaryPdfPath(inputFiles, writtenFiles) || writtenFiles[0] || '';
+  if (!sourcePath) {
+    throw createConversionError('IMAGE_REQUIRED', '请先选择一张图片。', 400);
+  }
+  return sourcePath;
+}
+
+function normalizeImageOutputFormat(value, sourcePath = '', fallback = '') {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'ico'].includes(normalized)) {
+    return normalized === 'jpeg' ? 'jpg' : normalized;
+  }
+
+  const ext = path.extname(String(sourcePath || '')).replace(/^\./, '').toLowerCase();
+  if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
+    return ext === 'jpeg' ? 'jpg' : ext;
+  }
+
+  return fallback || 'png';
+}
+
+function buildImageCommandSuffix(conversionKey) {
+  const suffixMap = {
+    image_fill_background: 'with-bg',
+    image_dark_mode_background: 'darkmode-bg',
+    image_watermark_tile: 'watermarked',
+    image_grayscale: 'grayscale',
+    image_invert: 'inverted',
+    image_printmaking: 'printmaking',
+    image_emboss: 'emboss',
+    image_remove_solid_bg: 'cutout',
+    favicon_generate: 'favicon',
+    app_icon_generate: 'icons',
+    chrome_icon_generate: 'chrome-icons',
+    image_add_padding: 'padded',
+    image_pixelate: 'pixelated',
+    image_increase_size: 'upsized',
+    image_clear_content: 'cleared',
+    image_format_convert: 'converted',
+    excel_extract_images: 'images',
+    ppt_extract_images: 'images',
+    image_modify_dpi: 'dpi',
+    gif_split: 'frames',
+    gif_merge: 'merged',
+    png_alpha_invert: 'alpha-inverted',
+    image_round_corner: 'rounded',
+    image_tile_fill: 'tiled',
+    id_photo_resize: 'id-sized',
+    exam_id_photo_process: 'exam-id-photo',
+    id_photo_crop: 'id-cropped',
+    id_photo_bg_swap: 'id-bg',
+    anti_ocr_image: 'anti-ocr'
+  };
+  return suffixMap[conversionKey] || 'output';
+}
+
+function resolveImageCommandOutputExtension(conversionKey, sourcePath, conversionOptions) {
+  if (conversionKey === 'image_modify_dpi') {
+    return normalizeImageOutputFormat(conversionOptions?.outputFormat, sourcePath, 'png');
+  }
+  if (conversionKey === 'png_alpha_invert') {
+    return 'png';
+  }
+  if (conversionKey === 'id_photo_resize' || conversionKey === 'exam_id_photo_process' || conversionKey === 'id_photo_crop' || conversionKey === 'id_photo_bg_swap') {
+    return normalizeImageOutputFormat(conversionOptions?.outputFormat, sourcePath, 'jpg');
+  }
+  return normalizeImageOutputFormat(conversionOptions?.outputFormat, sourcePath, 'png');
+}
+
+function buildImageCommandOptions(conversionKey, conversionOptions = {}) {
+  const backgroundColor = String(conversionOptions?.backgroundColor || '#ffffff');
+  const tolerance = Number.parseInt(String(conversionOptions?.tolerance ?? '36'), 10) || 36;
+  const outputFormat = String(conversionOptions?.outputFormat || '').trim().toLowerCase();
+  const idPhotoPreset = String(conversionOptions?.idPhotoPreset || 'one_inch');
+
+  if (conversionKey === 'image_fill_background') {
+    return { backgroundColor, outputFormat };
+  }
+  if (conversionKey === 'image_dark_mode_background') {
+    return { backgroundColor: '#ffffff', outputFormat: 'png' };
+  }
+  if (conversionKey === 'image_watermark_tile') {
+    return {
+      textContent: String(conversionOptions?.textContent || '仅供内部使用'),
+      fontSize: Number.parseInt(String(conversionOptions?.fontSize ?? '24'), 10) || 24,
+      opacity: toBoundedNumber(conversionOptions?.opacity, 0.22, 0.05, 0.9),
+      rotation: Number.parseInt(String(conversionOptions?.rotation ?? '-28'), 10) || -28,
+      gap: Number.parseInt(String(conversionOptions?.gap ?? '120'), 10) || 120,
+      outputFormat
+    };
+  }
+  if (conversionKey === 'image_printmaking') {
+    return { threshold: Number.parseInt(String(conversionOptions?.threshold ?? '126'), 10) || 126, outputFormat };
+  }
+  if (conversionKey === 'image_remove_solid_bg') {
+    return { tolerance, outputFormat: 'png' };
+  }
+  if (conversionKey === 'image_add_padding') {
+    return {
+      paddingTop: Number.parseInt(String(conversionOptions?.paddingTop ?? '40'), 10) || 40,
+      paddingRight: Number.parseInt(String(conversionOptions?.paddingRight ?? '40'), 10) || 40,
+      paddingBottom: Number.parseInt(String(conversionOptions?.paddingBottom ?? '40'), 10) || 40,
+      paddingLeft: Number.parseInt(String(conversionOptions?.paddingLeft ?? '40'), 10) || 40,
+      backgroundColor,
+      outputFormat
+    };
+  }
+  if (conversionKey === 'image_pixelate') {
+    return { blockSize: Number.parseInt(String(conversionOptions?.blockSize ?? '12'), 10) || 12, outputFormat };
+  }
+  if (conversionKey === 'image_increase_size') {
+    return { targetSizeKb: Number.parseInt(String(conversionOptions?.targetSizeKb ?? '100'), 10) || 100, outputFormat };
+  }
+  if (conversionKey === 'image_clear_content') {
+    return { backgroundColor, transparent: Boolean(conversionOptions?.transparent), outputFormat };
+  }
+  if (conversionKey === 'image_format_convert') {
+    return { outputFormat };
+  }
+  if (conversionKey === 'image_modify_dpi') {
+    return { dpi: Number.parseInt(String(conversionOptions?.dpi ?? '300'), 10) || 300, outputFormat };
+  }
+  if (conversionKey === 'png_alpha_invert') {
+    return { outputFormat: 'png' };
+  }
+  if (conversionKey === 'image_round_corner') {
+    return { radius: Number.parseInt(String(conversionOptions?.radius ?? '36'), 10) || 36, outputFormat: 'png' };
+  }
+  if (conversionKey === 'image_tile_fill') {
+    return {
+      targetWidth: Number.parseInt(String(conversionOptions?.targetWidth ?? '1200'), 10) || 1200,
+      targetHeight: Number.parseInt(String(conversionOptions?.targetHeight ?? '1200'), 10) || 1200,
+      outputFormat
+    };
+  }
+  if (conversionKey === 'id_photo_resize' || conversionKey === 'exam_id_photo_process' || conversionKey === 'id_photo_crop') {
+    return {
+      idPhotoPreset,
+      maxSizeKb: Number.parseInt(String(conversionOptions?.maxSizeKb ?? '120'), 10) || 120,
+      outputFormat: outputFormat || 'jpg'
+    };
+  }
+  if (conversionKey === 'id_photo_bg_swap') {
+    return {
+      backgroundColor,
+      tolerance,
+      outputFormat: outputFormat || 'jpg'
+    };
+  }
+  if (conversionKey === 'anti_ocr_image') {
+    return {
+      noiseLevel: Number.parseInt(String(conversionOptions?.noiseLevel ?? '18'), 10) || 18,
+      outputFormat
+    };
+  }
+  if (conversionKey === 'favicon_generate' || conversionKey === 'app_icon_generate' || conversionKey === 'chrome_icon_generate' || conversionKey === 'excel_extract_images' || conversionKey === 'ppt_extract_images' || conversionKey === 'gif_split') {
+    return {};
+  }
+  return { outputFormat };
 }
 
 module.exports = {

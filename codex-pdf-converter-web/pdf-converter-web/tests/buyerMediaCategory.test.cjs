@@ -5,7 +5,7 @@ const path = require('node:path');
 
 test('buyer app source registers 音视频工具 as a top-level category', () => {
   const appSource = fs.readFileSync(
-    path.join(__dirname, '..', 'public', 'app.js'),
+    path.join(__dirname, '..', 'public', 'buyerCategoryCatalog.mjs'),
     'utf8'
   );
 
