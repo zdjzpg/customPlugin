@@ -108,7 +108,7 @@ test('search input handler should not rebuild the entire dashboard on every keys
   assert.match(handleDashboardInputSource, /refreshToolListContent\(/);
   assert.match(
     handleDashboardInputSource,
-    /if \(currentViewState\.view === 'tool_list'\) \{\s*refreshToolListContent\(\);\s*return;\s*\}\s*renderToolList\(\);/s
+    /if \(currentViewState\.view === 'tool_list'\) \{\s*refreshToolListContent\('search_refresh'\);\s*return;\s*\}\s*renderToolList\('search_refresh'\);/s
   );
 });
 

@@ -9,8 +9,8 @@ test('tool card styles include the scraped UU card rules and palette classes', (
     'utf8'
   );
 
-  assert.match(styles, /\.tool-group \.tool-item\{[\s\S]*padding:18px/);
-  assert.match(styles, /\.tool-group \.tool-item__icon\{[\s\S]*width:44px/);
+  assert.match(styles, /\.tool-group \.tool-item\{[\s\S]*padding:22px/);
+  assert.match(styles, /\.tool-group \.tool-item__icon\{[\s\S]*width:48px/);
   assert.match(styles, /\.tool-group \.tool-item\.style1\{/);
   assert.match(styles, /\.tool-group \.tool-item\.style15\{/);
 });
@@ -23,8 +23,8 @@ test('tool card styles keep the UU list spacing and desktop card width rules', (
 
   assert.match(styles, /\.buyer-tool-list-shell\.tool-group/);
   assert.match(styles, /\.buyer-tool-list-shell \.grid-col-lg3/);
-  assert.match(styles, /\.tool-group \.tool-item__title\{[\s\S]*font-size:16px/);
-  assert.match(styles, /\.tool-group \.tool-item__desc\{[\s\S]*font-size:14px/);
+  assert.match(styles, /\.tool-group \.tool-item__title\{[\s\S]*font-size:22px/);
+  assert.match(styles, /\.tool-group \.tool-item__desc\{[\s\S]*font-size:15px/);
 });
 
 test('buyer tool list overrides float columns with a CSS grid layout to avoid masonry gaps', () => {
@@ -33,6 +33,7 @@ test('buyer tool list overrides float columns with a CSS grid layout to avoid ma
     'utf8'
   );
 
-  assert.match(styles, /\.buyer-tool-list-shell\.tool-group\{[\s\S]*display:grid/);
-  assert.match(styles, /\.buyer-tool-list-shell > \.grid-col-lg3\{[\s\S]*float:none/);
+  assert.match(styles, /\.buyer-tool-list-shell\.tool-group\s*\{[\s\S]*display:\s*grid/);
+  assert.match(styles, /\.buyer-tool-list-shell > \.grid-col-lg3\s*\{[\s\S]*float:\s*none/);
+  assert.match(styles, /\.buyer-tool-list-shell\.grid-row::before,\s*\.buyer-tool-list-shell\.grid-row::after\s*\{[\s\S]*display:\s*none/);
 });

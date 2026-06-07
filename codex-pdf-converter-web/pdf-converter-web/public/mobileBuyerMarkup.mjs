@@ -55,6 +55,7 @@ export function createMobileDetailScaffold(item) {
         <div class="mobile-detail-copy">
           <p class="mobile-overview-eyebrow">当前功能</p>
           <h2>${item.label}</h2>
+          ${item.helperText ? `<p>${item.helperText}</p>` : ''}
         </div>
       </div>
       <div class="mobile-detail-content" data-mobile-detail-content></div>

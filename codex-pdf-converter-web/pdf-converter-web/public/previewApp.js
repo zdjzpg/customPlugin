@@ -1,4 +1,5 @@
 import { buyerCategoryCatalog } from './buyerCategoryCatalog.mjs';
+import { applyBuyerMotion } from './buyerMotion.mjs';
 import { createBuyerShellMarkup } from './buyerShellMarkup.mjs';
 import { getVisibleTools } from './buyerToolCatalog.mjs';
 import { createMobileOverviewMarkup } from './mobileBuyerMarkup.mjs';
@@ -38,6 +39,7 @@ async function initialize() {
 function renderPreviewDashboard() {
   previewRoot.innerHTML = createBuyerShellMarkup({
     title: getCurrentCategory().label,
+    titleDescription: getCurrentCategory().description || '',
     searchKeyword: currentViewState.searchKeyword,
     mobileNavOpen: currentViewState.mobileNavOpen,
     quickKeywords: quickKeywordCatalog,
@@ -45,6 +47,7 @@ function renderPreviewDashboard() {
     activeCategoryKey: currentViewState.categoryKey,
     contentMarkup: buildPreviewListMarkup()
   });
+  requestAnimationFrame(() => applyBuyerMotion('tool_list'));
 }
 
 function buildPreviewListMarkup() {

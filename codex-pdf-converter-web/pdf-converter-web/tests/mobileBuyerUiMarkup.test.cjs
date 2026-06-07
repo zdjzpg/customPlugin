@@ -80,10 +80,12 @@ test('createMobileDetailScaffold renders app-like detail chrome with back button
   const { createMobileDetailScaffold } = await import(moduleUrl);
 
   const html = createMobileDetailScaffold({
-    label: 'PDF 加水印'
+    label: 'PDF 加水印',
+    helperText: '支持整份 PDF 添加文字水印或图片水印。'
   });
 
   assert.match(html, /返回工具列表/);
   assert.match(html, /PDF 加水印/);
+  assert.match(html, /支持整份 PDF 添加文字水印或图片水印/);
   assert.match(html, /data-mobile-detail-content/);
 });

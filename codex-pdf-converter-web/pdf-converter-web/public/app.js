@@ -150,7 +150,7 @@ async function loadCatalog() {
     return;
   }
 
-  renderToolList();
+  renderToolList('tool_list');
 }
 
 function getConversionDetailHost() {
@@ -865,14 +865,14 @@ function requiresPageSelection(conversionKey) {
   return conversionKey === 'pdf_extract_pages' || conversionKey === 'split_pdf';
 }
 
-function renderToolList() {
+function renderToolList(motionMode = 'tool_list') {
   currentViewState = {
     ...currentViewState,
     view: 'tool_list',
     conversionKey: null
   };
   syncBuyerRouteState();
-  renderBuyerDashboard();
+  renderBuyerDashboard(motionMode);
 }
 
 function renderDetail(conversionKey) {
@@ -971,7 +971,7 @@ function renderDetail(conversionKey) {
   setMessage(getConversionMessageElement(), '');
 }
 
-function renderBuyerDashboard() {
+function renderBuyerDashboard(motionMode = 'tool_list') {
   const category = getCurrentCategory();
   const contentMarkup = currentViewState.view === 'detail' && currentViewState.conversionKey
     ? buildDetailMarkup(currentViewState.conversionKey)
@@ -981,6 +981,9 @@ function renderBuyerDashboard() {
     title: currentViewState.view === 'detail' && currentViewState.conversionKey
       ? resolveBuyerToolByKey(conversionCatalog, currentViewState.conversionKey)?.label || category.label
       : category.label,
+    titleDescription: currentViewState.view === 'detail' && currentViewState.conversionKey
+      ? resolveBuyerToolByKey(conversionCatalog, currentViewState.conversionKey)?.helperText || ''
+      : category.description || '',
     searchKeyword: currentViewState.searchKeyword,
     mobileNavOpen: currentViewState.mobileNavOpen,
     quickKeywords: quickKeywordCatalog,
@@ -990,21 +993,25 @@ function renderBuyerDashboard() {
   });
 
   if (currentViewState.view !== 'detail') {
-    requestAnimationFrame(() => applyBuyerMotion('tool_list'));
+    requestAnimationFrame(() => applyBuyerMotion(motionMode));
   }
 }
 
-function refreshToolListContent() {
+function refreshToolListContent(motionMode = 'search_refresh') {
   const contentSlot = buyerDashboard.querySelector('[data-buyer-content-slot]');
   const titleElement = buyerDashboard.querySelector('.buyer-current-title h1');
   if (!contentSlot || !titleElement) {
-    renderToolList();
+    renderToolList(motionMode);
     return;
   }
 
   titleElement.textContent = getCurrentCategory().label;
+  const titleCopy = buyerDashboard.querySelector('[data-buyer-title-copy]');
+  if (titleCopy) {
+    titleCopy.textContent = getCurrentCategory().description || '';
+  }
   contentSlot.innerHTML = buildToolListMarkup();
-  requestAnimationFrame(() => applyBuyerMotion('tool_list_refresh'));
+  requestAnimationFrame(() => applyBuyerMotion(motionMode));
 }
 
 function buildToolListMarkup() {
@@ -1044,7 +1051,7 @@ function buildDetailMarkup(conversionKey) {
         '<div class="mobile-detail-content" data-mobile-detail-content></div>',
         `<div class="mobile-detail-content" data-mobile-detail-content>${createToolDetailMarkup(toolItem, { showHeader: false })}</div>`
       )
-    : createToolDetailMarkup(toolItem, { showHeader: false });
+    : createToolDetailMarkup(toolItem, { showHeader: true });
 
   return `
     <section class="buyer-section-shell buyer-detail-shell-wrap">
@@ -1085,7 +1092,7 @@ function handleDashboardClick(event) {
       searchKeyword: '',
       mobileNavOpen: false
     };
-    renderToolList();
+    renderToolList('category_switch');
     return;
   }
 
@@ -1096,7 +1103,7 @@ function handleDashboardClick(event) {
       searchKeyword: searchChip.dataset.searchChip || '',
       mobileNavOpen: false
     };
-    renderToolList();
+    renderToolList('search_refresh');
     return;
   }
 
@@ -1107,7 +1114,7 @@ function handleDashboardClick(event) {
   }
 
   if (event.target.closest('[data-back-to-overview]')) {
-    renderToolList();
+    renderToolList('tool_list');
     return;
   }
 
@@ -1236,11 +1243,11 @@ function handleDashboardInput(event) {
   };
   syncBuyerRouteState();
   if (currentViewState.view === 'tool_list') {
-    refreshToolListContent();
+    refreshToolListContent('search_refresh');
     return;
   }
 
-  renderToolList();
+  renderToolList('search_refresh');
 }
 
 function handleDashboardKeydown(event) {

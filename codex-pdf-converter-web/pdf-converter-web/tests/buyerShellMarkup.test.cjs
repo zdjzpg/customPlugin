@@ -11,6 +11,7 @@ test('createBuyerShellMarkup renders UU-style top bar, side navigation, and sear
 
   const html = createBuyerShellMarkup({
     title: 'PPT 工具',
+    titleDescription: '覆盖 PDF / Office 文件转换、页面处理、签章和常用编辑能力。',
     searchKeyword: '',
     mobileNavOpen: false,
     quickKeywords: ['PDF', 'OCR', '换行'],
@@ -39,6 +40,8 @@ test('createBuyerShellMarkup renders UU-style top bar, side navigation, and sear
   assert.match(html, /data-animate-search-panel/);
   assert.match(html, /data-animate-current-title/);
   assert.match(html, /data-tool-search-input/);
+  assert.match(html, /覆盖 PDF \/ Office 文件转换/);
+  assert.match(html, /data-buyer-title-copy/);
   assert.doesNotMatch(html, /buyer-side-nav-title/);
   assert.match(html, /PPT 工具/);
   assert.match(html, /文本工具/);
@@ -65,6 +68,7 @@ test('createBuyerShellMarkup can render the mobile navigation panel in open stat
 
   const html = createBuyerShellMarkup({
     title: 'PPT 工具',
+    titleDescription: '覆盖 PDF / Office 文件转换、页面处理、签章和常用编辑能力。',
     searchKeyword: 'pdf',
     mobileNavOpen: true,
     quickKeywords: ['PDF'],
@@ -102,6 +106,7 @@ test('createBuyerShellMarkup can render homepage category cards for PPT and text
 
   const html = createBuyerShellMarkup({
     title: '首页',
+    titleDescription: '选择分类后查看当前已实现工具。',
     searchKeyword: '',
     mobileNavOpen: false,
     quickKeywords: ['PDF', '文本'],

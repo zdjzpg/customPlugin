@@ -11,7 +11,15 @@ test('desktop buyer layout keeps the side nav fixed while the main shell scrolls
 
   assert.match(
     styles,
-    /\.buyer-layout\s*\{[\s\S]*height:\s*calc\(100vh - 57px\)[\s\S]*overflow:\s*hidden/
+    /body\s*\{[\s\S]*overflow:\s*hidden/
+  );
+  assert.match(
+    styles,
+    /\.buyer-station-shell\s*\{[\s\S]*width:\s*min\(1600px,\s*calc\(100vw - 40px\)\)[\s\S]*height:\s*calc\(100vh - 40px\)/ 
+  );
+  assert.match(
+    styles,
+    /\.buyer-layout\s*\{[\s\S]*height:\s*calc\(100% - 72px\)[\s\S]*overflow:\s*hidden/
   );
   assert.match(
     styles,
@@ -19,6 +27,6 @@ test('desktop buyer layout keeps the side nav fixed while the main shell scrolls
   );
   assert.match(
     styles,
-    /\.buyer-main-shell\s*\{[\s\S]*height:\s*calc\(100vh - 57px\)[\s\S]*overflow-y:\s*auto/
+    /\.buyer-main-shell\s*\{[\s\S]*height:\s*100%[\s\S]*overflow-y:\s*auto/
   );
 });

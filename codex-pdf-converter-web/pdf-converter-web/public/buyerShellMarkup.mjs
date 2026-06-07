@@ -3,6 +3,7 @@ import { createCategoryIconMarkup } from './categoryIconMarkup.mjs';
 export function createBuyerShellMarkup(input) {
   const {
     title,
+    titleDescription = '',
     searchKeyword = '',
     mobileNavOpen = false,
     quickKeywords = [],
@@ -76,6 +77,7 @@ export function createBuyerShellMarkup(input) {
           </section>
           <section class="buyer-current-title" data-animate-current-title>
             <h1>${escapeHtml(title)}</h1>
+            ${titleDescription ? `<p data-buyer-title-copy>${escapeHtml(titleDescription)}</p>` : ''}
           </section>
           <div class="buyer-content-shell" data-buyer-content-slot>
             ${contentMarkup}

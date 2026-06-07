@@ -80,7 +80,25 @@ function animateBuyerShell(gsap, mode) {
     gsap.set([topbar, searchPanel, title], { autoAlpha: 0, y: 18 });
     gsap.set(sideNavItems, { autoAlpha: 0, x: -14 });
   }
-  gsap.set(cards, { autoAlpha: 0, y: 18, scale: 0.985 });
+
+  if (mode === 'category_switch') {
+    gsap.set(searchPanel, { autoAlpha: 0, y: 12 });
+    gsap.set(title, { autoAlpha: 0, y: 16 });
+    gsap.set(cards, {
+      autoAlpha: 0,
+      y: 26,
+      x: (index) => (index % 3 === 0 ? -26 : index % 3 === 2 ? 26 : 0),
+      scale: 0.965
+    });
+  } else if (mode === 'search_refresh') {
+    gsap.set(cards, {
+      autoAlpha: 0,
+      y: 10,
+      scale: 0.992
+    });
+  } else {
+    gsap.set(cards, { autoAlpha: 0, y: 18, scale: 0.985 });
+  }
 
   const timeline = gsap.timeline({ defaults: { ease: 'power2.out' } });
   if (mode === 'tool_list') {
@@ -90,16 +108,24 @@ function animateBuyerShell(gsap, mode) {
       .to(searchPanel, { autoAlpha: 1, y: 0, duration: 0.34 }, '-=0.18')
       .to(title, { autoAlpha: 1, y: 0, duration: 0.3 }, '-=0.22');
   }
+
+  if (mode === 'category_switch') {
+    timeline
+      .to(searchPanel, { autoAlpha: 1, y: 0, duration: 0.26 }, 0)
+      .to(title, { autoAlpha: 1, y: 0, duration: 0.30 }, '-=0.12');
+  }
+
   timeline.to(cards, {
     autoAlpha: 1,
     y: 0,
+    x: 0,
     scale: 1,
-    duration: 0.34,
+    duration: mode === 'category_switch' ? 0.42 : mode === 'search_refresh' ? 0.24 : 0.34,
     stagger: {
-      each: 0.035,
-      from: 'start'
+      each: mode === 'category_switch' ? 0.05 : mode === 'search_refresh' ? 0.02 : 0.035,
+      from: mode === 'category_switch' ? 'edges' : 'start'
     }
-  }, mode === 'tool_list' ? '-=0.14' : 0);
+  }, mode === 'tool_list' ? '-=0.14' : mode === 'category_switch' ? '-=0.08' : 0);
 }
 
 function prefersReducedMotion() {
