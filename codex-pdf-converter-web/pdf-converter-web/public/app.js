@@ -58,6 +58,7 @@ import {
   createToolDetailMarkup,
   createToolOverviewMarkup
 } from './toolCatalogMarkup.mjs';
+import { applyBuyerMotion } from './buyerMotion.mjs';
 import { validateSelectedFiles } from './conversionValidation.mjs';
 import { createUploadProgressMarkup, getUploadStageText } from './uploadProgress.mjs';
 
@@ -132,6 +133,7 @@ buyerLoginForm.addEventListener('submit', async (event) => {
 function showBuyerLogin() {
   buyerLoginPanel.classList.remove('hidden');
   buyerDashboard.classList.add('hidden');
+  requestAnimationFrame(() => applyBuyerMotion('login'));
 }
 
 function showBuyerDashboard() {
@@ -986,6 +988,10 @@ function renderBuyerDashboard() {
     activeCategoryKey: currentViewState.categoryKey,
     contentMarkup
   });
+
+  if (currentViewState.view !== 'detail') {
+    requestAnimationFrame(() => applyBuyerMotion('tool_list'));
+  }
 }
 
 function refreshToolListContent() {
@@ -998,6 +1004,7 @@ function refreshToolListContent() {
 
   titleElement.textContent = getCurrentCategory().label;
   contentSlot.innerHTML = buildToolListMarkup();
+  requestAnimationFrame(() => applyBuyerMotion('tool_list_refresh'));
 }
 
 function buildToolListMarkup() {
@@ -1016,7 +1023,7 @@ function buildToolListMarkup() {
 
   return `
     <section class="buyer-section-shell">
-      <div class="${mobileMode ? 'buyer-mobile-list-shell' : 'buyer-tool-list-shell tool-group grid-row grid-col-space30'}" id="conversion-overview">
+      <div class="${mobileMode ? 'buyer-mobile-list-shell' : 'buyer-tool-list-shell tool-group grid-row grid-col-space30'}" id="conversion-overview" data-animate-tool-list>
         ${listMarkup}
       </div>
       <div class="hidden" id="conversion-detail"></div>

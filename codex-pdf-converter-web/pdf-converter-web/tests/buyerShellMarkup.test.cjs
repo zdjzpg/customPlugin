@@ -33,7 +33,11 @@ test('createBuyerShellMarkup renders UU-style top bar, side navigation, and sear
   });
 
   assert.match(html, /data-buyer-topbar/);
+  assert.match(html, /data-buyer-motion-root/);
+  assert.match(html, /data-animate-topbar/);
   assert.match(html, /data-desktop-side-nav/);
+  assert.match(html, /data-animate-search-panel/);
+  assert.match(html, /data-animate-current-title/);
   assert.match(html, /data-tool-search-input/);
   assert.doesNotMatch(html, /buyer-side-nav-title/);
   assert.match(html, /PPT 工具/);
@@ -141,4 +145,5 @@ test('tool list markup should not require duplicated home category cards when si
   );
 
   assert.doesNotMatch(buildToolListMarkupSource, /data-home-category-cards/);
+  assert.match(buildToolListMarkupSource, /data-animate-tool-list/);
 });

@@ -12,8 +12,8 @@ export function createBuyerShellMarkup(input) {
   } = input;
 
   return `
-    <div class="buyer-station-shell">
-      <header class="buyer-topbar" data-buyer-topbar>
+    <div class="buyer-station-shell" data-buyer-motion-root>
+      <header class="buyer-topbar" data-buyer-topbar data-animate-topbar>
         <div class="buyer-brand">
           <div class="buyer-brand-mark" aria-hidden="true">
             <img class="brand-mark-icon" src="/brand-mark.svg?v=20260604" alt="" />
@@ -31,7 +31,7 @@ export function createBuyerShellMarkup(input) {
       </header>
       <div class="buyer-layout">
         <aside class="buyer-side-nav" data-desktop-side-nav>
-          <nav class="buyer-side-nav-list">
+          <nav class="buyer-side-nav-list" data-animate-side-nav>
             ${categories
               .map(
                 (category) => `
@@ -49,7 +49,7 @@ export function createBuyerShellMarkup(input) {
           </nav>
         </aside>
         <main class="buyer-main-shell">
-          <section class="buyer-search-panel">
+          <section class="buyer-search-panel" data-animate-search-panel>
             <div class="buyer-search-row">
               <label class="buyer-search-input-wrap">
                 <span class="buyer-search-icon" aria-hidden="true">⌕</span>
@@ -74,7 +74,7 @@ export function createBuyerShellMarkup(input) {
                 .join('')}
             </div>
           </section>
-          <section class="buyer-current-title">
+          <section class="buyer-current-title" data-animate-current-title>
             <h1>${escapeHtml(title)}</h1>
           </section>
           <div class="buyer-content-shell" data-buyer-content-slot>

@@ -15,6 +15,9 @@ test('buyer landing copy stays user-facing and does not expose internal status l
   assert.match(html, /进入工具页/);
   assert.match(html, /rel="icon"/);
   assert.match(html, /favicon\.svg/);
+  assert.match(html, /data-login-motion-shell/);
+  assert.match(html, /buyer-login-glow/);
+  assert.match(html, /vendor\/gsap\/gsap\.min\.js/);
 
   assert.doesNotMatch(html, /后台卡密管理/);
   assert.doesNotMatch(html, /上传转换链路下一步接入/);
@@ -37,6 +40,7 @@ test('buyer dashboard source does not include customer-irrelevant status and ses
   assert.match(categorySource, /PPT 工具/);
   assert.match(script, /searchKeyword/);
   assert.match(script, /mobileNavOpen/);
+  assert.match(script, /applyBuyerMotion/);
   assert.doesNotMatch(script, /状态：/);
   assert.doesNotMatch(script, /转换目录/);
   assert.doesNotMatch(script, /本次登录有效至/);

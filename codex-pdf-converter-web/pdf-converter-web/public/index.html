@@ -11,8 +11,11 @@
   </head>
   <body>
     <main class="buyer-app">
-      <section class="login-shell" id="buyer-login-panel">
-        <div class="login-brand">
+      <div class="buyer-login-glow buyer-login-glow-one" aria-hidden="true"></div>
+      <div class="buyer-login-glow buyer-login-glow-two" aria-hidden="true"></div>
+      <div class="buyer-login-glow buyer-login-glow-three" aria-hidden="true"></div>
+      <section class="login-shell" id="buyer-login-panel" data-login-motion-shell>
+        <div class="login-brand" data-animate-login-brand>
           <div class="login-brand-mark" aria-hidden="true">
             <img class="brand-mark-icon" src="/brand-mark.svg?v=20260604" alt="" />
           </div>
@@ -21,13 +24,13 @@
             <span>买家登录后即可使用全部已开通工具</span>
           </div>
         </div>
-        <section class="login-panel">
-          <div class="login-panel-copy">
+        <section class="login-panel" data-animate-login-panel>
+          <div class="login-panel-copy" data-animate-login-copy>
             <p class="login-kicker">工具登录</p>
             <h1>输入卡密后进入工具页</h1>
             <p>请输入卖家提供的卡密，登录后即可使用当前已实现的在线文件处理工具。</p>
           </div>
-          <form id="buyer-login-form" class="stack">
+          <form id="buyer-login-form" class="stack" data-animate-login-form>
             <label class="field">
               <span>卡密</span>
               <input id="buyer-code" name="code" type="text" placeholder="例如：DEMO-DAYS-7" required />
@@ -41,6 +44,7 @@
       <section class="hidden" id="buyer-dashboard"></section>
     </main>
 
+    <script src="/vendor/gsap/gsap.min.js"></script>
     <script type="module" src="/app.js"></script>
   </body>
   </html>

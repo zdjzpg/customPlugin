@@ -82,6 +82,7 @@ Catalog freshness rule:
 Current behavior:
 
 - buyer logs in with redemption code
+- public preview page exists at `/preview`
 - admin has separate login and code management
 - upload pipeline uses `multipart/form-data`
 - conversion records are stored in SQLite
@@ -539,6 +540,22 @@ Current detail-page interaction rules:
 - some page-level tools now expose thumbnail interactions directly inside the detail page:
   - delete pages
   - reorder pages
+
+### Current public preview-page rule
+
+- `/preview` is a public no-code browse page
+- preview users may:
+  - switch categories
+  - search tools
+  - see tool cards
+- preview users may not:
+  - open tool detail pages
+  - upload files
+  - bypass buyer login
+- clicking any preview card only shows the login/contact prompt
+- preview page includes:
+  - `已有卡密，去登录`
+    link back to `/`
 
 Current layout rules:
 
@@ -1365,5 +1382,48 @@ The current admin statistics rule is:
   - last 7 days
   - last 30 days
   - custom date range
+
+## Current Admin Dashboard Rules
+
+Current admin dashboard is no longer one long stacked page only.
+
+It now includes four in-page modules:
+
+- `卡密管理`
+- `最近转换记录`
+- `功能统计`
+- `卡密图表`
+
+Current admin interaction rules:
+
+- only one admin module is visible at a time
+- each module is switched by the top tab menu
+- `卡密管理` supports code-value substring search
+- `最近转换记录` supports code-value substring search
+- `卡密管理` pagination:
+  - `20` rows per page
+- `最近转换记录` pagination:
+  - `20` rows per page
+- `功能统计` pagination:
+  - `20` rows per page
+- `最近转换记录` table must show:
+  - `时间`
+  - `卡密`
+  - Chinese tool labels instead of internal keys
+
+Current code-chart rules:
+
+- `卡密图表` queries one code value at a time
+- grouping is:
+  - by day
+- series selection rule:
+  - top `15` tools by click count under that code within the selected date range
+- chart source table:
+  - `usage_stats`
+- chart event source:
+  - `conversion_start`
+- preferred rendering rule:
+  - keep using local frontend rendering
+  - do not introduce a heavy external chart dependency unless explicitly requested
 
 If future work continues, do not re-discuss the old project context. Stay anchored on this repository and the current PDF tool behavior.

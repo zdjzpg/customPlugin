@@ -26,3 +26,13 @@ test('tool card styles keep the UU list spacing and desktop card width rules', (
   assert.match(styles, /\.tool-group \.tool-item__title\{[\s\S]*font-size:16px/);
   assert.match(styles, /\.tool-group \.tool-item__desc\{[\s\S]*font-size:14px/);
 });
+
+test('buyer tool list overrides float columns with a CSS grid layout to avoid masonry gaps', () => {
+  const styles = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'styles.css'),
+    'utf8'
+  );
+
+  assert.match(styles, /\.buyer-tool-list-shell\.tool-group\{[\s\S]*display:grid/);
+  assert.match(styles, /\.buyer-tool-list-shell > \.grid-col-lg3\{[\s\S]*float:none/);
+});
