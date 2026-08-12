@@ -11,40 +11,87 @@
   </head>
   <body>
     <main class="buyer-app">
-      <div class="buyer-login-glow buyer-login-glow-one" aria-hidden="true"></div>
-      <div class="buyer-login-glow buyer-login-glow-two" aria-hidden="true"></div>
-      <div class="buyer-login-glow buyer-login-glow-three" aria-hidden="true"></div>
-      <section class="login-shell" id="buyer-login-panel" data-login-motion-shell>
-        <div class="login-brand" data-animate-login-brand>
+      <section class="login-shell login-shell-lamp" id="buyer-login-panel" data-lamp-login-stage data-lamp-on="false">
+        <div class="login-brand">
           <div class="login-brand-mark" aria-hidden="true">
             <img class="brand-mark-icon" src="/brand-mark.svg?v=20260604" alt="" />
           </div>
           <div class="login-brand-copy">
             <strong>轻舟文件工具站</strong>
-            <span>买家登录后即可使用全部已开通工具</span>
+            <span>文件、图像与文本处理一站完成</span>
           </div>
         </div>
-        <section class="login-panel" data-animate-login-panel>
-          <div class="login-panel-copy" data-animate-login-copy>
-            <p class="login-kicker">工具登录</p>
-            <h1>输入卡密后进入工具页</h1>
-            <p>请输入卖家提供的卡密，登录后即可使用当前已实现的在线文件处理工具。</p>
-          </div>
-          <form id="buyer-login-form" class="stack" data-animate-login-form>
-            <label class="field">
-              <span>卡密</span>
-              <input id="buyer-code" name="code" type="text" placeholder="例如：DEMO-DAYS-7" required />
-            </label>
-            <button class="button" type="submit">进入工具页</button>
-          </form>
-          <p class="message" id="buyer-message"></p>
-        </section>
+        <div class="lamp-login-layout">
+          <section class="lamp-scene-card">
+            <div class="lamp-copy">
+              <p class="login-kicker">灯光登录</p>
+              <h1>欢迎回来</h1>
+              <p>轻拉拉绳，点亮登录表单。输入卡密继续进入工具站。</p>
+            </div>
+            <svg class="lamp-scene-svg" viewBox="0 0 420 420" aria-hidden="true">
+              <defs>
+                <radialGradient id="lampGlowGradient" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="hsl(var(--shade-hue) 95% 78% / 0.92)" />
+                  <stop offset="100%" stop-color="hsl(var(--shade-hue) 95% 60% / 0)" />
+                </radialGradient>
+                <linearGradient id="lampBeamGradient" x1="0%" x2="0%" y1="0%" y2="100%">
+                  <stop offset="0%" stop-color="hsl(var(--shade-hue) 95% 78% / 0.72)" />
+                  <stop offset="100%" stop-color="hsl(var(--shade-hue) 95% 64% / 0.06)" />
+                </linearGradient>
+              </defs>
+              <ellipse class="lamp-floor-glow" cx="260" cy="334" rx="110" ry="34"></ellipse>
+              <ellipse class="lamp-light-glow" data-lamp-glow cx="208" cy="154" rx="120" ry="104" fill="url(#lampGlowGradient)"></ellipse>
+              <path class="lamp-light-beam" data-lamp-beam d="M120 180 C184 160 250 160 316 182 L286 312 C247 330 173 330 134 312 Z" fill="url(#lampBeamGradient)"></path>
+              <g class="lamp-base-group">
+                <ellipse class="lamp-base-shadow" cx="170" cy="344" rx="74" ry="18"></ellipse>
+                <path class="lamp-base" d="M118 340 Q170 316 222 340 Q222 358 170 360 Q118 358 118 340Z"></path>
+                <rect class="lamp-stem" x="162" y="232" width="16" height="90" rx="8"></rect>
+                <path class="lamp-arm" d="M170 236 Q174 200 204 164 Q220 144 238 132"></path>
+                <circle class="lamp-joint" cx="170" cy="236" r="10"></circle>
+                <circle class="lamp-joint" cx="236" cy="132" r="10"></circle>
+              </g>
+              <g class="lamp-head-group">
+                <path class="lamp-shade" d="M168 82 Q232 52 296 86 L278 132 Q232 148 182 134 Z"></path>
+                <ellipse class="lamp-shade-inner" cx="231" cy="126" rx="50" ry="14"></ellipse>
+                <circle class="lamp-bulb" cx="231" cy="120" r="12"></circle>
+                <g class="lamp-eye-group" data-lamp-eye-group>
+                  <circle class="lamp-eye" cx="214" cy="98" r="8"></circle>
+                  <circle class="lamp-eye" cx="248" cy="98" r="8"></circle>
+                  <circle class="lamp-eye-pupil" cx="214" cy="96" r="3"></circle>
+                  <circle class="lamp-eye-pupil" cx="248" cy="96" r="3"></circle>
+                </g>
+              </g>
+              <path class="lamp-rope" data-lamp-rope-path d="M 236 62 Q 236 106 236 148"></path>
+              <g class="lamp-rope-handle" data-lamp-rope-handle>
+                <circle class="lamp-rope-knot" cx="236" cy="152" r="8"></circle>
+                <rect class="lamp-rope-pull" x="228" y="158" width="16" height="44" rx="8"></rect>
+              </g>
+            </svg>
+            <p class="lamp-hint">拉下拉绳，点亮后进入工具站</p>
+          </section>
+          <section class="login-panel lamp-login-panel" data-login-lamp-form>
+            <div class="login-panel-copy">
+              <p class="login-kicker">卡密登录</p>
+              <h2>欢迎回来</h2>
+              <p>输入卡密继续进入工具站，已开通的文件处理能力会在登录后全部解锁。</p>
+            </div>
+            <form id="buyer-login-form" class="stack">
+              <label class="field">
+                <span>卡密</span>
+                <input id="buyer-code" name="code" type="text" placeholder="例如：DEMO-DAYS-7" required />
+              </label>
+              <button class="button" type="submit">点亮后进入工具站</button>
+            </form>
+            <p class="message" id="buyer-message"></p>
+          </section>
+        </div>
       </section>
 
       <section class="hidden" id="buyer-dashboard"></section>
     </main>
 
     <script src="/vendor/gsap/gsap.min.js"></script>
+    <script src="/vendor/gsap/Draggable.min.js"></script>
     <script type="module" src="/app.js"></script>
   </body>
-  </html>
+</html>

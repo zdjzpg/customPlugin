@@ -61,6 +61,7 @@ import {
   createToolOverviewMarkup
 } from './toolCatalogMarkup.mjs';
 import { applyBuyerMotion } from './buyerMotion.mjs';
+import { initBuyerLoginExperience } from './buyerLoginExperience.mjs';
 import { validateSelectedFiles } from './conversionValidation.mjs';
 import { createUploadProgressMarkup, getUploadStageText } from './uploadProgress.mjs';
 
@@ -137,7 +138,7 @@ buyerLoginForm.addEventListener('submit', async (event) => {
 function showBuyerLogin() {
   buyerLoginPanel.classList.remove('hidden');
   buyerDashboard.classList.add('hidden');
-  requestAnimationFrame(() => applyBuyerMotion('login'));
+  initBuyerLoginExperience();
 }
 
 function showBuyerDashboard() {

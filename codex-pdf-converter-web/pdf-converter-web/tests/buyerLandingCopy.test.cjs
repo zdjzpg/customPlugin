@@ -10,18 +10,19 @@ test('buyer landing copy stays user-facing and does not expose internal status l
   );
 
   assert.match(html, /轻舟文件工具站/);
-  assert.match(html, /输入卡密后进入工具页/);
-  assert.match(html, /请输入卖家提供的卡密/);
-  assert.match(html, /进入工具页/);
+  assert.match(html, /欢迎回来/);
+  assert.match(html, /轻拉拉绳，点亮登录表单/);
+  assert.match(html, /输入卡密继续进入工具站/);
+  assert.match(html, /点亮后进入工具站/);
   assert.match(html, /rel="icon"/);
   assert.match(html, /favicon\.svg/);
-  assert.match(html, /data-login-motion-shell/);
-  assert.match(html, /buyer-login-glow/);
+  assert.match(html, /data-lamp-login-stage/);
+  assert.match(html, /data-lamp-rope-handle/);
   assert.match(html, /vendor\/gsap\/gsap\.min\.js/);
+  assert.match(html, /vendor\/gsap\/Draggable\.min\.js/);
 
   assert.doesNotMatch(html, /后台卡密管理/);
   assert.doesNotMatch(html, /上传转换链路下一步接入/);
-  assert.doesNotMatch(html, /上传前先登录卡密，登录后直接进功能页/);
   assert.doesNotMatch(html, /管理员后台/);
   assert.doesNotMatch(html, /<h2>功能页<\/h2>/);
   assert.doesNotMatch(html, /本次登录有效至/);
