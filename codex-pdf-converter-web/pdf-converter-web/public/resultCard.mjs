@@ -27,6 +27,26 @@ function createSummaryMarkup(summary) {
     `;
   }
 
+  if (summary?.kind === 'audio_segments') {
+    return `
+      <div class="result-summary">
+        <p class="result-summary-line">${escapeHtml(summary.heading || '分段整理完成')}</p>
+        ${(summary.segmentEntries || [])
+          .map(
+            (entry) => `
+              <p class="result-summary-line">
+                ${escapeHtml(`第 ${entry.index || 1} 段`)}
+                ${entry.title ? ` · ${escapeHtml(entry.title)}` : ''}
+                ${entry.timeRangeLabel ? ` · ${escapeHtml(entry.timeRangeLabel)}` : ''}
+                ${entry.durationLabel ? ` · 时长 ${escapeHtml(entry.durationLabel)}` : ''}
+              </p>
+            `
+          )
+          .join('')}
+      </div>
+    `;
+  }
+
   return `
     <div class="result-summary">
       <p class="result-summary-line">压缩强度：${escapeHtml(summary.compressionLevel === 'strong' ? '强力压缩' : '标准压缩')}</p>

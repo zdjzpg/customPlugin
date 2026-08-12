@@ -12,7 +12,7 @@ function getCatalogModuleUrl() {
 test('localImageToolCatalog exposes the current local image tool batch under the image_tools category', async () => {
   const { localImageToolCatalog, getLocalImageToolByKey } = await import(getCatalogModuleUrl());
 
-  assert.equal(localImageToolCatalog.length, 12);
+  assert.equal(localImageToolCatalog.length, 13);
   assert.deepEqual(
     localImageToolCatalog.map((item) => item.key),
     [
@@ -22,6 +22,7 @@ test('localImageToolCatalog exposes the current local image tool batch under the
       'image_annotate_canvas',
       'image_social_cover_pad',
       'image_privacy_redact',
+      'image_exam_info_redact',
       'image_blur_background_fill',
       'image_flip_mirror',
       'image_metadata_view_clear',
@@ -36,6 +37,7 @@ test('localImageToolCatalog exposes the current local image tool batch under the
   assert.equal(getLocalImageToolByKey('image_annotate_canvas')?.label, '图片标注 / 箭头框选');
   assert.equal(getLocalImageToolByKey('image_social_cover_pad')?.label, '图片加边框 / 社媒封面留白');
   assert.equal(getLocalImageToolByKey('image_privacy_redact')?.label, '图片隐私打码');
+  assert.equal(getLocalImageToolByKey('image_exam_info_redact')?.label, '试卷信息打码');
   assert.equal(getLocalImageToolByKey('image_blur_background_fill')?.label, '图片模糊背景填充');
   assert.equal(getLocalImageToolByKey('image_flip_mirror')?.label, '图片翻转 / 镜像');
   assert.equal(getLocalImageToolByKey('image_metadata_view_clear')?.label, '图片元数据查看 / 清除');

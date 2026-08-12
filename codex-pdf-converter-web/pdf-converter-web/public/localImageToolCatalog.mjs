@@ -54,6 +54,15 @@ export const localImageToolCatalog = [
     helperText: '本地点击图片快速给敏感区域打码，适合聊天截图和订单页。'
   },
   {
+    key: 'image_exam_info_redact',
+    kind: 'local_image_tool',
+    categoryKey: 'image_tools',
+    label: '试卷信息打码',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 20,
+    helperText: '本地快速打码学生姓名、学号、班级和成绩信息，适合试卷、作业和成绩单截图。'
+  },
+  {
     key: 'image_blur_background_fill',
     kind: 'local_image_tool',
     categoryKey: 'image_tools',

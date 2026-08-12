@@ -15,9 +15,11 @@ import {
 import { createBuyerShellMarkup } from './buyerShellMarkup.mjs';
 import { buyerCategoryCatalog } from './buyerCategoryCatalog.mjs';
 import {
+  getAllBuyerTools,
   getBuyerToolByKey as resolveBuyerToolByKey,
   getVisibleTools as getVisibleBuyerTools
 } from './buyerToolCatalog.mjs';
+import { getFeaturedTopicByKey } from './featuredTopicCatalog.mjs';
 import { runDevTool } from './devToolRuntime.mjs';
 import {
   createAnnotationFromCanvasPoint,
@@ -76,12 +78,14 @@ const localImageStateByConversionKey = new Map();
 const localTextDownloadStateByConversionKey = new Map();
 const signatureCanvasStateByConversionKey = new Map();
 const thumbnailStateByConversionKey = new Map();
+const mediaToolDraftStateByConversionKey = new Map();
 let currentViewState = {
   view: 'tool_list',
   categoryKey: categoryCatalog[0].key,
   conversionKey: null,
   searchKeyword: '',
-  mobileNavOpen: false
+  mobileNavOpen: false,
+  topicKey: null
 };
 
 buyerDashboard.addEventListener('click', handleDashboardClick);
@@ -449,7 +453,7 @@ function clearUploadProgress(conversionKey) {
 }
 
 function ensureDefaultStructuredRangeRow(form) {
-  if (!requiresPageSelection(form.dataset.conversionKey)) {
+  if (!requiresStructuredRangeRows(form.dataset.conversionKey)) {
     return;
   }
 
@@ -492,6 +496,12 @@ function collectConversionOptions(form, conversionKey) {
   }
 
   if (conversionKey === 'scan_to_searchable_pdf') {
+    return {
+      ocrLanguage: form.querySelector('[data-ocr-language]')?.value || 'chi_sim+eng'
+    };
+  }
+
+  if (conversionKey === 'images_to_searchable_pdf') {
     return {
       ocrLanguage: form.querySelector('[data-ocr-language]')?.value || 'chi_sim+eng'
     };
@@ -865,6 +875,10 @@ function requiresPageSelection(conversionKey) {
   return conversionKey === 'pdf_extract_pages' || conversionKey === 'split_pdf';
 }
 
+function requiresStructuredRangeRows(conversionKey) {
+  return requiresPageSelection(conversionKey) || conversionKey === 'media_lecture_audio_segment';
+}
+
 function renderToolList(motionMode = 'tool_list') {
   currentViewState = {
     ...currentViewState,
@@ -896,19 +910,19 @@ function renderDetail(conversionKey) {
   }
 
   if (toolItem.kind === 'local_text') {
-    form.addEventListener('submit', handleLocalTextToolSubmit);
+    bindManagedFormSubmit(form, handleLocalTextToolSubmit);
     detailHost.querySelector(`[data-copy-output="${conversionKey}"]`)?.addEventListener('click', handleCopyTextToolOutput);
     setMessage(getConversionMessageElement(), '');
     return;
   }
 
   if (toolItem.kind === 'local_image_tool') {
-    form.addEventListener('submit', handleLocalImageToolSubmit);
+    bindManagedFormSubmit(form, handleLocalImageToolSubmit);
     form.querySelector('[data-local-image-file-input]')?.addEventListener('change', handleLocalImageToolFileChange);
     if (conversionKey === 'image_platform_cover_template') {
       detailHost.querySelector('[data-local-image-batch-export]')?.addEventListener('click', handleLocalImageBatchExport);
     }
-    if (['image_annotate_canvas', 'image_privacy_redact', 'image_blur_redact', 'image_object_erase_light'].includes(conversionKey)) {
+    if (['image_annotate_canvas', 'image_privacy_redact', 'image_exam_info_redact', 'image_blur_redact', 'image_object_erase_light'].includes(conversionKey)) {
       detailHost.querySelector('[data-local-image-preview]')?.addEventListener('click', handleLocalImageCanvasClick);
       detailHost.querySelector('[data-local-image-undo]')?.addEventListener('click', handleLocalImageUndo);
       detailHost.querySelector('[data-local-image-clear]')?.addEventListener('click', handleLocalImageClear);
@@ -924,23 +938,25 @@ function renderDetail(conversionKey) {
   }
 
   if (toolItem.kind === 'local_media_tool') {
-    form.addEventListener('submit', handleLocalMediaToolSubmit);
+    bindManagedFormSubmit(form, handleLocalMediaToolSubmit);
     detailHost.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setMessage(getConversionMessageElement(), '');
     return;
   }
 
   if (toolItem.kind === 'server_media_tool' || toolItem.kind === 'file_media_tool') {
+    ensureDefaultStructuredRangeRow(form);
+    syncMediaToolDraftState(form, conversionKey);
     form.querySelector('[data-file-input]')?.addEventListener('change', handleFileInputChange);
     renderSelectedFileList(form, conversionKey);
-    form.addEventListener('submit', handleRemoteMediaToolSubmit);
+    bindManagedFormSubmit(form, handleRemoteMediaToolSubmit, runRemoteMediaToolSubmit);
     detailHost.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setMessage(getConversionMessageElement(), '');
     return;
   }
 
   if (toolItem.kind === 'local_dev_tool') {
-    form.addEventListener('submit', handleLocalDevToolSubmit);
+    bindManagedFormSubmit(form, handleLocalDevToolSubmit);
     detailHost.querySelector(`[data-copy-output="${conversionKey}"]`)?.addEventListener('click', handleCopyTextToolOutput);
     detailHost.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setMessage(getConversionMessageElement(), '');
@@ -948,7 +964,7 @@ function renderDetail(conversionKey) {
   }
 
   if (toolItem.kind === 'backend_dev_tool' || toolItem.kind === 'network_dev_tool' || toolItem.kind === 'server_dev_tool') {
-    form.addEventListener('submit', handleRemoteDevToolSubmit);
+    bindManagedFormSubmit(form, handleRemoteDevToolSubmit);
     detailHost.querySelector(`[data-copy-output="${conversionKey}"]`)?.addEventListener('click', handleCopyTextToolOutput);
     detailHost.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setMessage(getConversionMessageElement(), '');
@@ -966,13 +982,46 @@ function renderDetail(conversionKey) {
   initializeSignatureCanvas(form, conversionKey);
   renderPageThumbnails(form, conversionKey);
   renderSelectedFileList(form, conversionKey);
-  form.addEventListener('submit', handleConversionSubmit);
+  bindManagedFormSubmit(form, handleConversionSubmit);
   detailHost.scrollIntoView({ behavior: 'smooth', block: 'start' });
   setMessage(getConversionMessageElement(), '');
 }
 
+function bindManagedFormSubmit(form, submitHandler, directSubmitHandler = null) {
+  if (!form || typeof submitHandler !== 'function') {
+    return;
+  }
+
+  form.noValidate = true;
+  form.addEventListener('submit', submitHandler);
+
+  const submitButton = form.querySelector('button[type="submit"]');
+  if (!submitButton) {
+    return;
+  }
+
+  submitButton.addEventListener('click', (event) => {
+    if (event.defaultPrevented) {
+      return;
+    }
+
+    event.preventDefault();
+    const activeForm = event.currentTarget?.form || form;
+    if (typeof directSubmitHandler === 'function') {
+      void directSubmitHandler(activeForm);
+      return;
+    }
+
+    void submitHandler({
+      preventDefault() {},
+      currentTarget: activeForm
+    });
+  });
+}
+
 function renderBuyerDashboard(motionMode = 'tool_list') {
   const category = getCurrentCategory();
+  const activeTopic = getActiveFeaturedTopic();
   const contentMarkup = currentViewState.view === 'detail' && currentViewState.conversionKey
     ? buildDetailMarkup(currentViewState.conversionKey)
     : buildToolListMarkup();
@@ -980,10 +1029,10 @@ function renderBuyerDashboard(motionMode = 'tool_list') {
   buyerDashboard.innerHTML = createBuyerShellMarkup({
     title: currentViewState.view === 'detail' && currentViewState.conversionKey
       ? resolveBuyerToolByKey(conversionCatalog, currentViewState.conversionKey)?.label || category.label
-      : category.label,
+      : activeTopic?.label || category.label,
     titleDescription: currentViewState.view === 'detail' && currentViewState.conversionKey
       ? resolveBuyerToolByKey(conversionCatalog, currentViewState.conversionKey)?.helperText || ''
-      : category.description || '',
+      : activeTopic?.description || category.description || '',
     searchKeyword: currentViewState.searchKeyword,
     mobileNavOpen: currentViewState.mobileNavOpen,
     quickKeywords: quickKeywordCatalog,
@@ -1008,20 +1057,23 @@ function refreshToolListContent(motionMode = 'search_refresh') {
   titleElement.textContent = getCurrentCategory().label;
   const titleCopy = buyerDashboard.querySelector('[data-buyer-title-copy]');
   if (titleCopy) {
-    titleCopy.textContent = getCurrentCategory().description || '';
+    titleCopy.textContent = getActiveFeaturedTopic()?.description || getCurrentCategory().description || '';
   }
   contentSlot.innerHTML = buildToolListMarkup();
   requestAnimationFrame(() => applyBuyerMotion(motionMode));
 }
 
 function buildToolListMarkup() {
-  const hasSearchKeyword = Boolean(String(currentViewState.searchKeyword || '').trim());
-  const visibleTools = getVisibleBuyerTools(
-    conversionCatalog,
-    currentViewState.categoryKey,
-    currentViewState.searchKeyword
-  );
+  const activeTopic = getActiveFeaturedTopic();
+  const visibleTools = activeTopic
+    ? getVisibleFeaturedTopicTools(activeTopic)
+    : getVisibleBuyerTools(
+        conversionCatalog,
+        currentViewState.categoryKey,
+        currentViewState.searchKeyword
+      );
   const mobileMode = isMobileUi();
+  const featuredTopicMarkup = buildFeaturedTopicMarkup(activeTopic);
   const listMarkup = visibleTools.length === 0
     ? '<div class="empty-state-card">没有找到匹配的工具，请换一个关键词试试。</div>'
     : mobileMode
@@ -1030,6 +1082,7 @@ function buildToolListMarkup() {
 
   return `
     <section class="buyer-section-shell">
+      ${featuredTopicMarkup}
       <div class="${mobileMode ? 'buyer-mobile-list-shell' : 'buyer-tool-list-shell tool-group grid-row grid-col-space30'}" id="conversion-overview" data-animate-tool-list>
         ${listMarkup}
       </div>
@@ -1037,6 +1090,61 @@ function buildToolListMarkup() {
       <p class="message" id="conversion-message"></p>
     </section>
   `;
+}
+
+function buildFeaturedTopicMarkup(activeTopic) {
+  const topic = activeTopic || getFeaturedTopicByKey('teaching_materials');
+  if (!topic) {
+    return '';
+  }
+
+  const previewTools = topic.toolKeys
+    .map((toolKey) => resolveBuyerToolByKey(conversionCatalog, toolKey))
+    .filter(Boolean)
+    .slice(0, 6);
+
+  const actionMarkup = activeTopic
+    ? `<button class="button button-muted buyer-topic-action" type="button" data-clear-topic>返回全部工具</button>`
+    : `<button class="button buyer-topic-action" type="button" data-open-topic="${topic.key}">进入专题</button>`;
+
+  const eyebrow = activeTopic ? '专题工具列表' : '精选专题';
+  const summary = activeTopic ? topic.summary : topic.description;
+
+  return `
+    <section class="buyer-featured-topic-card" data-featured-topic="${topic.key}">
+      <div class="buyer-featured-topic-copy">
+        <p class="buyer-topic-eyebrow">${eyebrow}</p>
+        <h2>${topic.label}</h2>
+        <p>${summary}</p>
+      </div>
+      <div class="buyer-topic-chip-row">
+        ${previewTools
+          .map((tool) => `<span class="buyer-topic-chip">${tool.label}</span>`)
+          .join('')}
+      </div>
+      <div class="buyer-topic-action-row">
+        ${actionMarkup}
+      </div>
+    </section>
+  `;
+}
+
+function getActiveFeaturedTopic() {
+  return getFeaturedTopicByKey(currentViewState.topicKey);
+}
+
+function getVisibleFeaturedTopicTools(topic) {
+  const allTools = getAllBuyerTools(conversionCatalog);
+  const topicTools = allTools.filter((item) => topic.toolKeys.includes(item.key));
+  const keyword = String(currentViewState.searchKeyword || '').trim().toLowerCase();
+  if (!keyword) {
+    return topicTools;
+  }
+
+  return topicTools.filter((item) =>
+    item.label.toLowerCase().includes(keyword) ||
+    (item.helperText || '').toLowerCase().includes(keyword)
+  );
 }
 
 function buildDetailMarkup(conversionKey) {
@@ -1090,6 +1198,30 @@ function handleDashboardClick(event) {
       ...currentViewState,
       categoryKey: categoryButton.dataset.openCategory,
       searchKeyword: '',
+      mobileNavOpen: false,
+      topicKey: null
+    };
+    renderToolList('category_switch');
+    return;
+  }
+
+  const topicButton = event.target.closest('[data-open-topic]');
+  if (topicButton) {
+    currentViewState = {
+      ...currentViewState,
+      topicKey: topicButton.dataset.openTopic || null,
+      searchKeyword: '',
+      mobileNavOpen: false
+    };
+    renderToolList('category_switch');
+    return;
+  }
+
+  if (event.target.closest('[data-clear-topic]')) {
+    currentViewState = {
+      ...currentViewState,
+      topicKey: null,
+      searchKeyword: '',
       mobileNavOpen: false
     };
     renderToolList('category_switch');
@@ -1126,6 +1258,7 @@ function handleDashboardClick(event) {
     }
 
     appendStructuredRangeRow(form.querySelector('[data-range-rows]'), form.dataset.conversionKey);
+    syncMediaToolDraftState(form, form.dataset.conversionKey);
     return;
   }
 
@@ -1133,7 +1266,9 @@ function handleDashboardClick(event) {
   if (removeButton) {
     const row = removeButton.closest('[data-range-row]');
     if (row) {
+      const form = row.closest('.tool-form');
       row.remove();
+      syncMediaToolDraftState(form, form?.dataset.conversionKey || '');
     }
     return;
   }
@@ -1233,6 +1368,11 @@ function handleDashboardClick(event) {
 function handleDashboardInput(event) {
   const searchInput = event.target.closest('[data-tool-search-input]');
   if (!searchInput) {
+    const mediaDraftInput = event.target.closest('[data-media-segment-title], [data-media-segment-start-time], [data-media-segment-end-time], [data-media-output-format]');
+    if (mediaDraftInput) {
+      const form = mediaDraftInput.closest('.tool-form');
+      syncMediaToolDraftState(form, form?.dataset.conversionKey || '');
+    }
     return;
   }
 
@@ -1346,7 +1486,7 @@ function handleLocalImageToolFileChange(event) {
   if (statusElement) {
     const file = input.files?.[0];
     statusElement.textContent = file
-      ? `${['image_annotate_canvas', 'image_privacy_redact', 'image_blur_redact', 'image_object_erase_light'].includes(form?.dataset.conversionKey || '') ? '已选择并等待加载' : '已选择'}：${file.name}`
+      ? `${['image_annotate_canvas', 'image_privacy_redact', 'image_exam_info_redact', 'image_blur_redact', 'image_object_erase_light'].includes(form?.dataset.conversionKey || '') ? '已选择并等待加载' : '已选择'}：${file.name}`
       : '选择图片后可直接生成预览并导出。';
   }
 }
@@ -1558,19 +1698,49 @@ async function handleRemoteDevToolSubmit(event) {
 
 async function handleRemoteMediaToolSubmit(event) {
   event.preventDefault();
+  await runRemoteMediaToolSubmit(event.currentTarget);
+}
 
-  const form = event.currentTarget;
+async function runRemoteMediaToolSubmit(form) {
   const toolKey = form.dataset.conversionKey;
+  const activeForm = getConversionDetailHost()?.querySelector(`form[data-conversion-key="${toolKey}"]`) || form;
   const toolItem = resolveBuyerToolByKey(conversionCatalog, toolKey);
 
   try {
+    window.__remoteMediaSubmitDebug = {
+      stage: 'start',
+      toolKey
+    };
+    const toolOptions = buildRemoteMediaToolOptions(activeForm, toolKey);
+    window.__remoteMediaSubmitDebug = {
+      stage: 'options_built',
+      toolKey,
+      toolOptions,
+      segmentCount: Array.isArray(toolOptions?.segments) ? toolOptions.segments.length : 0
+    };
     const payload = new FormData();
     payload.append('toolKey', toolKey);
-    payload.append('toolOptions', JSON.stringify(collectMediaToolOptions(form, toolKey)));
+    window.__remoteMediaSubmitDebug = {
+      stage: 'tool_key_appended',
+      toolKey
+    };
+    payload.append('toolOptions', JSON.stringify(toolOptions));
+    window.__remoteMediaSubmitDebug = {
+      stage: 'tool_options_appended',
+      toolKey,
+      toolOptions,
+      segmentCount: Array.isArray(toolOptions?.segments) ? toolOptions.segments.length : 0
+    };
 
     if (toolItem?.kind === 'file_media_tool') {
-      const input = form.querySelector('[data-file-input]');
-      const files = getSelectedFiles(form, toolKey);
+      const input = activeForm.querySelector('[data-file-input]');
+      const files = getSelectedFiles(activeForm, toolKey);
+      window.__remoteMediaSubmitDebug = {
+        stage: 'files_loaded',
+        toolKey,
+        fileCount: files.length,
+        segmentCount: Array.isArray(toolOptions?.segments) ? toolOptions.segments.length : 0
+      };
       const accepts = (input?.dataset.accepts || '')
         .split(',')
         .map((item) => item.trim().toLowerCase())
@@ -1638,6 +1808,11 @@ async function handleRemoteMediaToolSubmit(event) {
     renderResults(toolKey, body.result?.files || []);
     setMessage(getConversionMessageElement(), '');
   } catch (error) {
+    window.__remoteMediaSubmitDebug = {
+      stage: 'error',
+      toolKey,
+      message: error.message || String(error)
+    };
     renderUploadProgress(toolKey, {
       stage: 'error',
       percent: 100,
@@ -1645,6 +1820,106 @@ async function handleRemoteMediaToolSubmit(event) {
     });
     setMessage(getConversionMessageElement(), error.message || '处理失败，请稍后重试。');
   }
+}
+
+function buildRemoteMediaToolOptions(form, toolKey) {
+  if (toolKey === 'media_text_to_speech') {
+    return {
+      sourceText: form.querySelector('[data-media-source-text]')?.value || '',
+      language: form.querySelector('[data-media-language]')?.value || 'zh',
+      outputFormat: form.querySelector('[data-media-output-format]')?.value || 'mp3'
+    };
+  }
+
+  if (toolKey === 'media_audio_clip') {
+    return {
+      startTimeText: form.querySelector('[data-media-start-time]')?.value || '',
+      endTimeText: form.querySelector('[data-media-end-time]')?.value || '',
+      outputFormat: form.querySelector('[data-media-output-format]')?.value || 'mp3'
+    };
+  }
+
+  if (toolKey === 'media_lecture_audio_segment') {
+    const liveDraft = collectLiveLectureSegmentDraft();
+    if (liveDraft.segments.length > 0) {
+      return liveDraft;
+    }
+
+    const draftState = mediaToolDraftStateByConversionKey.get(toolKey);
+    if (draftState?.segments?.length) {
+      return {
+        outputFormat: draftState.outputFormat || 'mp3',
+        segments: draftState.segments
+      };
+    }
+
+    return {
+      outputFormat: form.querySelector('[data-media-output-format]')?.value || 'mp3',
+      segments: Array.from(form.querySelectorAll('[data-range-row]'))
+        .map((row) => ({
+          title: row.querySelector('[data-media-segment-title]')?.value || '',
+          startTimeText: row.querySelector('[data-media-segment-start-time]')?.value || '',
+          endTimeText: row.querySelector('[data-media-segment-end-time]')?.value || ''
+        }))
+        .filter((item) => item.title.trim() || item.startTimeText.trim() || item.endTimeText.trim())
+    };
+  }
+
+  if (toolKey === 'media_audio_merge') {
+    return {
+      outputFormat: form.querySelector('[data-media-output-format]')?.value || 'mp3'
+    };
+  }
+
+  if (toolKey === 'media_audio_to_text' || toolKey === 'media_lecture_audio_to_text') {
+    return {
+      language: form.querySelector('[data-media-language]')?.value || 'auto',
+      outputFormat: 'txt'
+    };
+  }
+
+  return {};
+}
+
+function syncMediaToolDraftState(form, conversionKey) {
+  if (!form || conversionKey !== 'media_lecture_audio_segment') {
+    return;
+  }
+
+  mediaToolDraftStateByConversionKey.set(conversionKey, collectLectureSegmentDraftFromRoot(form));
+}
+
+function collectLiveLectureSegmentDraft() {
+  const detailHost = getConversionDetailHost();
+  if (!detailHost) {
+    return {
+      outputFormat: 'mp3',
+      segments: []
+    };
+  }
+
+  const liveForm = detailHost.querySelector('form[data-conversion-key="media_lecture_audio_segment"]');
+  return collectLectureSegmentDraftFromRoot(liveForm || detailHost);
+}
+
+function collectLectureSegmentDraftFromRoot(root) {
+  if (!root) {
+    return {
+      outputFormat: 'mp3',
+      segments: []
+    };
+  }
+
+  return {
+    outputFormat: root.querySelector('[data-media-output-format]')?.value || 'mp3',
+    segments: Array.from(root.querySelectorAll('[data-range-row]'))
+      .map((row) => ({
+        title: row.querySelector('[data-media-segment-title]')?.value || '',
+        startTimeText: row.querySelector('[data-media-segment-start-time]')?.value || '',
+        endTimeText: row.querySelector('[data-media-segment-end-time]')?.value || ''
+      }))
+      .filter((item) => item.title.trim() || item.startTimeText.trim() || item.endTimeText.trim())
+  };
 }
 
 async function handleLocalMediaToolSubmit(event) {
@@ -1894,13 +2169,20 @@ function collectMediaToolOptions(form, toolKey) {
     };
   }
 
+  if (toolKey === 'media_lecture_audio_segment') {
+    return {
+      outputFormat: form.querySelector('[data-media-output-format]')?.value || 'mp3',
+      segments: collectMediaSegmentRows(form)
+    };
+  }
+
   if (toolKey === 'media_audio_merge') {
     return {
       outputFormat: form.querySelector('[data-media-output-format]')?.value || 'mp3'
     };
   }
 
-  if (toolKey === 'media_audio_to_text') {
+  if (toolKey === 'media_audio_to_text' || toolKey === 'media_lecture_audio_to_text') {
     return {
       language: form.querySelector('[data-media-language]')?.value || 'auto',
       outputFormat: 'txt'
@@ -1908,6 +2190,16 @@ function collectMediaToolOptions(form, toolKey) {
   }
 
   return {};
+}
+
+function collectMediaSegmentRows(form) {
+  return Array.from(form.querySelectorAll('[data-range-row]'))
+    .map((row) => ({
+      title: row.querySelector('[data-media-segment-title]')?.value || '',
+      startTimeText: row.querySelector('[data-media-segment-start-time]')?.value || '',
+      endTimeText: row.querySelector('[data-media-segment-end-time]')?.value || ''
+    }))
+    .filter((item) => item.title.trim() || item.startTimeText.trim() || item.endTimeText.trim());
 }
 
 function collectLocalImageToolOptions(form, toolKey) {
@@ -2013,7 +2305,7 @@ function collectLocalImageToolOptions(form, toolKey) {
     };
   }
 
-  if (toolKey === 'image_privacy_redact') {
+  if (toolKey === 'image_privacy_redact' || toolKey === 'image_exam_info_redact') {
     return {
       redactMode: form.querySelector('[data-image-redact-mode]')?.value || 'mosaic',
       redactSize: Number.parseInt(form.querySelector('[data-image-redact-size]')?.value || '160', 10) || 160,
@@ -2107,7 +2399,7 @@ function renderLocalImagePreview(toolKey, canvas, state, renderOptions) {
   if (toolKey === 'image_annotate_canvas') {
     return renderAnnotatedImagePreview(canvas, state.image, state.annotations || [], renderOptions);
   }
-  if (toolKey === 'image_privacy_redact') {
+  if (toolKey === 'image_privacy_redact' || toolKey === 'image_exam_info_redact') {
     return renderPrivacyRedactionPreview(canvas, state.image, state.redactions || []);
   }
   if (toolKey === 'image_blur_redact') {
@@ -2136,7 +2428,7 @@ function handleLocalImageCanvasClick(event) {
   const scaleX = canvas.width / rect.width;
   const scaleY = canvas.height / rect.height;
   const options = collectLocalImageToolOptions(form, conversionKey);
-  if (conversionKey === 'image_privacy_redact' || conversionKey === 'image_blur_redact') {
+  if (conversionKey === 'image_privacy_redact' || conversionKey === 'image_exam_info_redact' || conversionKey === 'image_blur_redact') {
     state.redactions = state.redactions || [];
     state.redactions.push(createPrivacyRedactionFromCanvasPoint({
       mode: options.redactMode,
@@ -2210,7 +2502,7 @@ function handleLocalImageUndo(event) {
   const resultHost = event.currentTarget.closest('[data-results]');
   const conversionKey = resultHost?.dataset.results || '';
   const state = localImageStateByConversionKey.get(conversionKey);
-  if (conversionKey === 'image_privacy_redact' || conversionKey === 'image_blur_redact') {
+  if (conversionKey === 'image_privacy_redact' || conversionKey === 'image_exam_info_redact' || conversionKey === 'image_blur_redact') {
     if (!state?.redactions?.length) {
       return;
     }
@@ -2240,7 +2532,7 @@ function handleLocalImageClear(event) {
   if (!state) {
     return;
   }
-  if (conversionKey === 'image_privacy_redact' || conversionKey === 'image_blur_redact') {
+  if (conversionKey === 'image_privacy_redact' || conversionKey === 'image_exam_info_redact' || conversionKey === 'image_blur_redact') {
     state.redactions = [];
     void redrawPrivacyRedactionImage(conversionKey);
     return;
@@ -2323,6 +2615,7 @@ function resolveLocalImageToolDownloadSuffix(toolKey) {
     image_object_erase_light: 'erased',
     image_social_cover_pad: 'social-cover',
     image_privacy_redact: 'redacted',
+    image_exam_info_redact: 'exam-redacted',
     image_blur_background_fill: 'blur-fill'
   };
   return suffixMap[toolKey] || 'image';
@@ -2358,7 +2651,7 @@ function describeLocalImageStatus(toolKey, layout, canvas, state) {
   if (toolKey === 'image_blur_background_fill') {
     return `预览已生成：主体区域 ${layout.imageRect.width} x ${layout.imageRect.height}，画布 ${canvas.width} x ${canvas.height}`;
   }
-  if (toolKey === 'image_privacy_redact') {
+  if (toolKey === 'image_privacy_redact' || toolKey === 'image_exam_info_redact') {
     return `已添加 ${layout.redactionCount} 个打码区域，点击画布可继续打码。`;
   }
   return `预览已生成：画布 ${canvas.width} x ${canvas.height}`;
@@ -2492,8 +2785,13 @@ function renderSelectedFileList(form, conversionKey) {
 
 function getSelectedFiles(form, conversionKey) {
   const toolItem = resolveBuyerToolByKey(conversionCatalog, conversionKey);
+  const selectedFiles = selectedFilesByConversionKey.get(conversionKey) || [];
+  if (selectedFiles.length > 0) {
+    return selectedFiles;
+  }
+
   if (conversionKey === 'merge_pdf' || toolItem?.allowMultipleFiles) {
-    return selectedFilesByConversionKey.get(conversionKey) || [];
+    return selectedFiles;
   }
 
   return Array.from(form.querySelector('[data-file-input]')?.files || []);

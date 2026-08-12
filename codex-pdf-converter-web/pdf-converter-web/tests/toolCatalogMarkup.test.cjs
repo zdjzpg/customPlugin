@@ -71,6 +71,7 @@ test('createToolDetailMarkup renders the selected method form with upload contro
   assert.match(html, /type="file"/);
   assert.match(html, /开始转换/);
   assert.match(html, /提取页码/);
+  assert.doesNotMatch(html, /type="file"[^>]*required/);
 });
 
 test('createToolDetailMarkup renders a local text tool with textareas instead of file upload', async () => {
@@ -362,6 +363,28 @@ test('createToolDetailMarkup renders image_privacy_redact controls for redaction
   assert.match(html, /打码区域大小/);
   assert.match(html, /data-local-image-undo/);
   assert.match(html, /data-local-image-clear/);
+});
+
+test('createToolDetailMarkup renders image_exam_info_redact with the same local redaction controls', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'toolCatalogMarkup.mjs')
+  ).href;
+  const { createToolDetailMarkup } = await import(moduleUrl);
+
+  const html = createToolDetailMarkup({
+    key: 'image_exam_info_redact',
+    kind: 'local_image_tool',
+    label: '试卷信息打码',
+    helperText: '快速打码学生姓名、班级、学号和成绩信息。',
+    accepts: '.png,.jpg,.jpeg,.webp',
+    maxFileSizeMb: 20
+  });
+
+  assert.match(html, /打码方式/);
+  assert.match(html, /局部马赛克/);
+  assert.match(html, /模糊打码/);
+  assert.match(html, /纯色遮挡/);
+  assert.match(html, /data-local-image-undo/);
 });
 
 test('createToolDetailMarkup renders image_blur_background_fill controls for ratio and output mode', async () => {

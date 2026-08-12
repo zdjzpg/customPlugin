@@ -11,7 +11,8 @@ function createMediaToolsService(options = {}) {
     clipAudio = (input) => defaultClipAudio({ ...input, ffmpegBin }),
     mergeAudio = (input) => defaultMergeAudio({ ...input, ffmpegBin }),
     synthesizeSpeech = (input) => defaultSynthesizeSpeech({ ...input, ffmpegBin, pythonBin }),
-    transcribeAudio = (input) => defaultTranscribeAudio({ ...input, ffmpegBin, pythonBin })
+    transcribeAudio = (input) => defaultTranscribeAudio({ ...input, ffmpegBin, pythonBin }),
+    zipFiles = (input) => defaultZipFiles({ ...input, pythonBin })
   } = options;
 
   return {
@@ -41,7 +42,8 @@ function createMediaToolsService(options = {}) {
           clipAudio,
           mergeAudio,
           synthesizeSpeech,
-          transcribeAudio
+          transcribeAudio,
+          zipFiles
         });
 
         const mappedFiles = outputFiles.map((filePath) => ({
@@ -77,7 +79,8 @@ async function executeMediaTool(input) {
     clipAudio,
     mergeAudio,
     synthesizeSpeech,
-    transcribeAudio
+    transcribeAudio,
+    zipFiles
   } = input;
 
   if (toolKey === 'media_audio_clip') {
@@ -93,7 +96,10 @@ async function executeMediaTool(input) {
     }
 
     const outputFormat = normalizeAudioFormat(toolOptions.outputFormat);
-    const outputPath = path.join(outputDirectory, `${path.parse(inputPath).name}-clipped.${outputFormat}`);
+    const outputPath = path.join(
+      outputDirectory,
+      `${path.parse(inputPath).name}-clipped.${outputFormat}`
+    );
     await clipAudio({
       inputPath,
       outputPath,
@@ -102,6 +108,57 @@ async function executeMediaTool(input) {
       outputFormat
     });
     return [outputPath];
+  }
+
+  if (toolKey === 'media_lecture_audio_segment') {
+    if (writtenFiles.length !== 1) {
+      throw createMediaToolError('INVALID_MEDIA_FILE_COUNT', '请先选择一个音频文件。', 400);
+    }
+
+    const inputPath = writtenFiles[0];
+    const outputFormat = normalizeAudioFormat(toolOptions.outputFormat);
+    const segments = normalizeLectureSegments(toolOptions);
+    if (segments.length === 0) {
+      throw createMediaToolError('INVALID_LECTURE_SEGMENTS', '请至少填写一段课堂时间范围。', 400);
+    }
+
+    const segmentOutputPaths = [];
+    for (const [index, segment] of segments.entries()) {
+      const segmentFileName = `${path.parse(inputPath).name}-lecture-segment-${String(index + 1).padStart(2, '0')}.${outputFormat}`;
+      const outputPath = path.join(outputDirectory, segmentFileName);
+      await clipAudio({
+        inputPath,
+        outputPath,
+        startTimeSeconds: segment.startTimeSeconds,
+        endTimeSeconds: segment.endTimeSeconds,
+        outputFormat
+      });
+      segmentOutputPaths.push(outputPath);
+    }
+
+    const outputFiles = [];
+    if (segmentOutputPaths.length === 1) {
+      outputFiles.push(segmentOutputPaths[0]);
+    } else {
+      const zipPath = path.join(outputDirectory, `${path.parse(inputPath).name}-lecture-segments.zip`);
+      await zipFiles({
+        outputPath: zipPath,
+        inputPaths: segmentOutputPaths
+      });
+      outputFiles.push(zipPath);
+    }
+
+    outputFiles.summary = {
+      kind: 'audio_segments',
+      heading: `已整理 ${segments.length} 段课堂重点`,
+      segmentEntries: segments.map((segment, index) => ({
+        index: index + 1,
+        title: segment.title,
+        timeRangeLabel: `${formatClockTime(segment.startTimeSeconds)} - ${formatClockTime(segment.endTimeSeconds)}`,
+        durationLabel: formatDuration(segment.endTimeSeconds - segment.startTimeSeconds)
+      }))
+    };
+    return outputFiles;
   }
 
   if (toolKey === 'media_audio_merge') {
@@ -137,14 +194,19 @@ async function executeMediaTool(input) {
     return [outputPath];
   }
 
-  if (toolKey === 'media_audio_to_text') {
+  if (toolKey === 'media_audio_to_text' || toolKey === 'media_lecture_audio_to_text') {
     if (writtenFiles.length !== 1) {
       throw createMediaToolError('INVALID_MEDIA_FILE_COUNT', '请先选择一个音频文件。', 400);
     }
 
     const inputPath = writtenFiles[0];
     const language = ['auto', 'zh', 'en'].includes(toolOptions.language) ? toolOptions.language : 'auto';
-    const outputPath = path.join(outputDirectory, `${path.parse(inputPath).name}-transcript.txt`);
+    const outputPath = path.join(
+      outputDirectory,
+      toolKey === 'media_lecture_audio_to_text'
+        ? `${path.parse(inputPath).name}-lecture-notes.txt`
+        : `${path.parse(inputPath).name}-transcript.txt`
+    );
     await transcribeAudio({
       inputPath,
       outputPath,
@@ -160,7 +222,7 @@ async function executeMediaTool(input) {
     return outputFiles;
   }
 
-  throw createMediaToolError('UNSUPPORTED_MEDIA_TOOL', '当前音视频工具暂未接入。', 400);
+  throw createMediaToolError('UNSUPPORTED_MEDIA_TOOL', `当前音视频工具暂未接入：${toolKey}`, 400);
 }
 
 async function defaultClipAudio(input) {
@@ -232,6 +294,24 @@ async function defaultTranscribeAudio(input) {
     input.inputPath,
     input.language,
     input.ffmpegBin || ''
+  ]);
+}
+
+async function defaultZipFiles(input) {
+  if (!input.pythonBin) {
+    throw createMediaToolError('PYTHON_NOT_CONFIGURED', '当前环境还不能打包多段音频，请先配置 Python。', 400);
+  }
+
+  if (!Array.isArray(input.inputPaths) || input.inputPaths.length === 0) {
+    throw createMediaToolError('EMPTY_MEDIA_ZIP_INPUTS', '当前没有可打包的音频片段。', 400);
+  }
+
+  const scriptPath = path.join(__dirname, '..', '..', 'scripts', 'run_conversion.py');
+  await runCommand(input.pythonBin, [
+    scriptPath,
+    'zip_files',
+    input.outputPath,
+    ...input.inputPaths
   ]);
 }
 
@@ -316,6 +396,71 @@ function parseClockTime(value) {
 
 function normalizeAudioFormat(value) {
   return String(value || '').toLowerCase() === 'wav' ? 'wav' : 'mp3';
+}
+
+function normalizeLectureSegments(toolOptions) {
+  const rawSegments = Array.isArray(toolOptions?.segments) ? toolOptions.segments : [];
+  const normalizedSegments = rawSegments
+    .map((item, index) => normalizeLectureSegment(item, index))
+    .filter(Boolean);
+
+  if (normalizedSegments.length > 0) {
+    return normalizedSegments;
+  }
+
+  const legacySegment = normalizeLectureSegment({
+    title: '',
+    startTimeText: toolOptions?.startTimeText,
+    endTimeText: toolOptions?.endTimeText
+  }, 0);
+  return legacySegment ? [legacySegment] : [];
+}
+
+function normalizeLectureSegment(segmentInput, index) {
+  const title = String(segmentInput?.title || '').trim() || `第 ${index + 1} 段`;
+  const startTimeText = String(segmentInput?.startTimeText || '').trim();
+  const endTimeText = String(segmentInput?.endTimeText || '').trim();
+
+  if (!startTimeText && !endTimeText) {
+    return null;
+  }
+
+  const startTimeSeconds = parseClockTime(startTimeText);
+  const endTimeSeconds = parseClockTime(endTimeText);
+  if (!Number.isFinite(startTimeSeconds) || !Number.isFinite(endTimeSeconds) || endTimeSeconds <= startTimeSeconds) {
+    throw createMediaToolError(
+      'INVALID_LECTURE_SEGMENT_RANGE',
+      `第 ${index + 1} 段的开始时间和结束时间不正确。`,
+      400
+    );
+  }
+
+  return {
+    title,
+    startTimeSeconds,
+    endTimeSeconds
+  };
+}
+
+function formatClockTime(totalSeconds) {
+  const safeSeconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+  return [hours, minutes, seconds]
+    .map((item) => String(item).padStart(2, '0'))
+    .join(':');
+}
+
+function formatDuration(totalSeconds) {
+  const safeSeconds = Math.max(0, Math.round(Number(totalSeconds) || 0));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+  if (hours > 0) {
+    return [hours, minutes, seconds].map((item) => String(item).padStart(2, '0')).join(':');
+  }
+  return [minutes, seconds].map((item) => String(item).padStart(2, '0')).join(':');
 }
 
 function buildTextPreview(outputPath) {

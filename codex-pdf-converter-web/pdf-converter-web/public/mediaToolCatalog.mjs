@@ -18,6 +18,26 @@ export const mediaToolCatalog = [
     badgeTone: 'red'
   },
   {
+    key: 'media_lecture_audio_to_text',
+    kind: 'file_media_tool',
+    categoryKey: 'media_tools',
+    label: '课堂录音转讲义文本',
+    accepts: '.mp3,.wav,.m4a,.aac,.flac,.ogg,.opus',
+    maxFileSizeMb: 80,
+    helperText: '上传课堂录音后整理成讲义文本，适合老师和学生做课后整理。',
+    badgeTone: 'purple'
+  },
+  {
+    key: 'media_lecture_audio_segment',
+    kind: 'file_media_tool',
+    categoryKey: 'media_tools',
+    label: '课堂录音分段整理',
+    accepts: '.mp3,.wav,.m4a,.aac,.flac,.ogg,.opus',
+    maxFileSizeMb: 80,
+    helperText: '一次整理多段课堂重点录音，适合按知识点、作业讲评和答疑环节分段导出。',
+    badgeTone: 'blue'
+  },
+  {
     key: 'media_audio_clip',
     kind: 'file_media_tool',
     categoryKey: 'media_tools',

@@ -179,6 +179,16 @@ function createConversionService(options) {
         helperText: '适合拍照试卷和讲义做纠偏、去黑边、提亮和双页拆分整理。'
       },
       {
+        key: 'images_to_searchable_pdf',
+        label: '图片转可搜索 PDF',
+        status: 'available',
+        accepts: '.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff',
+        maxFileSizeMb: 20,
+        maxTotalFileSizeMb: 120,
+        allowMultipleFiles: true,
+        helperText: '适合把多张讲义或试卷图片整理成一个可搜索 PDF。'
+      },
+      {
         key: 'images_to_word',
         label: '图片转 Word',
         status: 'available',
@@ -575,6 +585,34 @@ async function executeConversion(options) {
           : ''
       }),
       ...writtenFiles
+    ]);
+    return [outputPath];
+  }
+
+  if (conversionKey === 'images_to_searchable_pdf') {
+    if (writtenFiles.length === 0) {
+      throw createConversionError('IMAGE_REQUIRED', '请先选择至少一张图片。', 400);
+    }
+    if (!ocrmypdfBin) {
+      throw createConversionError(
+        'OCRMYPDF_NOT_CONFIGURED',
+        '当前环境还不能处理可搜索 PDF，请先安装并配置 OCRmyPDF。',
+        400
+      );
+    }
+
+    const mergedPdfPath = path.join(outputDirectory, `${path.parse(writtenFiles[0]).name}-merged.pdf`);
+    await runPythonScript(pythonBin, ['images_to_pdf', mergedPdfPath, ...writtenFiles]);
+
+    const outputPath = path.join(outputDirectory, `${path.parse(writtenFiles[0]).name}-searchable.pdf`);
+    await runPythonScript(pythonBin, [
+      'scan_to_searchable_pdf',
+      outputPath,
+      mergedPdfPath,
+      JSON.stringify({
+        ocrmypdfBin,
+        ocrLanguage: normalizeOcrLanguage(conversionOptions?.ocrLanguage)
+      })
     ]);
     return [outputPath];
   }

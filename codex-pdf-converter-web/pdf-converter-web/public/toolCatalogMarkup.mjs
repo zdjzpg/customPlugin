@@ -80,7 +80,7 @@ export function createToolDetailMarkup(item, options = {}) {
         ${requiresUpload ? `
           <label class="field">
             <span>选择文件</span>
-            <input type="file" data-file-input data-accepts="${item.accepts}" accept="${item.accepts}" ${supportsMultipleFiles(item) ? 'multiple' : ''} required />
+            <input type="file" data-file-input data-accepts="${item.accepts}" accept="${item.accepts}" ${supportsMultipleFiles(item) ? 'multiple' : ''} />
           </label>
           ${createSelectedFileListMarkup(item)}
         ` : ''}
@@ -467,7 +467,7 @@ function createLocalImageToolDetailMarkup(item, options = {}) {
     `;
   }
 
-  if (item.key === 'image_privacy_redact') {
+  if (item.key === 'image_privacy_redact' || item.key === 'image_exam_info_redact') {
     return `
       <article class="tool-detail-card">
         ${showHeader ? `
@@ -1800,6 +1800,29 @@ function createSelectedFileListMarkup(item) {
 }
 
 export function createStructuredRangeRowMarkup(conversionKey) {
+  if (conversionKey === 'media_lecture_audio_segment') {
+    return `
+      <div class="range-row range-row-media-segment" data-range-row>
+        <label class="field">
+          <span>片段标题</span>
+          <input type="text" data-media-segment-title placeholder="例如：作业讲评 / 重点题讲解" />
+        </label>
+        <label class="field">
+          <span>开始时间</span>
+          <input type="text" data-media-segment-start-time placeholder="例如：00:12:30" />
+        </label>
+        <label class="field">
+          <span>结束时间</span>
+          <input type="text" data-media-segment-end-time placeholder="例如：00:18:45" />
+        </label>
+        <div class="range-row-actions">
+          <button class="table-action-button" type="button" data-remove-range>删除</button>
+          <span class="range-row-hint">每一段会单独整理，多个片段会自动打包成 ZIP。</span>
+        </div>
+      </div>
+    `;
+  }
+
   const hint = conversionKey === 'split_pdf' ? '生成一个拆分文件' : '按这一段顺序提取';
   return `
     <div class="range-row" data-range-row>
@@ -1923,6 +1946,26 @@ function createConversionOptionsMarkup(item) {
     `;
   }
 
+  if (item.key === 'media_lecture_audio_segment') {
+    return `
+      <label class="field">
+        <span>输出格式</span>
+        <select data-media-output-format>
+          <option value="mp3">MP3</option>
+          <option value="wav">WAV</option>
+        </select>
+      </label>
+      <div class="field field-wide">
+        <span>课堂分段</span>
+        <div class="range-rows" data-range-rows></div>
+        <div class="range-actions">
+          <button class="button button-muted range-action-button" type="button" data-add-range>新增一段</button>
+        </div>
+      </div>
+      <p class="field-tip">适合按课堂重点、作业讲评、例题讲解等时间段整理录音。单段直接输出音频，多段自动打包 ZIP。</p>
+    `;
+  }
+
   if (item.key === 'media_audio_to_text') {
     return `
       <label class="field">
@@ -1940,6 +1983,26 @@ function createConversionOptionsMarkup(item) {
         </select>
       </label>
       <p class="field-tip">适合会议录音、课程音频和口播内容的快速转文字整理。</p>
+    `;
+  }
+
+  if (item.key === 'media_lecture_audio_to_text') {
+    return `
+      <label class="field">
+        <span>识别语言</span>
+        <select data-media-language>
+          <option value="auto">自动识别</option>
+          <option value="zh">中文</option>
+          <option value="en">英文</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>输出格式</span>
+        <select data-media-output-format>
+          <option value="txt">TXT 文本</option>
+        </select>
+      </label>
+      <p class="field-tip">更适合课堂录音、讲座录音和课后复习，把录音整理成可继续编辑的讲义文本。</p>
     `;
   }
 
@@ -1988,6 +2051,20 @@ function createConversionOptionsMarkup(item) {
         </select>
       </label>
       <p class="field-tip">适合扫描件补充可搜索文字层，方便检索、复制和归档。</p>
+    `;
+  }
+
+  if (item.key === 'images_to_searchable_pdf') {
+    return `
+      <label class="field">
+        <span>识别语言</span>
+        <select data-ocr-language>
+          <option value="chi_sim+eng">中文 + 英文</option>
+          <option value="chi_sim">仅中文</option>
+          <option value="eng">仅英文</option>
+        </select>
+      </label>
+      <p class="field-tip">适合把多张讲义、板书或试卷图片整理成一个可搜索 PDF，方便课后检索。</p>
     `;
   }
 

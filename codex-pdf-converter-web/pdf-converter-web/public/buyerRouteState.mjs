@@ -7,12 +7,14 @@ export function parseBuyerRouteState(hashText) {
   const categoryKey = params.get('category') || DEFAULT_CATEGORY_KEY;
   const conversionKey = params.get('tool') || null;
   const searchKeyword = params.get('search') || '';
+  const topicKey = params.get('topic') || null;
 
   return {
     view,
     categoryKey,
     conversionKey,
-    searchKeyword
+    searchKeyword,
+    topicKey
   };
 }
 
@@ -23,6 +25,10 @@ export function stringifyBuyerRouteState(state) {
 
   if (state?.view === 'detail' && state?.conversionKey) {
     params.set('tool', state.conversionKey);
+  }
+
+  if (state?.topicKey) {
+    params.set('topic', state.topicKey);
   }
 
   if (state?.searchKeyword) {

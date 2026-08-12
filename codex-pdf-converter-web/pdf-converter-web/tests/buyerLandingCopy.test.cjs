@@ -92,6 +92,8 @@ test('tool list markup should not render a duplicated inner list title block', (
 
   assert.doesNotMatch(buildToolListMarkupSource, /buyer-section-head/);
   assert.doesNotMatch(buildToolListMarkupSource, /<h2>\$\{title\}<\/h2>/);
+  assert.match(buildToolListMarkupSource, /getFeaturedTopicByKey\('teaching_materials'\)/);
+  assert.match(buildToolListMarkupSource, /data-clear-topic/);
 });
 
 test('search input handler should not rebuild the entire dashboard on every keystroke', () => {

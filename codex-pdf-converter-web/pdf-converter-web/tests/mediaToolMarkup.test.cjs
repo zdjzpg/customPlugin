@@ -44,6 +44,7 @@ test('createToolDetailMarkup renders audio clip upload and time-range controls',
   assert.match(html, /结束时间/);
   assert.match(html, /输出格式/);
   assert.match(html, /开始处理/);
+  assert.doesNotMatch(html, /type="file"[^>]*required/);
 });
 
 test('createToolDetailMarkup renders audio-to-text upload and language controls', async () => {
@@ -63,6 +64,25 @@ test('createToolDetailMarkup renders audio-to-text upload and language controls'
   assert.match(html, /中文/);
   assert.match(html, /英文/);
   assert.match(html, /TXT 文本/);
+  assert.doesNotMatch(html, /type="file"[^>]*required/);
+});
+
+test('createToolDetailMarkup renders lecture-audio segment rows with add-range controls', async () => {
+  const { createToolDetailMarkup } = await import(getMarkupModuleUrl());
+
+  const html = createToolDetailMarkup({
+    key: 'media_lecture_audio_segment',
+    kind: 'file_media_tool',
+    label: '课堂录音分段整理',
+    helperText: '一次整理多段课堂重点录音。',
+    accepts: '.mp3,.wav,.m4a,.aac,.flac,.ogg,.opus'
+  });
+
+  assert.match(html, /输出格式/);
+  assert.match(html, /课堂分段/);
+  assert.match(html, /新增一段/);
+  assert.match(html, /单段直接输出音频，多段自动打包 ZIP/);
+  assert.doesNotMatch(html, /type="file"[^>]*required/);
 });
 
 test('createToolDetailMarkup renders local audio-player preview shell', async () => {

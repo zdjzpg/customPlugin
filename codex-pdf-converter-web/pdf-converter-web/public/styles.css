@@ -710,6 +710,72 @@ body {
   min-width: 0;
 }
 
+.buyer-featured-topic-card {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding: 22px 24px;
+  border: 1px solid rgba(29, 58, 102, 0.08);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(214, 231, 255, 0.28), transparent 34%),
+    linear-gradient(180deg, rgba(255,255,255,.92), rgba(247,250,255,.88));
+  box-shadow: 0 14px 28px rgba(17, 35, 68, 0.06);
+}
+
+.buyer-featured-topic-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.buyer-topic-eyebrow {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #5d7aa5;
+}
+
+.buyer-featured-topic-copy h2 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+}
+
+.buyer-featured-topic-copy p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.72;
+}
+
+.buyer-topic-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.buyer-topic-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(29, 58, 102, 0.08);
+  background: rgba(255,255,255,.86);
+  color: #55657e;
+  font-size: 13px;
+}
+
+.buyer-topic-action-row {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.buyer-topic-action {
+  min-width: 128px;
+}
+
 .buyer-home-categories {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1719,6 +1785,10 @@ body {
   border-radius: 14px;
   background: rgba(255, 250, 243, 0.88);
   border: 1px solid rgba(178, 92, 45, 0.12);
+}
+
+.range-row-media-segment {
+  grid-template-columns: minmax(0, 1.3fr) repeat(2, minmax(0, 1fr));
 }
 
 .range-row-actions {

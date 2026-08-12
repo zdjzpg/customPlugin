@@ -167,6 +167,198 @@ test('mediaToolsService transcribes one uploaded audio file into txt output', as
   }
 });
 
+test('mediaToolsService transcribes lecture audio through the teaching wrapper key', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-media-service-'));
+  const inputAudioPath = path.join(tempRoot, 'classroom.wav');
+  fs.writeFileSync(inputAudioPath, Buffer.from('classroom-audio'));
+
+  const service = createMediaToolsService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    transcribeAudio: async ({ inputPath, outputPath, language }) => {
+      assert.equal(path.basename(inputPath), 'classroom.wav');
+      assert.equal(language, 'zh');
+      fs.writeFileSync(outputPath, '第一段课堂记录\n第二段课堂记录\n', 'utf8');
+    }
+  });
+
+  try {
+    const result = await service.runTool({
+      session: { codeId: 9, codeValue: 'DEMO-DAYS-7' },
+      toolKey: 'media_lecture_audio_to_text',
+      toolOptions: {
+        language: 'zh',
+        outputFormat: 'txt'
+      },
+      files: [
+        {
+          fileName: 'classroom.wav',
+          tempPath: inputAudioPath
+        }
+      ]
+    });
+
+    assert.equal(result.files.length, 1);
+    assert.equal(result.files[0].fileName, 'classroom-lecture-notes.txt');
+    assert.deepEqual(result.summary, {
+      kind: 'text_preview',
+      previewText: '第一段课堂记录\n第二段课堂记录'
+    });
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('mediaToolsService clips one labeled lecture segment through the teaching wrapper key', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-media-service-'));
+  const inputAudioPath = path.join(tempRoot, 'classroom.mp3');
+  fs.writeFileSync(inputAudioPath, Buffer.from('classroom-audio'));
+
+  const service = createMediaToolsService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    clipAudio: async ({ outputPath, startTimeSeconds, endTimeSeconds, outputFormat }) => {
+      assert.equal(startTimeSeconds, 60);
+      assert.equal(endTimeSeconds, 185);
+      assert.equal(outputFormat, 'mp3');
+      fs.writeFileSync(outputPath, Buffer.from('lecture-segment'));
+    }
+  });
+
+  try {
+    const result = await service.runTool({
+      session: { codeId: 9, codeValue: 'DEMO-DAYS-7' },
+      toolKey: 'media_lecture_audio_segment',
+      toolOptions: {
+        segments: [
+          {
+            title: '作业讲评',
+            startTimeText: '00:01:00',
+            endTimeText: '00:03:05'
+          }
+        ],
+        outputFormat: 'mp3'
+      },
+      files: [
+        {
+          fileName: 'classroom.mp3',
+          tempPath: inputAudioPath
+        }
+      ]
+    });
+
+    assert.equal(result.files.length, 1);
+    assert.equal(result.files[0].fileName, 'classroom-lecture-segment-01.mp3');
+    assert.deepEqual(result.summary, {
+      kind: 'audio_segments',
+      heading: '已整理 1 段课堂重点',
+      segmentEntries: [
+        {
+          index: 1,
+          title: '作业讲评',
+          timeRangeLabel: '00:01:00 - 00:03:05',
+          durationLabel: '02:05'
+        }
+      ]
+    });
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('mediaToolsService packages multiple lecture segments into one zip artifact', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-media-service-'));
+  const inputAudioPath = path.join(tempRoot, 'classroom.mp3');
+  fs.writeFileSync(inputAudioPath, Buffer.from('classroom-audio'));
+
+  const clipCalls = [];
+  const service = createMediaToolsService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    clipAudio: async ({ outputPath, startTimeSeconds, endTimeSeconds, outputFormat }) => {
+      clipCalls.push({
+        fileName: path.basename(outputPath),
+        startTimeSeconds,
+        endTimeSeconds,
+        outputFormat
+      });
+      fs.writeFileSync(outputPath, Buffer.from(`segment-${clipCalls.length}`));
+    },
+    zipFiles: async ({ outputPath, inputPaths }) => {
+      assert.deepEqual(
+        inputPaths.map((item) => path.basename(item)),
+        ['classroom-lecture-segment-01.mp3', 'classroom-lecture-segment-02.mp3']
+      );
+      fs.writeFileSync(outputPath, Buffer.from('lecture-zip'));
+    }
+  });
+
+  try {
+    const result = await service.runTool({
+      session: { codeId: 9, codeValue: 'DEMO-DAYS-7' },
+      toolKey: 'media_lecture_audio_segment',
+      toolOptions: {
+        segments: [
+          {
+            title: '课堂导入',
+            startTimeText: '00:00:10',
+            endTimeText: '00:01:20'
+          },
+          {
+            title: '重点题讲解',
+            startTimeText: '00:02:00',
+            endTimeText: '00:04:10'
+          }
+        ],
+        outputFormat: 'mp3'
+      },
+      files: [
+        {
+          fileName: 'classroom.mp3',
+          tempPath: inputAudioPath
+        }
+      ]
+    });
+
+    assert.deepEqual(clipCalls, [
+      {
+        fileName: 'classroom-lecture-segment-01.mp3',
+        startTimeSeconds: 10,
+        endTimeSeconds: 80,
+        outputFormat: 'mp3'
+      },
+      {
+        fileName: 'classroom-lecture-segment-02.mp3',
+        startTimeSeconds: 120,
+        endTimeSeconds: 250,
+        outputFormat: 'mp3'
+      }
+    ]);
+    assert.equal(result.files.length, 1);
+    assert.equal(result.files[0].fileName, 'classroom-lecture-segments.zip');
+    assert.deepEqual(result.summary, {
+      kind: 'audio_segments',
+      heading: '已整理 2 段课堂重点',
+      segmentEntries: [
+        {
+          index: 1,
+          title: '课堂导入',
+          timeRangeLabel: '00:00:10 - 00:01:20',
+          durationLabel: '01:10'
+        },
+        {
+          index: 2,
+          title: '重点题讲解',
+          timeRangeLabel: '00:02:00 - 00:04:10',
+          durationLabel: '02:10'
+        }
+      ]
+    });
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 function createNoopConversionRepository() {
   return {
     create() {

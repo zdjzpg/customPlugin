@@ -267,6 +267,7 @@ test('catalog exposes office and teaching document tools for scan, batch, cleanu
     'batch_ppt_to_pdf',
     'batch_pdf_to_images',
     'exam_paper_cleanup',
+    'images_to_searchable_pdf',
     'images_to_word',
     'pdf_to_excel',
     'image_table_to_excel'
@@ -334,6 +335,16 @@ test('catalog exposes office and teaching document tools for scan, batch, cleanu
       maxTotalFileSizeMb: 120,
       allowMultipleFiles: true,
       helperText: '适合拍照试卷和讲义做纠偏、去黑边、提亮和双页拆分整理。'
+    },
+    {
+      key: 'images_to_searchable_pdf',
+      label: '图片转可搜索 PDF',
+      status: 'available',
+      accepts: '.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff',
+      maxFileSizeMb: 20,
+      maxTotalFileSizeMb: 120,
+      allowMultipleFiles: true,
+      helperText: '适合把多张讲义或试卷图片整理成一个可搜索 PDF。'
     },
     {
       key: 'images_to_word',
@@ -404,6 +415,48 @@ test('batch_file_rename outputs one renamed zip package', async () => {
       '资料-07-原图-A.png',
       '资料-08-原图-B.png'
     ]);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('images_to_searchable_pdf merges image pages and writes one searchable pdf', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-converter-web-'));
+  const firstImagePath = path.join(tempRoot, 'page-a.png');
+  const secondImagePath = path.join(tempRoot, 'page-b.png');
+  writePngFixture(firstImagePath, 120, 80, '#ffffff');
+  writePngFixture(secondImagePath, 120, 80, '#f5f5f5');
+  const fakeOcrmypdfPath = writeFakeOcrmypdfWithPageTexts(tempRoot, ['page one text', 'page two text']);
+
+  const conversionService = createConversionService({
+    conversionRepository: createNoopConversionRepository(),
+    storageRoot: tempRoot,
+    pythonBin: PYTHON_BIN,
+    ocrmypdfBin: fakeOcrmypdfPath
+  });
+
+  try {
+    const result = await conversionService.runConversion({
+      session: { codeId: 9, codeValue: 'DEMO-DAYS-7' },
+      conversionKey: 'images_to_searchable_pdf',
+      conversionOptions: {
+        ocrLanguage: 'chi_sim+eng'
+      },
+      files: [
+        {
+          fileName: 'page-a.png',
+          tempPath: firstImagePath
+        },
+        {
+          fileName: 'page-b.png',
+          tempPath: secondImagePath
+        }
+      ]
+    });
+
+    assert.equal(result.files[0].fileName, 'page-a-searchable.pdf');
+    const outputPath = path.join(tempRoot, 'conversions', '999', 'outputs', 'page-a-searchable.pdf');
+    assert.deepEqual(readPdfPageTexts(outputPath), ['page one text', 'page two text']);
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
@@ -2044,6 +2097,41 @@ output = Path(output_path)
 output.parent.mkdir(parents=True, exist_ok=True)
 c = canvas.Canvas(str(output))
 c.drawString(72, 720, ${JSON.stringify(pageText)})
+c.save()
+`.trim(),
+    'utf8'
+  );
+
+  fs.writeFileSync(
+    scriptPath,
+    `@echo off\r\n"${PYTHON_BIN}" "${helperPath}" %*\r\n`,
+    'utf8'
+  );
+
+  return scriptPath;
+}
+
+function writeFakeOcrmypdfWithPageTexts(tempRoot, pageTexts) {
+  const scriptPath = path.join(tempRoot, 'fake-ocrmypdf-pages.cmd');
+  const helperPath = path.join(tempRoot, 'fake_ocrmypdf_pages_helper.py');
+
+  fs.writeFileSync(
+    helperPath,
+    `
+import json
+import sys
+from pathlib import Path
+from reportlab.pdfgen import canvas
+
+page_texts = json.loads(${JSON.stringify(JSON.stringify(pageTexts))})
+output_path = sys.argv[-1]
+output = Path(output_path)
+output.parent.mkdir(parents=True, exist_ok=True)
+c = canvas.Canvas(str(output))
+for index, text in enumerate(page_texts):
+    if index > 0:
+        c.showPage()
+    c.drawString(72, 720, text)
 c.save()
 `.trim(),
     'utf8'

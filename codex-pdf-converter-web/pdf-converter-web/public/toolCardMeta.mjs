@@ -14,6 +14,7 @@ const toolCardMeta = {
   rotate_pdf: { badge: '旋转', iconClass: 'fa fa-repeat', styleClass: 'style2' },
   pdf_to_images: { badge: '图片', iconClass: 'fa fa-file-image-o', styleClass: 'style7' },
   images_to_pdf: { badge: 'PDF', iconClass: 'fa fa-picture-o', styleClass: 'style3' },
+  images_to_searchable_pdf: { badge: 'OCR', iconClass: 'fa fa-file-text-o', styleClass: 'style10' },
   merge_pdf: { badge: '合并', iconClass: 'fa fa-files-o', styleClass: 'style9' },
   compress_pdf: { badge: '压缩', iconClass: 'fa fa-compress', styleClass: 'style3' },
   pdf_extract_pages: { badge: '提取', iconClass: 'fa fa-files-o', styleClass: 'style5' },
@@ -21,6 +22,8 @@ const toolCardMeta = {
 
   media_text_to_speech: { badge: '语音', iconClass: 'fa fa-volume-up', styleClass: 'style9' },
   media_audio_to_text: { badge: '转文字', iconClass: 'fa fa-microphone', styleClass: 'style14' },
+  media_lecture_audio_to_text: { badge: '讲义', iconClass: 'fa fa-file-text-o', styleClass: 'style5' },
+  media_lecture_audio_segment: { badge: '课堂', iconClass: 'fa fa-scissors', styleClass: 'style10' },
   media_audio_clip: { badge: '音频', iconClass: 'fa fa-scissors', styleClass: 'style10' },
   media_audio_merge: { badge: '音频', iconClass: 'fa fa-random', styleClass: 'style5' },
   media_audio_player: { badge: '试听', iconClass: 'fa fa-headphones', styleClass: 'style13' },
@@ -79,6 +82,9 @@ const toolCardMeta = {
   id_photo_bg_swap: { badge: '换底', iconClass: 'fa fa-tint', styleClass: 'style6' },
   anti_ocr_image: { badge: '防识别', iconClass: 'fa fa-eye-slash', styleClass: 'style14' },
   image_social_cover_pad: { badge: '留白', iconClass: 'fa fa-clone', styleClass: 'style12' },
+  image_privacy_redact: { badge: '打码', iconClass: 'fa fa-shield', styleClass: 'style10' },
+  image_exam_info_redact: { badge: '试卷', iconClass: 'fa fa-shield', styleClass: 'style14' },
+  image_blur_background_fill: { badge: '模糊背景', iconClass: 'fa fa-square', styleClass: 'style6' },
   ocr_text_extract: { badge: 'OCR', iconClass: 'fa fa-file-text-o', styleClass: 'style12' },
   batch_file_rename: { badge: '重命名', iconClass: 'fa fa-files-o', styleClass: 'style5' },
 

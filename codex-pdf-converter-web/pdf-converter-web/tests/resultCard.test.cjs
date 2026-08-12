@@ -78,3 +78,44 @@ test('createConversionResultMarkup renders plain-text preview for OCR or transcr
   assert.match(html, /第一行会议记录/);
   assert.match(html, /第二行待办/);
 });
+
+test('createConversionResultMarkup renders audio segment summaries for lecture packaging results', async () => {
+  const moduleUrl = pathToFileURL(
+    path.join(__dirname, '..', 'public', 'resultCard.mjs')
+  ).href;
+  const { createConversionResultMarkup } = await import(moduleUrl);
+
+  const html = createConversionResultMarkup(
+    [
+      {
+        fileName: 'classroom-lecture-segments.zip',
+        downloadUrl: '/api/downloads/conversions/5/classroom-lecture-segments.zip'
+      }
+    ],
+    '刚刚生成',
+    {
+      kind: 'audio_segments',
+      heading: '已整理 2 段课堂重点',
+      segmentEntries: [
+        {
+          index: 1,
+          title: '作业讲评',
+          timeRangeLabel: '00:12:30 - 00:18:45',
+          durationLabel: '06:15'
+        },
+        {
+          index: 2,
+          title: '重点题讲解',
+          timeRangeLabel: '00:28:00 - 00:35:20',
+          durationLabel: '07:20'
+        }
+      ]
+    }
+  );
+
+  assert.match(html, /已整理 2 段课堂重点/);
+  assert.match(html, /第 1 段/);
+  assert.match(html, /作业讲评/);
+  assert.match(html, /00:12:30 - 00:18:45/);
+  assert.match(html, /时长 06:15/);
+});
